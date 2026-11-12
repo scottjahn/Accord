@@ -21,9 +21,11 @@ export interface FieldDef {
   name: string;
   /** Each level of the field adds this percent to the output, in every colony. */
   effects: { output: OutputKind; percentPerLevel: number }[];
+  /** Per level: percent added to attack, and percent taken off incoming damage. */
+  combat: { attackPercent: number; shieldPercent: number };
 }
 
-export const HULL_ROLES = ['scout', 'colony', 'warship'] as const;
+export const HULL_ROLES = ['scout', 'colony', 'warship', 'transport'] as const;
 export type HullRole = (typeof HULL_ROLES)[number];
 
 export interface HullDef {
@@ -42,10 +44,13 @@ export interface HullDef {
   scan: number;
   /** Fleet support this ship uses. */
   support: number;
-  /** Combat stats; unused until combat arrives in milestone 5. */
+  /** Damage per shot at a full roll, before the target's defence is taken off. */
   attack: number;
+  /** Taken off every hit this ship receives. */
   defence: number;
   hp: number;
+  /** Ground troops carried, for invading colonies. */
+  troops: number;
   requires: Requirements;
 }
 
@@ -74,6 +79,22 @@ export interface ResearchRules {
   levelCosts: number[];
   /** eraThresholds[n] is the total of all field levels needed for era n + 1. */
   eraThresholds: number[];
+}
+
+export interface CombatRules {
+  /** Rounds fought per turn in each contested sector. */
+  maxRounds: number;
+  /** Rolls run from this percent up to 100. */
+  minRollPercent: number;
+  /** Percent of normal damage taken by a fleet that is evading. */
+  evadeFirePercent: number;
+  /** Percent of full hull a ship regains per turn at a friendly shipyard. */
+  repairPercent: number;
+  /** Ground defence per population. */
+  garrisonPerPopulation: number;
+  /** Percent of population and of each building lost when a colony is captured. */
+  captureLossPercent: number;
+  captureBuildingLossPercent: number;
 }
 
 export interface FleetRules {
@@ -134,6 +155,8 @@ export interface BuildingDef {
   maxPerSystem: number;
   effects: BuildingEffect[];
   requires: Requirements;
+  /** attack and hp make it an orbital battery that fights in the colony's sector; garrison adds to ground defence. */
+  combat: { attack: number; hp: number; garrison: number };
 }
 
 export interface PlanetTypeDef {
@@ -173,6 +196,7 @@ export interface Rules {
   fleets: FleetRules;
   /** Percent added to every output of AI-controlled empires at each difficulty. */
   difficulty: Record<Difficulty, number>;
+  combat: CombatRules;
 }
 
 export interface Content {
@@ -258,6 +282,11 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (!isNat(b.energyUpkeep)) errors.push(`buildings.${id}: energyUpkeep must be an integer >= 0`);
     if (!isPos(b.maxPerSystem)) errors.push(`buildings.${id}: maxPerSystem must be a positive integer`);
     if (b.requires === undefined) b.requires = {};
+    if (b.combat === undefined) b.combat = { attack: 0, hp: 0, garrison: 0 };
+    const bc = b.combat;
+    if (!isObj(bc) || !isNat(bc.attack) || !isNat(bc.hp) || !isNat(bc.garrison) || ((bc.attack as number) > 0 && (bc.hp as number) < 1)) {
+      errors.push(`buildings.${id}: combat needs attack, hp and garrison as integers >= 0, and hp above 0 if it can attack`);
+    }
     checkRequires(b.requires, `buildings.${id}`, errors);
     if (!Array.isArray(b.effects)) {
       errors.push(`buildings.${id}: effects must be an array`);
@@ -384,6 +413,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     for (const key of ['rangeBonus', 'scan', 'attack', 'defence'] as const) {
       if (!isNat(h[key])) errors.push(`hulls.${id}: ${key} must be an integer >= 0`);
     }
+    if (h.troops === undefined) h.troops = 0;
+    if (!isNat(h.troops)) errors.push(`hulls.${id}: troops must be an integer >= 0`);
     checkRequires(h.requires, `hulls.${id}`, errors);
   }
 
@@ -397,6 +428,10 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
       Array.isArray(f.effects) &&
       (f.effects as unknown[]).every((e) => isObj(e) && isKind(e.output) && isInt(e.percentPerLevel));
     if (!valid) errors.push(`fields.${id}: each effect needs output and an integer percentPerLevel`);
+    if (f.combat === undefined) f.combat = { attackPercent: 0, shieldPercent: 0 };
+    if (!isObj(f.combat) || !isNat(f.combat.attackPercent) || !isNat(f.combat.shieldPercent)) {
+      errors.push(`fields.${id}: combat needs attackPercent and shieldPercent as integers >= 0`);
+    }
   }
 
   const research = raw.research;
@@ -429,6 +464,18 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (!Array.isArray(starting) || !starting.every((h) => typeof h === 'string' && hulls[h])) {
       errors.push('rules.fleets.startingShips: must be a list of known hulls');
     }
+  }
+
+  const combat = isObj(rules) ? rules.combat : undefined;
+  if (!isObj(combat)) {
+    errors.push('rules.combat: must be an object');
+  } else {
+    if (!isPos(combat.maxRounds)) errors.push('rules.combat.maxRounds: must be a positive integer');
+    for (const key of ['minRollPercent', 'evadeFirePercent', 'repairPercent', 'captureLossPercent', 'captureBuildingLossPercent'] as const) {
+      if (!isNat(combat[key]) || (combat[key] as number) > 100) errors.push(`rules.combat.${key}: must be an integer from 0 to 100`);
+    }
+    if (isNat(combat.minRollPercent) && (combat.minRollPercent as number) < 1) errors.push('rules.combat.minRollPercent: must be at least 1');
+    if (!isNat(combat.garrisonPerPopulation)) errors.push('rules.combat.garrisonPerPopulation: must be an integer >= 0');
   }
 
   const difficulty = isObj(rules) ? rules.difficulty : undefined;

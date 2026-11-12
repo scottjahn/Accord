@@ -127,6 +127,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
       homeSystem: home.id,
       research: newResearchState(),
       intelPool: 0,
+      eliminated: false,
       knownSystems: {},
     };
   });
@@ -142,6 +143,8 @@ export function createGame(config: GameConfig, content: Content): GameState {
     fleets: {},
     nextId: 1,
     difficulty: config.difficulty ?? 'normal',
+    wars: {},
+    winner: null,
     agentMemory: {},
   };
   for (const id of sortedKeys(empires)) {

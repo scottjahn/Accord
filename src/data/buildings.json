@@ -116,5 +116,35 @@
     "maxPerSystem": 1,
     "effects": [],
     "requires": {}
+  },
+  {
+    "id": "orbital_battery",
+    "name": "Orbital Battery",
+    "cost": 100,
+    "energyUpkeep": 2,
+    "maxPerSystem": 3,
+    "effects": [],
+    "requires": {
+      "weapons": 1
+    },
+    "combat": {
+      "attack": 12,
+      "hp": 40,
+      "garrison": 0
+    }
+  },
+  {
+    "id": "barracks",
+    "name": "Barracks",
+    "cost": 70,
+    "energyUpkeep": 1,
+    "maxPerSystem": 2,
+    "effects": [],
+    "requires": {},
+    "combat": {
+      "attack": 0,
+      "hp": 0,
+      "garrison": 12
+    }
   }
 ]

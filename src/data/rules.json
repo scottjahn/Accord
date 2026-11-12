@@ -88,5 +88,14 @@
     "easy": -20,
     "normal": 0,
     "hard": 25
+  },
+  "combat": {
+    "maxRounds": 4,
+    "minRollPercent": 50,
+    "evadeFirePercent": 50,
+    "repairPercent": 25,
+    "garrisonPerPopulation": 1,
+    "captureLossPercent": 25,
+    "captureBuildingLossPercent": 50
   }
 }

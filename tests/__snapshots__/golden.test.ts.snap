@@ -5,6 +5,8 @@ exports[`golden replay > matches the recorded final state 1`] = `
   "empires": [
     {
       "buildings": {
+        "barracks": 2,
+        "battery": 2,
         "factory": 3,
         "farm": 3,
         "lab": 2,
@@ -14,7 +16,7 @@ exports[`golden replay > matches the recorded final state 1`] = `
       },
       "colonies": 10,
       "faction": "alpha",
-      "intelPool": 305,
+      "intelPool": 301,
       "population": 20,
       "research": {
         "biology": 10,
@@ -28,6 +30,8 @@ exports[`golden replay > matches the recorded final state 1`] = `
     },
     {
       "buildings": {
+        "barracks": 2,
+        "battery": 2,
         "factory": 3,
         "farm": 3,
         "lab": 2,
@@ -37,20 +41,20 @@ exports[`golden replay > matches the recorded final state 1`] = `
       },
       "colonies": 2,
       "faction": "beta",
-      "intelPool": 155,
+      "intelPool": 146,
       "population": 19,
       "research": {
-        "biology": 7,
-        "computing": 10,
-        "construction": 9,
-        "energy": 8,
-        "propulsion": 7,
+        "biology": 6,
+        "computing": 9,
+        "construction": 8,
+        "energy": 7,
+        "propulsion": 6,
         "weapons": 10,
       },
       "ships": 4,
     },
   ],
-  "hash": "73d3e279",
+  "hash": "f2d54e28",
   "turn": 151,
 }
 `;

@@ -3,7 +3,7 @@ import { maxPopulationOf } from './economy/outputs';
 import { sortedKeys } from './ids';
 import { fleetRange, suppliedSectors } from './fleets';
 import { inBounds, sectorKey } from './geometry';
-import { DIFFICULTIES, FIELDS, GOVERNORS, MAX_RESEARCH_LEVEL, OUTPUT_KINDS, type GameState } from './types';
+import { DIFFICULTIES, FIELDS, GOVERNORS, MAX_RESEARCH_LEVEL, OUTPUT_KINDS, STANCES, type GameState } from './types';
 
 const isNat = (n: unknown): boolean => Number.isInteger(n) && (n as number) >= 0;
 
@@ -78,6 +78,11 @@ export function checkInvariants(state: GameState, content: Content): string[] {
   }
 
   if (!isNat(state.nextId)) problems.push(`nextId is ${state.nextId}`);
+  if (state.winner !== null && (!state.empires[state.winner] || state.empires[state.winner].eliminated)) problems.push(`winner ${state.winner} is not a surviving empire`);
+  for (const key of Object.keys(state.wars)) {
+    const [a, b] = key.split('|');
+    if (!(a in state.empires) || !(b in state.empires) || a >= b) problems.push(`bad war entry ${key}`);
+  }
   if (!DIFFICULTIES.includes(state.difficulty)) problems.push(`unknown difficulty ${String(state.difficulty)}`);
   const shipIds = new Set<string>();
   for (const id of sortedKeys(state.fleets)) {
@@ -87,7 +92,9 @@ export function checkInvariants(state: GameState, content: Content): string[] {
     if (fleet.ships.length === 0) problems.push(`${id}: has no ships`);
     if (!inBounds(state.galaxy, fleet.sector)) problems.push(`${id}: is off the map`);
     if (fleet.destination && !inBounds(state.galaxy, fleet.destination)) problems.push(`${id}: destination is off the map`);
-    if (fleet.order !== 'none' && fleet.order !== 'colonise') problems.push(`${id}: unknown order ${String(fleet.order)}`);
+    if (!['none', 'colonise', 'invade'].includes(fleet.order)) problems.push(`${id}: unknown order ${String(fleet.order)}`);
+    if (!STANCES.includes(fleet.stance)) problems.push(`${id}: unknown stance ${String(fleet.stance)}`);
+    if (state.empires[fleet.owner]?.eliminated) problems.push(`${id}: belongs to an eliminated empire`);
     for (const ship of fleet.ships) {
       if (shipIds.has(ship.id)) problems.push(`${id}: duplicate ship ${ship.id}`);
       shipIds.add(ship.id);

@@ -2,7 +2,15 @@ import type { BuildingId, EmpireId, FactionId, FleetId, HullId, ShipId, SystemId
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
+
+/**
+ * How a fleet fights: engage goes for armed enemies; raid goes for unarmed
+ * ships; escort draws raiders' fire onto itself; evade does not fire and
+ * falls back after one round.
+ */
+export const STANCES = ['engage', 'raid', 'escort', 'evade'] as const;
+export type Stance = (typeof STANCES)[number];
 
 /** Any value that survives JSON.stringify unchanged. */
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -88,7 +96,7 @@ export interface Ship {
 }
 
 /** 'colonise' founds a colony with one colony ship when the fleet reaches its destination. */
-export type FleetOrder = 'none' | 'colonise';
+export type FleetOrder = 'none' | 'colonise' | 'invade';
 
 export interface Fleet {
   id: FleetId;
@@ -97,7 +105,9 @@ export interface Fleet {
   ships: Ship[];
   /** Where the fleet is heading, or null if it is holding position. */
   destination: Sector | null;
+  /** 'invade' lands troops on an enemy colony when the fleet reaches its destination. */
   order: FleetOrder;
+  stance: Stance;
 }
 
 export interface Empire {
@@ -107,6 +117,8 @@ export interface Empire {
   homeSystem: SystemId;
   research: ResearchState;
   intelPool: number;
+  /** True once the empire has lost its last colony and colony ship. */
+  eliminated: boolean;
   /**
    * Systems this empire has scanned, with the owner it last saw there
    * (null = unclaimed when last seen). Systems never scanned are absent.
@@ -127,6 +139,10 @@ export interface GameState {
   /** Counter for fleet and ship ids. */
   nextId: number;
   difficulty: Difficulty;
+  /** Pairs of empires at war (see warKey), with the turn war was declared. Everyone else is at peace. */
+  wars: Record<string, number>;
+  /** Set when only one empire is left; the game is then over. */
+  winner: EmpireId | null;
   /**
    * What each AI player remembers between turns. The sim never reads it; it is
    * here so a saved game resumes with the same AI plans.
@@ -157,6 +173,45 @@ export interface OutputBreakdown {
   lines: BreakdownLine[];
 }
 
+/** A ship or orbital battery that took part in a battle. */
+export interface CombatUnit {
+  id: string;
+  empire: EmpireId;
+  name: string;
+  role: string;
+}
+
+export interface CombatShot {
+  attacker: string;
+  target: string;
+  /** The seeded roll, as a percent of the attacker's full strength. */
+  roll: number;
+  damage: number;
+  destroyed: boolean;
+}
+
+/** Everything that happened in one sector's battle this turn, shot by shot. */
+export interface CombatReport {
+  sector: Sector;
+  units: CombatUnit[];
+  sides: { empire: EmpireId; before: number; after: number }[];
+  rounds: CombatShot[][];
+  /** 'ongoing' if enemies still face each other and will fight again next turn. */
+  outcome: 'ongoing' | 'decided';
+}
+
+export interface InvasionReport {
+  system: SystemId;
+  attacker: EmpireId;
+  defender: EmpireId;
+  attack: OutputBreakdown;
+  defence: OutputBreakdown;
+  /** Percent of the attack strength that counted; the colony falls if that beats the defence. */
+  roll: number;
+  captured: boolean;
+  populationLost: number;
+}
+
 export type TurnEvent =
   | { type: 'buildCompleted'; system: SystemId; building: BuildingId }
   | { type: 'shipBuilt'; system: SystemId; hull: HullId; fleet: FleetId }
@@ -167,4 +222,9 @@ export type TurnEvent =
   | { type: 'fleetArrived'; empire: EmpireId; fleet: FleetId; sector: Sector }
   | { type: 'fleetBlocked'; empire: EmpireId; fleet: FleetId }
   | { type: 'colonyFounded'; empire: EmpireId; system: SystemId }
-  | { type: 'coloniseFailed'; empire: EmpireId; system: SystemId | null };
+  | { type: 'coloniseFailed'; empire: EmpireId; system: SystemId | null }
+  | { type: 'warDeclared'; by: EmpireId; on: EmpireId }
+  | { type: 'battle'; empires: EmpireId[]; report: CombatReport }
+  | { type: 'invasion'; empires: EmpireId[]; report: InvasionReport }
+  | { type: 'empireEliminated'; empire: EmpireId }
+  | { type: 'gameWon'; empire: EmpireId };

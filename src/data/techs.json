@@ -1,21 +1,103 @@
 {
   "research": {
-    "levelCosts": [30, 70, 130, 210, 310, 430, 570, 730, 910, 1110],
-    "eraThresholds": [0, 8, 18, 30, 44]
+    "levelCosts": [
+      30,
+      70,
+      130,
+      210,
+      310,
+      430,
+      570,
+      730,
+      910,
+      1110
+    ],
+    "eraThresholds": [
+      0,
+      8,
+      18,
+      30,
+      44
+    ]
   },
   "fields": [
-    { "id": "biology", "name": "Biology", "effects": [{ "output": "food", "percentPerLevel": 4 }] },
-    { "id": "construction", "name": "Construction", "effects": [{ "output": "industry", "percentPerLevel": 4 }] },
-    { "id": "energy", "name": "Energy", "effects": [{ "output": "energy", "percentPerLevel": 4 }] },
-    { "id": "propulsion", "name": "Propulsion", "effects": [] },
+    {
+      "id": "biology",
+      "name": "Biology",
+      "effects": [
+        {
+          "output": "food",
+          "percentPerLevel": 4
+        }
+      ],
+      "combat": {
+        "attackPercent": 0,
+        "shieldPercent": 0
+      }
+    },
+    {
+      "id": "construction",
+      "name": "Construction",
+      "effects": [
+        {
+          "output": "industry",
+          "percentPerLevel": 4
+        }
+      ],
+      "combat": {
+        "attackPercent": 0,
+        "shieldPercent": 0
+      }
+    },
+    {
+      "id": "energy",
+      "name": "Energy",
+      "effects": [
+        {
+          "output": "energy",
+          "percentPerLevel": 4
+        }
+      ],
+      "combat": {
+        "attackPercent": 0,
+        "shieldPercent": 3
+      }
+    },
+    {
+      "id": "propulsion",
+      "name": "Propulsion",
+      "effects": [],
+      "combat": {
+        "attackPercent": 0,
+        "shieldPercent": 0
+      }
+    },
     {
       "id": "computing",
       "name": "Computing",
       "effects": [
-        { "output": "research", "percentPerLevel": 3 },
-        { "output": "intel", "percentPerLevel": 3 }
-      ]
+        {
+          "output": "research",
+          "percentPerLevel": 3
+        },
+        {
+          "output": "intel",
+          "percentPerLevel": 3
+        }
+      ],
+      "combat": {
+        "attackPercent": 0,
+        "shieldPercent": 0
+      }
     },
-    { "id": "weapons", "name": "Weapons", "effects": [] }
+    {
+      "id": "weapons",
+      "name": "Weapons",
+      "effects": [],
+      "combat": {
+        "attackPercent": 10,
+        "shieldPercent": 0
+      }
+    }
   ]
 }

@@ -1,5 +1,6 @@
 import type { Content } from './content';
 import { applyGovernor } from './economy/governor';
+import { atWar, invadeBlocker, warKey } from './combat';
 import { coloniseBlocker, empireSupport, findPath, fleetOfShip } from './fleets';
 import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
@@ -8,6 +9,7 @@ import {
   FIELDS,
   GOVERNORS,
   OUTPUT_KINDS,
+  STANCES,
   type Colony,
   type FieldId,
   type Fleet,
@@ -16,6 +18,7 @@ import {
   type Outputs,
   type Result,
   type Sector,
+  type Stance,
   type StarSystem,
 } from './types';
 import { visibleSectors } from './view';
@@ -36,6 +39,9 @@ export type Command =
   | { type: 'moveFleet'; empire: EmpireId; fleet: FleetId; to: Sector }
   | { type: 'stopFleet'; empire: EmpireId; fleet: FleetId }
   | { type: 'coloniseSystem'; empire: EmpireId; fleet: FleetId; system: SystemId }
+  | { type: 'invadeSystem'; empire: EmpireId; fleet: FleetId; system: SystemId }
+  | { type: 'setStance'; empire: EmpireId; fleet: FleetId; stance: Stance }
+  | { type: 'declareWar'; empire: EmpireId; on: EmpireId }
   | { type: 'mergeFleets'; empire: EmpireId; from: FleetId; into: FleetId }
   | { type: 'splitFleet'; empire: EmpireId; fleet: FleetId; ships: ShipId[] };
 
@@ -58,6 +64,10 @@ export type CommandErrorCode =
   | 'badIndex'
   | 'outOfRange'
   | 'cannotColonise'
+  | 'cannotInvade'
+  | 'badStance'
+  | 'badWar'
+  | 'gameOver'
   | 'badFleets';
 
 export interface CommandError {
@@ -92,6 +102,8 @@ function requirementText(requires: Partial<Record<FieldId, number>>, content: Co
 export function validateCommand(state: GameState, cmd: Command, content: Content): CommandError | null {
   const empire = state.empires[cmd.empire];
   if (!empire) return fail('unknownEmpire', `No empire ${cmd.empire}`);
+  if (state.winner !== null) return fail('gameOver', 'The game is over');
+  if (empire.eliminated) return fail('gameOver', 'This empire has been eliminated');
 
   switch (cmd.type) {
     case 'setAllocation': {
@@ -221,6 +233,31 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
         ? null
         : fail('outOfRange', `${system.name} is outside supply range`);
     }
+    case 'invadeSystem': {
+      const fleet = ownFleet(state, cmd.empire, cmd.fleet);
+      if (isError(fleet)) return fleet;
+      const system = state.systems[cmd.system];
+      if (!system || !(cmd.system in empire.knownSystems)) return fail('unknownSystem', `No known system ${cmd.system}`);
+      // As with colonising, judged on what the empire knows.
+      const seen = visibleSectors(state, cmd.empire, content).has(sectorKey(system.sector));
+      const owner = seen ? (system.colony?.owner ?? null) : empire.knownSystems[cmd.system];
+      const blocker = invadeBlocker(state, fleet, system, owner, content);
+      if (blocker) return fail('cannotInvade', blocker);
+      return findPath(state, fleet, system.sector, content)
+        ? null
+        : fail('outOfRange', `${system.name} is outside supply range`);
+    }
+    case 'setStance': {
+      const fleet = ownFleet(state, cmd.empire, cmd.fleet);
+      if (isError(fleet)) return fleet;
+      return STANCES.includes(cmd.stance) ? null : fail('badStance', `No stance ${String(cmd.stance)}`);
+    }
+    case 'declareWar': {
+      const other = state.empires[cmd.on];
+      if (!other || cmd.on === cmd.empire) return fail('badWar', 'Choose another empire to declare war on');
+      if (other.eliminated) return fail('badWar', 'That empire has been eliminated');
+      return atWar(state, cmd.empire, cmd.on) ? fail('badWar', 'You are already at war with that empire') : null;
+    }
     case 'mergeFleets': {
       const from = ownFleet(state, cmd.empire, cmd.from);
       if (isError(from)) return from;
@@ -283,7 +320,7 @@ export function submitCommands(
  * copy) and have just checked the command with validateCommand.
  */
 export function applyValidated(next: GameState, cmd: Command, content: Content): void {
-  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' ? next.systems[cmd.system].colony! : null;
+  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' && cmd.type !== 'invadeSystem' ? next.systems[cmd.system].colony! : null;
 
   switch (cmd.type) {
     case 'setAllocation':
@@ -330,6 +367,19 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       fleet.order = 'colonise';
       break;
     }
+    case 'invadeSystem': {
+      const fleet = next.fleets[cmd.fleet];
+      const target = next.systems[cmd.system].sector;
+      fleet.destination = sameSector(fleet.sector, target) ? null : { ...target };
+      fleet.order = 'invade';
+      break;
+    }
+    case 'setStance':
+      next.fleets[cmd.fleet].stance = cmd.stance;
+      break;
+    case 'declareWar':
+      next.wars[warKey(cmd.empire, cmd.on)] = next.turn;
+      break;
     case 'mergeFleets':
       next.fleets[cmd.into].ships.push(...next.fleets[cmd.from].ships);
       delete next.fleets[cmd.from];
@@ -339,7 +389,7 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       const leaving = fleet.ships.filter((s) => cmd.ships.includes(s.id));
       fleet.ships = fleet.ships.filter((s) => !cmd.ships.includes(s.id));
       const id = `flt-${String(next.nextId++).padStart(5, '0')}` as FleetId;
-      next.fleets[id] = { id, owner: fleet.owner, sector: { ...fleet.sector }, ships: leaving, destination: null, order: 'none' };
+      next.fleets[id] = { id, owner: fleet.owner, sector: { ...fleet.sector }, ships: leaving, destination: null, order: 'none', stance: fleet.stance };
       break;
     }
   }

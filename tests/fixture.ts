@@ -28,21 +28,24 @@ export const rawFixture = {
     { id: 'reactor', name: 'Reactor', cost: 50, energyUpkeep: 0, maxPerSystem: 3, effects: [{ output: 'energy', kind: 'flat', value: 6 }] },
     { id: 'lab', name: 'Lab', cost: 80, energyUpkeep: 2, maxPerSystem: 2, effects: [{ output: 'research', kind: 'percent', value: 25 }] },
     { id: 'shipyard', name: 'Shipyard', cost: 50, energyUpkeep: 0, maxPerSystem: 1, effects: [] },
+    { id: 'battery', name: 'Battery', cost: 60, energyUpkeep: 0, maxPerSystem: 2, effects: [], combat: { attack: 12, hp: 40, garrison: 0 } },
+    { id: 'barracks', name: 'Barracks', cost: 40, energyUpkeep: 0, maxPerSystem: 2, effects: [], combat: { attack: 0, hp: 0, garrison: 12 } },
     { id: 'vault', name: 'Vault', cost: 90, energyUpkeep: 0, maxPerSystem: 1, effects: [], requires: { computing: 1 } },
   ],
   hulls: [
-    { id: 'scout', name: 'Scout', role: 'scout', tier: 1, cost: 20, speed: 3, rangeBonus: 1, scan: 2, support: 1, attack: 0, defence: 1, hp: 10, requires: {} },
-    { id: 'colony_ship', name: 'Colony Ship', role: 'colony', tier: 1, cost: 40, speed: 1, rangeBonus: 0, scan: 1, support: 2, attack: 0, defence: 1, hp: 20, requires: {} },
-    { id: 'frigate', name: 'Frigate', role: 'warship', tier: 1, cost: 30, speed: 2, rangeBonus: 0, scan: 1, support: 2, attack: 4, defence: 2, hp: 30, requires: {} },
-    { id: 'destroyer', name: 'Destroyer', role: 'warship', tier: 2, cost: 60, speed: 2, rangeBonus: 0, scan: 1, support: 3, attack: 8, defence: 4, hp: 50, requires: { weapons: 1 } },
+    { id: 'scout', name: 'Scout', role: 'scout', tier: 1, cost: 20, speed: 3, rangeBonus: 1, scan: 2, support: 1, attack: 0, defence: 0, hp: 10, requires: {} },
+    { id: 'colony_ship', name: 'Colony Ship', role: 'colony', tier: 1, cost: 40, speed: 1, rangeBonus: 0, scan: 1, support: 2, attack: 0, defence: 0, hp: 20, requires: {} },
+    { id: 'frigate', name: 'Frigate', role: 'warship', tier: 1, cost: 30, speed: 2, rangeBonus: 0, scan: 1, support: 2, attack: 10, defence: 2, hp: 30, requires: {} },
+    { id: 'destroyer', name: 'Destroyer', role: 'warship', tier: 2, cost: 60, speed: 2, rangeBonus: 0, scan: 1, support: 3, attack: 20, defence: 4, hp: 50, requires: { weapons: 1 } },
+    { id: 'transport', name: 'Transport', role: 'transport', tier: 1, cost: 30, speed: 2, rangeBonus: 0, scan: 1, support: 2, attack: 0, defence: 0, hp: 20, troops: 10, requires: {} },
   ],
   fields: [
     { id: 'biology', name: 'Biology', effects: [{ output: 'food', percentPerLevel: 5 }] },
     { id: 'construction', name: 'Construction', effects: [{ output: 'industry', percentPerLevel: 5 }] },
-    { id: 'energy', name: 'Energy', effects: [{ output: 'energy', percentPerLevel: 5 }] },
+    { id: 'energy', name: 'Energy', effects: [{ output: 'energy', percentPerLevel: 5 }], combat: { attackPercent: 0, shieldPercent: 10 } },
     { id: 'propulsion', name: 'Propulsion', effects: [] },
     { id: 'computing', name: 'Computing', effects: [{ output: 'research', percentPerLevel: 10 }, { output: 'intel', percentPerLevel: 10 }] },
-    { id: 'weapons', name: 'Weapons', effects: [] },
+    { id: 'weapons', name: 'Weapons', effects: [], combat: { attackPercent: 10, shieldPercent: 0 } },
   ],
   ai: {
     personalities: {
@@ -93,6 +96,7 @@ export const rawFixture = {
       { type: 'barren', maxPopulation: 10 },
     ],
     difficulty: { easy: -20, normal: 0, hard: 25 },
+    combat: { maxRounds: 4, minRollPercent: 100, evadeFirePercent: 50, repairPercent: 25, garrisonPerPopulation: 1, captureLossPercent: 25, captureBuildingLossPercent: 50 },
     fleets: {
       baseRange: 2,
       propulsionLevelsPerRange: 2,

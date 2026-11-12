@@ -70,11 +70,12 @@ export function manageColonies(
   targets: Targets,
 ): void {
   const yard = content.rules.fleets.shipyardBuilding;
-  const want: Record<HullRole, number> = { colony: targets.settlers, scout: targets.scouts, warship: targets.warships };
+  const want: Record<HullRole, number> = { colony: targets.settlers, scout: targets.scouts, warship: targets.warships, transport: 0 };
   const shipScore: Record<HullRole, number> = {
     colony: posture === 'expand' ? 90 : 65,
     scout: plan.state.turn < 40 ? 70 : 45,
     warship: posture === 'fortify' ? 85 : 50,
+    transport: 0,
   };
   const hullsByRole = (role: HullRole) =>
     sortedKeys(content.hulls)

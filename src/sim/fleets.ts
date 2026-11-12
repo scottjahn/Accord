@@ -180,6 +180,7 @@ export function spawnShip(state: GameState, owner: EmpireId, sector: Sector, hul
     ships: [ship],
     destination: null,
     order: 'none',
+    stance: 'engage',
   };
   state.fleets[fleet.id] = fleet;
   return fleet;
