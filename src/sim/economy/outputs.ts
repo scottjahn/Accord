@@ -87,6 +87,9 @@ function linesFor(
   const factionBonus = faction?.outputModifiers[kind] ?? 0;
   if (factionBonus !== 0) lines.push({ source: faction.name, kind: 'percent', value: factionBonus });
 
+  const handicap = empire.controller === 'ai' ? content.rules.difficulty[state.difficulty] : 0;
+  if (handicap) lines.push({ source: `Difficulty (${state.difficulty})`, kind: 'percent', value: handicap });
+
   if (colony.morale !== 100) lines.push({ source: 'Morale', kind: 'percent', value: colony.morale - 100 });
 
   return lines;

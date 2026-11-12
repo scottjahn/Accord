@@ -185,9 +185,17 @@ export function spawnShip(state: GameState, owner: EmpireId, sector: Sector, hul
   return fleet;
 }
 
-/** Why this fleet cannot colonise this system, or null if it can. */
-export function coloniseBlocker(fleet: Fleet, system: StarSystem, content: Content): string | null {
-  if (system.colony) return `${system.name} is already colonised`;
+/**
+ * Why this fleet cannot colonise this system, or null if it can. `occupied`
+ * defaults to the truth; command validation passes what the empire believes.
+ */
+export function coloniseBlocker(
+  fleet: Fleet,
+  system: StarSystem,
+  content: Content,
+  occupied: boolean = system.colony !== null,
+): string | null {
+  if (occupied) return `${system.name} is already colonised`;
   if (maxPopulationOf(system) < content.rules.fleets.colonyStartPopulation) return `${system.name} cannot support a colony`;
   if (!hullsOf(fleet, content).some((h) => h.role === 'colony')) return 'The fleet has no colony ship';
   return null;

@@ -3,7 +3,7 @@ import { maxPopulationOf } from './economy/outputs';
 import { sortedKeys } from './ids';
 import { fleetRange, suppliedSectors } from './fleets';
 import { inBounds, sectorKey } from './geometry';
-import { FIELDS, GOVERNORS, MAX_RESEARCH_LEVEL, OUTPUT_KINDS, type GameState } from './types';
+import { DIFFICULTIES, FIELDS, GOVERNORS, MAX_RESEARCH_LEVEL, OUTPUT_KINDS, type GameState } from './types';
 
 const isNat = (n: unknown): boolean => Number.isInteger(n) && (n as number) >= 0;
 
@@ -78,6 +78,7 @@ export function checkInvariants(state: GameState, content: Content): string[] {
   }
 
   if (!isNat(state.nextId)) problems.push(`nextId is ${state.nextId}`);
+  if (!DIFFICULTIES.includes(state.difficulty)) problems.push(`unknown difficulty ${String(state.difficulty)}`);
   const shipIds = new Set<string>();
   for (const id of sortedKeys(state.fleets)) {
     const fleet = state.fleets[id];

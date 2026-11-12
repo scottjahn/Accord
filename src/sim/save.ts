@@ -1,4 +1,4 @@
-import { SAVE_VERSION, type GameState, type Result } from './types';
+import { DIFFICULTIES, SAVE_VERSION, type Difficulty, type GameState, type Result } from './types';
 
 export interface SaveError {
   code: 'badJson' | 'badShape' | 'wrongVersion';
@@ -41,6 +41,8 @@ export function deserialize(json: string): Result<GameState, SaveError> {
   }
   if (!isObj(raw.systems) || !isObj(raw.empires)) return bad('Save has no systems or empires');
   if (!isObj(raw.fleets) || !Number.isInteger(raw.nextId)) return bad('Save has no fleets');
+  if (!DIFFICULTIES.includes(raw.difficulty as Difficulty)) return bad('Save has no difficulty');
+  if (!isObj(raw.agentMemory)) return bad('Save has no agent memory');
 
   return { ok: true, value: raw as unknown as GameState };
 }

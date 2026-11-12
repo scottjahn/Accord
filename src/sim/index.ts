@@ -17,6 +17,7 @@ export * from './geometry';
 export * from './fleets';
 export * from './research';
 export * from './view';
+export { redactFor } from './redact';
 export { itemCost, itemName } from './economy/build';
 export { computeColonyEconomy, maxPopulationOf, totalOf, type ColonyEconomy } from './economy/outputs';
 export { growthCost } from './economy/growth';

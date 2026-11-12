@@ -5,6 +5,7 @@ import { sortedKeys, type BuildingId, type EmpireId, type FactionId, type System
 import { newResearchState } from '../research';
 import { nextInt, seedRng, shuffle, type RngState } from '../rng';
 import {
+  DIFFICULTIES,
   SAVE_VERSION,
   type Empire,
   type GameConfig,
@@ -63,6 +64,9 @@ export function createGame(config: GameConfig, content: Content): GameState {
   const preset = content.galaxyPresets[config.galaxyPreset];
   if (!preset) throw new Error(`createGame: unknown galaxy preset "${config.galaxyPreset}"`);
   if (!Number.isInteger(config.seed)) throw new Error('createGame: seed must be an integer');
+  if (config.difficulty !== undefined && !DIFFICULTIES.includes(config.difficulty)) {
+    throw new Error(`createGame: unknown difficulty "${String(config.difficulty)}"`);
+  }
   if (config.empires.length < 1 || config.empires.length > preset.systems) {
     throw new Error(`createGame: need between 1 and ${preset.systems} empires`);
   }
@@ -137,6 +141,8 @@ export function createGame(config: GameConfig, content: Content): GameState {
     empires,
     fleets: {},
     nextId: 1,
+    difficulty: config.difficulty ?? 'normal',
+    agentMemory: {},
   };
   for (const id of sortedKeys(empires)) {
     const home = systems[empires[id].homeSystem];

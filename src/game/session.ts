@@ -7,6 +7,7 @@ import {
   type Command,
   type CommandError,
   type Content,
+  type Difficulty,
   type EmpireId,
   type GameState,
   type Result,
@@ -21,6 +22,8 @@ export interface NewGameOptions {
   preset: string;
   /** The human player's faction id. Every other faction becomes an AI opponent. */
   faction: string;
+  /** How strong the AI opponents' economies are. Defaults to 'normal'. */
+  difficulty?: Difficulty;
 }
 
 /** What the UI renders. A new object is published on every change. */
@@ -66,6 +69,7 @@ export function startNewGame(content: Content, options: NewGameOptions): GameSta
         { faction: options.faction, controller: 'human' },
         ...opponents.map((faction) => ({ faction, controller: 'ai' as const })),
       ],
+      difficulty: options.difficulty,
     },
     content,
   );

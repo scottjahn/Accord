@@ -1,10 +1,12 @@
 import type { BuildingId, FactionId, HullId } from './ids';
 import {
+  DIFFICULTIES,
   FIELDS,
   GOVERNORS,
   MAX_RESEARCH_LEVEL,
   OUTPUT_KINDS,
   type AutoGovernor,
+  type Difficulty,
   type FieldId,
   type OutputKind,
   type Outputs,
@@ -45,6 +47,26 @@ export interface HullDef {
   defence: number;
   hp: number;
   requires: Requirements;
+}
+
+export const POSTURES = ['expand', 'develop', 'fortify'] as const;
+/** An AI empire's broad aim, re-chosen every few turns. */
+export type Posture = (typeof POSTURES)[number];
+
+/** How one power's AI weighs its choices. Same code for every power, different numbers. */
+export interface Personality {
+  /** Percent multiplier on each posture's score; 100 is neutral. */
+  posture: Record<Posture, number>;
+  /** Relative weight of each research field before the posture adjusts it. */
+  research: Record<FieldId, number>;
+  /** Warships to keep per 100 colonies; 100 means one per colony. */
+  warshipsPerColony: number;
+  /** Scouts to keep while there is anything left to explore. */
+  scouts: number;
+}
+
+export interface AiContent {
+  personalities: Record<FactionId, Personality>;
 }
 
 export interface ResearchRules {
@@ -149,6 +171,8 @@ export interface Rules {
   homePlanets: { type: string; maxPopulation: number }[];
   governors: Record<AutoGovernor, GovernorWeights>;
   fleets: FleetRules;
+  /** Percent added to every output of AI-controlled empires at each difficulty. */
+  difficulty: Record<Difficulty, number>;
 }
 
 export interface Content {
@@ -157,6 +181,7 @@ export interface Content {
   hulls: Record<HullId, HullDef>;
   fields: Record<FieldId, FieldDef>;
   research: ResearchRules;
+  ai: AiContent;
   planetTypes: Record<string, PlanetTypeDef>;
   galaxyPresets: Record<string, GalaxyPreset>;
   names: { prefixes: string[]; suffixes: string[] };
@@ -406,6 +431,31 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
   }
 
+  const difficulty = isObj(rules) ? rules.difficulty : undefined;
+  if (!isObj(difficulty) || !DIFFICULTIES.every((d) => isInt(difficulty[d]) && (difficulty[d] as number) > -100)) {
+    errors.push('rules.difficulty: needs an integer percent above -100 for easy, normal and hard');
+  }
+
+  const ai = raw.ai;
+  const personalities = isObj(ai) ? ai.personalities : undefined;
+  if (!isObj(personalities)) {
+    errors.push('ai.personalities: must be an object');
+  } else {
+    for (const id of Object.keys(factions)) {
+      const p = personalities[id];
+      const valid =
+        isObj(p) &&
+        isObj(p.posture) &&
+        POSTURES.every((k) => isNat((p.posture as Obj)[k])) &&
+        isObj(p.research) &&
+        FIELDS.every((k) => isNat((p.research as Obj)[k])) &&
+        FIELDS.some((k) => ((p.research as Obj)[k] as number) > 0) &&
+        isNat(p.warshipsPerColony) &&
+        isNat(p.scouts);
+      if (!valid) errors.push(`ai.personalities.${id}: needs posture, research, warshipsPerColony and scouts`);
+    }
+  }
+
   if (errors.length > 0) return { ok: false, error: errors };
   return {
     ok: true,
@@ -415,6 +465,7 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
       hulls,
       fields,
       research,
+      ai,
       planetTypes,
       galaxyPresets: presets,
       names,

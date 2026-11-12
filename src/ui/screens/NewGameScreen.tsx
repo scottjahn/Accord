@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { humanEmpire, startNewGame } from '../../game/session';
-import { deserialize, sortedKeys, type Content, type GameState } from '../../sim';
-import { modifiersText } from '../format';
+import { DIFFICULTIES, deserialize, sortedKeys, type Content, type Difficulty, type GameState } from '../../sim';
+import { modifiersText, signed } from '../format';
 
 interface Props {
   content: Content;
@@ -18,6 +18,7 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
 
   const [faction, setFaction] = useState<string>(factions[0]);
   const [preset, setPreset] = useState(presets[0].id);
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [seed, setSeed] = useState(randomSeed);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +28,7 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
       setError('Seed must be a whole number of 0 or more.');
       return;
     }
-    onStart(startNewGame(content, { seed, preset, faction }));
+    onStart(startNewGame(content, { seed, preset, faction, difficulty }));
   };
 
   const importFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +55,7 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
           <div>
             <h2>Continue</h2>
             <p className="muted">
-              {savedFaction}, turn {saved.turn}, seed {saved.seed}
+              {savedFaction}, turn {saved.turn}, {saved.difficulty}, seed {saved.seed}
             </p>
           </div>
           <button type="button" className="btn primary" onClick={() => onStart(saved)}>
@@ -92,6 +93,20 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
                   {p.id[0].toUpperCase() + p.id.slice(1)} ({p.systems} systems)
                 </option>
               ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Difficulty</span>
+            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
+              {DIFFICULTIES.map((d) => {
+                const bonus = content.rules.difficulty[d];
+                return (
+                  <option key={d} value={d}>
+                    {d[0].toUpperCase() + d.slice(1)} ({bonus === 0 ? 'AI plays by your rules' : `AI output ${signed(bonus)}%`})
+                  </option>
+                );
+              })}
             </select>
           </label>
 

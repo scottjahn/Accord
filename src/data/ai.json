@@ -1,0 +1,38 @@
+{
+  "personalities": {
+    "concord": {
+      "posture": {
+        "expand": 100,
+        "develop": 115,
+        "fortify": 80
+      },
+      "research": {
+        "biology": 20,
+        "construction": 15,
+        "energy": 15,
+        "propulsion": 15,
+        "computing": 25,
+        "weapons": 10
+      },
+      "warshipsPerColony": 50,
+      "scouts": 2
+    },
+    "vashran": {
+      "posture": {
+        "expand": 110,
+        "develop": 90,
+        "fortify": 115
+      },
+      "research": {
+        "biology": 15,
+        "construction": 20,
+        "energy": 15,
+        "propulsion": 15,
+        "computing": 10,
+        "weapons": 25
+      },
+      "warshipsPerColony": 100,
+      "scouts": 1
+    }
+  }
+}

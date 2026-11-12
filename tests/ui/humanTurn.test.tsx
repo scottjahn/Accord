@@ -139,9 +139,17 @@ describe('one human turn', () => {
     endTurn();
     fireEvent.click(button('Main menu'));
 
-    expect(screen.getByText(/Vashran Dominate, turn 3, seed 7/)).toBeTruthy();
+    expect(screen.getByText(/Vashran Dominate, turn 3, normal, seed 7/)).toBeTruthy();
     fireEvent.click(button('Continue game'));
     expect(turn()).toBe('3');
+  });
+
+  it('starts a game at the chosen difficulty', () => {
+    render(<App />);
+    expect((screen.getByLabelText('Difficulty') as HTMLSelectElement).value).toBe('normal');
+    fireEvent.change(screen.getByLabelText('Difficulty'), { target: { value: 'hard' } });
+    fireEvent.click(button('Start game'));
+    expect(autosave().difficulty).toBe('hard');
   });
 
   it('rejects an invalid seed', () => {

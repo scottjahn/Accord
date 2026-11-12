@@ -83,5 +83,10 @@
       "scout",
       "colony_ship"
     ]
+  },
+  "difficulty": {
+    "easy": -20,
+    "normal": 0,
+    "hard": 25
   }
 }

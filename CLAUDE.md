@@ -15,6 +15,8 @@ Read `DESIGN.md` for the game design and milestone list.
 
 - **The UI does no game maths.** Screens show what `getColonyEconomy` and `forecastColony` return and change the game only through `session.dispatch`. If the UI needs a new number, add it to the sim with a test.
 - **Fog of war goes through `getEmpireView`.** The UI draws from it and agents must decide from it (or from `empire.knownSystems`); never show or act on a rival's state that the view hides.
+- **AI players get a redacted state.** `runAgent` passes `redactFor(state, empire)`, never the real state, and `tests/ai/redact.test.ts` proves hidden changes cannot alter the AI's commands. Anything new that fog should hide must be removed in `src/sim/redact.ts`.
+- **AI tuning is data.** Personality weights live in `src/data/ai.json`; measure a change with `npm run batch` before and after.
 - **Agents return only legal commands.** `playTurn` throws on an illegal one. Check with `validateCommand` against a working copy, as `baselineAgent` does.
 - **Disabled buttons explain themselves with the sim's own message:** call `validateCommand` and show its `message` rather than re-deriving the rule in the UI.
 - **PixiJS stays inside `src/ui/map/mapRenderer.ts`.** Pan, zoom and hit-testing live in `camera.ts` as pure functions with tests.
@@ -26,12 +28,13 @@ Read `DESIGN.md` for the game design and milestone list.
 - `npm test` — run all Vitest tests
 - `npm run typecheck` — `tsc --noEmit`
 - `npm run headless -- --seed 1 --turns 500 --preset small` — run an AI-vs-AI game headless
+- `npm run batch -- --games 20 --turns 100 --a standard --b baseline` — play many AI-vs-AI games and compare the two agents
 
 ## Layout
 
 - `src/sim/` — simulation core
 - `src/data/` — content JSON and its loader
-- `src/ai/` — agents; they return `Command[]`
+- `src/ai/` — AI players: `standardAgent.ts` runs the strategic, operational and tactical layers; `baselineAgent.ts` is the reference opponent
 - `src/game/` — client logic with no React: the session store, turn orchestration, autosave
 - `src/ui/` — React screens, plus the PixiJS galaxy map in `ui/map/`
 - `src/runner/` — headless runner

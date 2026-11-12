@@ -44,6 +44,22 @@ export const rawFixture = {
     { id: 'computing', name: 'Computing', effects: [{ output: 'research', percentPerLevel: 10 }, { output: 'intel', percentPerLevel: 10 }] },
     { id: 'weapons', name: 'Weapons', effects: [] },
   ],
+  ai: {
+    personalities: {
+      alpha: {
+        posture: { expand: 100, develop: 100, fortify: 100 },
+        research: { biology: 1, construction: 1, energy: 1, propulsion: 1, computing: 1, weapons: 1 },
+        warshipsPerColony: 100,
+        scouts: 1,
+      },
+      beta: {
+        posture: { expand: 100, develop: 100, fortify: 100 },
+        research: { biology: 1, construction: 1, energy: 1, propulsion: 1, computing: 1, weapons: 3 },
+        warshipsPerColony: 100,
+        scouts: 1,
+      },
+    },
+  },
   research: {
     levelCosts: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
     eraThresholds: [0, 2, 4, 6, 8],
@@ -76,6 +92,7 @@ export const rawFixture = {
       { type: 'terran', maxPopulation: 30 },
       { type: 'barren', maxPopulation: 10 },
     ],
+    difficulty: { easy: -20, normal: 0, hard: 25 },
     fleets: {
       baseRange: 2,
       propulsionLevelsPerRange: 2,

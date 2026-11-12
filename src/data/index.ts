@@ -1,4 +1,5 @@
 import { validateContent, type Content } from '../sim';
+import ai from './ai.json';
 import buildings from './buildings.json';
 import factions from './factions.json';
 import galaxyPresets from './galaxy-presets.json';
@@ -12,6 +13,7 @@ import techs from './techs.json';
 export function loadContent(): Content {
   const result = validateContent({
     factions,
+    ai,
     buildings,
     hulls,
     fields: techs.fields,

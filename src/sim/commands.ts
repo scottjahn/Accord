@@ -1,7 +1,7 @@
 import type { Content } from './content';
 import { applyGovernor } from './economy/governor';
 import { coloniseBlocker, empireSupport, findPath, fleetOfShip } from './fleets';
-import { inBounds, sameSector } from './geometry';
+import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
 import { meetsRequirements } from './research';
 import {
@@ -18,6 +18,7 @@ import {
   type Sector,
   type StarSystem,
 } from './types';
+import { visibleSectors } from './view';
 
 /**
  * Everything a player can do. The human UI, the AI and the headless runner all
@@ -210,7 +211,11 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const system = state.systems[cmd.system];
       // An empire can only target systems it has scanned.
       if (!system || !(cmd.system in empire.knownSystems)) return fail('unknownSystem', `No known system ${cmd.system}`);
-      const blocker = coloniseBlocker(fleet, system, content);
+      // Judged on what the empire knows, so an order never reveals what fog hides:
+      // a system settled out of sight still accepts the order, and it fails on arrival.
+      const seen = visibleSectors(state, cmd.empire, content).has(sectorKey(system.sector));
+      const occupied = seen ? system.colony !== null : empire.knownSystems[cmd.system] !== null;
+      const blocker = coloniseBlocker(fleet, system, content, occupied);
       if (blocker) return fail('cannotColonise', blocker);
       return findPath(state, fleet, system.sector, content)
         ? null

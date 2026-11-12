@@ -2,7 +2,14 @@ import type { BuildingId, EmpireId, FactionId, FleetId, HullId, ShipId, SystemId
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
+
+/** Any value that survives JSON.stringify unchanged. */
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
+/** Difficulty changes the output of AI-controlled empires only; the rules stay the same. */
+export const DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
+export type Difficulty = (typeof DIFFICULTIES)[number];
 
 /**
  * Who assigns a colony's workers. 'manual' leaves the allocation alone; the
@@ -119,6 +126,12 @@ export interface GameState {
   fleets: Record<FleetId, Fleet>;
   /** Counter for fleet and ship ids. */
   nextId: number;
+  difficulty: Difficulty;
+  /**
+   * What each AI player remembers between turns. The sim never reads it; it is
+   * here so a saved game resumes with the same AI plans.
+   */
+  agentMemory: Record<EmpireId, Json>;
 }
 
 export interface GameConfig {
@@ -126,6 +139,8 @@ export interface GameConfig {
   /** Galaxy preset id from content. */
   galaxyPreset: string;
   empires: { faction: string; controller: 'human' | 'ai' }[];
+  /** Defaults to 'normal'. */
+  difficulty?: Difficulty;
 }
 
 export interface BreakdownLine {
