@@ -73,11 +73,25 @@ export function wageWar(plan: Planner, empireId: EmpireId, content: Content, str
   const enemies = enemiesOf(plan.state, empireId);
   if (colonies.length === 0 || enemies.length === 0) return;
 
-  // The nearest enemy colony some warship can actually reach; supply range decides.
+  // Winning needs the rival's home system, so aim for it: of the enemy colonies a
+  // warship can reach (supply range decides), take the one nearest that home.
+  // Each capture extends supply, so this advances on the home step by step.
   const probe = warFleets()[0];
-  const target = knownColoniesOf(plan.state, empireId, enemies).find(
+  const reachable = knownColoniesOf(plan.state, empireId, enemies).filter(
     (s) => !probe || findPath(plan.state, probe, s.sector, content) !== null,
   );
+  const homes = enemies.map((id) => plan.state.systems[plan.state.empires[id].homeSystem]).filter((s) => s !== undefined);
+  const toHome = (s: StarSystem) => homes.reduce((best, h) => Math.min(best, sectorDistance(h.sector, s.sector)), Infinity);
+  // Until the rival home has been found, push the front outward: of the nearest
+  // enemy colonies, take the one farthest from our own home, which leads into their territory.
+  const myHome = plan.state.systems[plan.state.empires[empireId].homeSystem];
+  const fromHome = (s: StarSystem) => (myHome ? sectorDistance(myHome.sector, s.sector) : 0);
+  const gap = (s: StarSystem) => colonies.reduce((best, c) => Math.min(best, sectorDistance(c.sector, s.sector)), Infinity);
+  const frontier = reachable.filter((s) => gap(s) <= gap(reachable[0]) + 1);
+  const target =
+    homes.length === 0
+      ? [...frontier].sort((a, b) => fromHome(b) - fromHome(a) || (a.id < b.id ? -1 : 1))[0]
+      : [...reachable].sort((a, b) => toHome(a) - toHome(b) || (a.id < b.id ? -1 : 1))[0];
   if (!target) return;
   const staging = nearest(colonies, target.sector)!;
   const yards = colonies.filter((c) => (c.colony!.buildings[yard] ?? 0) > 0);

@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "headless": "tsx src/runner/headless.ts",
-    "batch": "tsx src/runner/batch.ts"
+    "batch": "tsx src/runner/batch.ts",
+    "test:long": "node -e \"process.env.ACCORD_LONG='1';require('child_process').execSync('npx vitest run tests/ai/war.test.ts',{stdio:'inherit',env:process.env})\""
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",

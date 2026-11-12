@@ -1,4 +1,5 @@
 import {
+  atWar,
   fleetPlan,
   fleetRange,
   maxPopulationOf,
@@ -40,6 +41,8 @@ export interface MapFleet {
   color: number;
   ships: number;
   own: boolean;
+  /** Belongs to an empire the player is at war with. */
+  hostile: boolean;
   selected: boolean;
   /** Which marker this is within its sector, so several owners do not overlap. */
   slot: number;
@@ -102,6 +105,7 @@ export function buildScene(state: GameState, content: Content, view: EmpireView,
       color: factionColor(fleet.owner),
       ships: fleet.ships.length,
       own: fleet.owner === view.empire,
+      hostile: atWar(state, view.empire, fleet.owner),
       selected: fleet.id === selectedFleet?.id,
       slot,
     });

@@ -46,7 +46,8 @@ export function setTargets(posture: Posture, picture: Picture, personality: Pers
   // At war the navy is at least a strike force, and troops come first: ships win battles, transports win colonies.
   const warships = posture === 'war' ? Math.max(6, garrison) : garrison;
   const transports = posture === 'war' ? Math.min(10, 3 + Math.floor(colonies / 4)) : 0;
-  const strikeSize = Math.max(3, Math.floor(warships / 2));
+  // Big enough to win a fight, small enough that losses do not stop it ever forming again.
+  const strikeSize = Math.min(8, Math.max(3, Math.floor(warships / 2)));
 
   const weights = {} as Record<FieldId, number>;
   for (const field of FIELDS) weights[field] = personality.research[field] * (RESEARCH_FOCUS[posture][field] ?? 100);

@@ -96,6 +96,7 @@
     "repairPercent": 25,
     "garrisonPerPopulation": 1,
     "captureLossPercent": 25,
-    "captureBuildingLossPercent": 50
+    "captureBuildingLossPercent": 50,
+    "dominationPercent": 67
   }
 }

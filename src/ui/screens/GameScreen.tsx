@@ -2,14 +2,17 @@ import { useMemo, useState } from 'react';
 import { saveFileName } from '../../game/persistence';
 import type { GameSession } from '../../game/session';
 import {
+  atWar,
   getEmpireView,
   sameSector,
+  sortedKeys,
   systemAt,
   validateCommand,
   type Command,
   type FleetId,
   type Sector,
   type SystemId,
+  type TurnEvent,
 } from '../../sim';
 import { FleetPanel } from '../fleet/FleetPanel';
 import { EventLog } from '../hud/EventLog';
@@ -18,6 +21,8 @@ import { GalaxyMap } from '../map/GalaxyMap';
 import { ResearchScreen } from '../research/ResearchScreen';
 import { SystemPanel } from '../system/SystemPanel';
 import { useSession } from '../useSession';
+import { EmpiresScreen } from '../war/EmpiresScreen';
+import { ReportScreen } from '../war/ReportScreen';
 
 interface Props {
   session: GameSession;
@@ -41,6 +46,11 @@ export function GameScreen({ session, onQuit }: Props) {
   const [selection, setSelection] = useState<Selection>({ kind: 'system', id: state.empires[player].homeSystem });
   const [moveMode, setMoveMode] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
+  const [showEmpires, setShowEmpires] = useState(false);
+  const [report, setReport] = useState<Extract<TurnEvent, { type: 'battle' | 'invasion' }> | null>(null);
+  const [resultSeen, setResultSeen] = useState(false);
+  const over = state.winner !== null;
+  const wars = sortedKeys(state.empires).filter((id) => atWar(state, player, id) && !state.empires[id].eliminated).length;
   const view = useMemo(() => getEmpireView(state, player, content), [state, player, content]);
 
   const system = selection?.kind === 'system' ? state.systems[selection.id] : undefined;
@@ -53,12 +63,20 @@ export function GameScreen({ session, onQuit }: Props) {
     setMoveMode(false);
   };
 
-  /** Sends the selected fleet to a sector; a colony ship sent to a free system settles it. */
+  /**
+   * Sends the selected fleet to a sector. Transports sent to an enemy colony
+   * invade it, and a colony ship sent to a free system settles it.
+   */
   const sendFleet = (sector: Sector) => {
     if (!ownFleet) return;
     setMoveMode(false);
     const target = systemAt(state, sector);
     if (target && view.systems[target.id]?.known) {
+      const invade: Command = { type: 'invadeSystem', empire: player, fleet: ownFleet.id, system: target.id };
+      if (!validateCommand(state, invade, content)) {
+        session.dispatch(invade);
+        return;
+      }
       const colonise: Command = { type: 'coloniseSystem', empire: player, fleet: ownFleet.id, system: target.id };
       if (!validateCommand(state, colonise, content)) {
         session.dispatch(colonise);
@@ -92,6 +110,9 @@ export function GameScreen({ session, onQuit }: Props) {
         player={player}
         onEndTurn={() => session.endTurn()}
         onResearch={() => setShowResearch(true)}
+        onEmpires={() => setShowEmpires(true)}
+        wars={wars}
+        over={over}
         onSave={() => downloadText(saveFileName(state), session.exportSave())}
         onQuit={onQuit}
       />
@@ -105,7 +126,7 @@ export function GameScreen({ session, onQuit }: Props) {
             selectedFleet={fleet ?? null}
             onSectorClick={onSectorClick}
           />
-          <EventLog state={state} content={content} player={player} events={lastEvents} />
+          <EventLog state={state} content={content} player={player} events={lastEvents} onOpenReport={setReport} />
         </section>
         <aside className="side-panel" aria-label="Details">
           {lastError && !system && (
@@ -142,6 +163,31 @@ export function GameScreen({ session, onQuit }: Props) {
           )}
         </aside>
       </div>
+      {showEmpires && (
+        <EmpiresScreen state={state} content={content} player={player} view={view} dispatch={session.dispatch} onClose={() => setShowEmpires(false)} />
+      )}
+      {report && <ReportScreen state={state} content={content} player={player} event={report} onClose={() => setReport(null)} />}
+      {over && !resultSeen && (
+        <div className="modal-backdrop">
+          <div className="modal result" role="dialog" aria-modal="true" aria-label="Game over">
+            <h2>{state.winner === player ? 'Victory' : 'Defeat'}</h2>
+            <p>
+              {state.winner === player
+                ? 'Your rivals are beaten. The galaxy is yours.'
+                : `${content.factions[state.empires[state.winner!].faction].name} has won the game.`}
+            </p>
+            <p className="muted">The game ended on turn {state.turn - 1}.</p>
+            <div className="fleet-actions">
+              <button type="button" className="btn" onClick={() => setResultSeen(true)}>
+                Look at the map
+              </button>
+              <button type="button" className="btn primary" onClick={onQuit}>
+                Main menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showResearch && (
         <ResearchScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setShowResearch(false)} />
       )}

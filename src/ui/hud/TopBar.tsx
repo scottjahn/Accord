@@ -6,11 +6,16 @@ interface Props {
   player: EmpireId;
   onEndTurn: () => void;
   onResearch: () => void;
+  onEmpires: () => void;
+  /** How many empires the player is at war with. */
+  wars: number;
+  /** True once the game has a winner. */
+  over: boolean;
   onSave: () => void;
   onQuit: () => void;
 }
 
-export function TopBar({ state, content, player, onEndTurn, onResearch, onSave, onQuit }: Props) {
+export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpires, wars, over, onSave, onQuit }: Props) {
   const empire = state.empires[player];
   const faction = content.factions[empire.faction];
   const support = empireSupport(state, player, content);
@@ -56,7 +61,10 @@ export function TopBar({ state, content, player, onEndTurn, onResearch, onSave, 
         <button type="button" className="btn" onClick={onResearch}>
           Research
         </button>
-        <button type="button" className="btn primary" onClick={onEndTurn}>
+        <button type="button" className={`btn${wars > 0 ? ' danger' : ''}`} onClick={onEmpires}>
+          {wars > 0 ? 'Empires (at war)' : 'Empires'}
+        </button>
+        <button type="button" className="btn primary" onClick={onEndTurn} disabled={over} title={over ? 'The game is over' : undefined}>
           End turn
         </button>
       </div>

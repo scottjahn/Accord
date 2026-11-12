@@ -17,6 +17,8 @@ Read `DESIGN.md` for the game design and milestone list.
 - **Fog of war goes through `getEmpireView`.** The UI draws from it and agents must decide from it (or from `empire.knownSystems`); never show or act on a rival's state that the view hides.
 - **AI players get a redacted state.** `runAgent` passes `redactFor(state, empire)`, never the real state, and `tests/ai/redact.test.ts` proves hidden changes cannot alter the AI's commands. Anything new that fog should hide must be removed in `src/sim/redact.ts`.
 - **AI tuning is data.** Personality weights live in `src/data/ai.json`; measure a change with `npm run batch` before and after.
+- **Combat is exact in rule tests.** The fixture sets `minRollPercent` to 100 so every shot does full damage; tests that are about randomness lower it themselves.
+- **Long AI runs are opt-in.** `npm test` plays 4 full AI games for the conquest exit test; `npm run test:long` plays 20. Use `npm run batch` when tuning.
 - **Agents return only legal commands.** `playTurn` throws on an illegal one. Check with `validateCommand` against a working copy, as `baselineAgent` does.
 - **Disabled buttons explain themselves with the sim's own message:** call `validateCommand` and show its `message` rather than re-deriving the rule in the UI.
 - **PixiJS stays inside `src/ui/map/mapRenderer.ts`.** Pan, zoom and hit-testing live in `camera.ts` as pure functions with tests.
@@ -25,7 +27,8 @@ Read `DESIGN.md` for the game design and milestone list.
 
 - `npm run dev` — Vite dev server at http://localhost:5173
 - `npm run build` — typecheck and build the static site into `dist/`
-- `npm test` — run all Vitest tests
+- `npm test` — run all Vitest tests (about a minute)
+- `npm run test:long` — the 20-game conquest exit test (several minutes)
 - `npm run typecheck` — `tsc --noEmit`
 - `npm run headless -- --seed 1 --turns 500 --preset small` — run an AI-vs-AI game headless
 - `npm run batch -- --games 20 --turns 100 --a standard --b baseline` — play many AI-vs-AI games and compare the two agents

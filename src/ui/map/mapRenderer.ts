@@ -125,7 +125,7 @@ export class MapRenderer {
       this.fleets
         .poly([cx, cy - 7, cx + 6, cy + 6, cx, cy + 2, cx - 6, cy + 6])
         .fill({ color: fleet.color })
-        .stroke({ width: 1, color: 0x000000, alpha: 0.6 });
+        .stroke(fleet.hostile ? { width: 2, color: 0xff3b30, alpha: 1 } : { width: 1, color: 0x000000, alpha: 0.6 });
       for (let i = 0; i < Math.min(fleet.ships, 5); i++) {
         this.fleets.circle(cx - 6 + i * 3, cy + 10, 1).fill({ color: 0xffffff, alpha: 0.9 });
       }

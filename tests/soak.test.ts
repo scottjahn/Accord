@@ -4,8 +4,8 @@ import { runGame } from '../src/runner/runGame';
 import { hashState, type TurnEvent } from '../src/sim';
 
 /**
- * Milestone 1 exit test: 500 turns run headless with no errors, on the shipped
- * content. runGame throws on any illegal agent command or broken invariant.
+ * Milestone 1 exit test: up to 500 turns run headless with no errors, on the
+ * shipped content (a game may now end earlier by conquest). runGame throws on any illegal agent command or broken invariant.
  */
 describe('500-turn soak', () => {
   const content = loadContent();
@@ -21,7 +21,8 @@ describe('500-turn soak', () => {
       onTurn: (_state, turnEvents) => events.push(...turnEvents),
     });
 
-    expect(final.turn).toBe(501);
+    // The game runs the full 500 turns unless someone wins first.
+    expect(final.winner !== null || final.turn === 501).toBe(true);
     for (const empire of Object.values(final.empires)) {
       const colony = final.systems[empire.homeSystem].colony!;
       // The game actually progressed: colonies grew, built and banked points.

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  STANCES,
   fleetPlan,
   fleetRange,
   fleetSpeed,
@@ -15,8 +16,16 @@ import {
   type GameState,
   type HullId,
   type ShipId,
+  type Stance,
 } from '../../sim';
 import { ROLE_LABELS, placeName, sectorLabel, sectors, ships as shipCount, turns } from '../format';
+
+const STANCE_HELP: Record<Stance, string> = {
+  engage: 'Engage: fire on armed enemies first.',
+  raid: 'Raid: fire on transports, colony ships and scouts first.',
+  escort: 'Escort: draw raiders away from the unarmed ships in this sector.',
+  evade: 'Evade: hold fire, take one round at half damage, then fall back toward home.',
+};
 
 interface Props {
   state: GameState;
@@ -57,6 +66,11 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
       ? { type: 'coloniseSystem', empire: player, fleet: fleet.id, system: here.id }
       : null;
   const coloniseError = colonise ? validateCommand(state, colonise, content) : null;
+  const invade: Command | null =
+    mine && here && view.systems[here.id]?.known && fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) && here.colony && here.colony.owner !== player
+      ? { type: 'invadeSystem', empire: player, fleet: fleet.id, system: here.id }
+      : null;
+  const invadeError = invade ? validateCommand(state, invade, content) : null;
   const hasColonyShip = fleet.ships.some((s) => content.hulls[s.hull]?.role === 'colony');
   const companions = mine ? view.fleets.filter((f) => f.owner === player && f.id !== fleet.id && sameSector(f.sector, fleet.sector)) : [];
 
@@ -64,9 +78,16 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
   if (fleet.destination) {
     const where = placeName(state, fleet.destination);
     const eta = plan ? ` · ${turns(plan.turns)}` : '';
-    status = fleet.order === 'colonise' ? `Heading to ${where} to colonise${eta}` : `Heading to ${where}${eta}`;
+    status =
+      fleet.order === 'colonise'
+        ? `Heading to ${where} to colonise${eta}`
+        : fleet.order === 'invade'
+          ? `Heading to ${where} to invade${eta}`
+          : `Heading to ${where}${eta}`;
   } else if (fleet.order === 'colonise') {
     status = 'Founding a colony this turn';
+  } else if (fleet.order === 'invade') {
+    status = 'Landing troops once the defenders are cleared';
   }
 
   return (
@@ -93,6 +114,22 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
               <dd>{sectors(fleetRange(state, fleet, content))} from a colony</dd>
             </div>
           </dl>
+          <div className="governors" role="radiogroup" aria-label="Stance">
+            {STANCES.map((stance) => (
+              <button
+                key={stance}
+                type="button"
+                role="radio"
+                aria-checked={fleet.stance === stance}
+                className={`chip${fleet.stance === stance ? ' selected' : ''}`}
+                title={STANCE_HELP[stance]}
+                onClick={() => dispatch({ type: 'setStance', empire: player, fleet: fleet.id, stance })}
+              >
+                {stance[0].toUpperCase() + stance.slice(1)}
+              </button>
+            ))}
+          </div>
+          <p className="muted hint">{STANCE_HELP[fleet.stance]}</p>
           <div className="fleet-actions">
             <button type="button" className={`btn${moveMode ? ' primary' : ''}`} aria-pressed={moveMode} onClick={onToggleMove}>
               {moveMode ? 'Pick a sector…' : 'Move'}
@@ -100,6 +137,11 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
             {(fleet.destination || fleet.order !== 'none') && (
               <button type="button" className="btn" onClick={() => dispatch({ type: 'stopFleet', empire: player, fleet: fleet.id })}>
                 Stop
+              </button>
+            )}
+            {invade && fleet.order !== 'invade' && (
+              <button type="button" className="btn danger" disabled={invadeError !== null} title={invadeError?.message} onClick={() => dispatch(invade)}>
+                Invade {here!.name}
               </button>
             )}
             {colonise && hasColonyShip && fleet.order !== 'colonise' && (
@@ -117,6 +159,7 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
           <p className="muted hint">
             Right-click the map, or press Move and click, to send this fleet. The highlighted sectors are in supply
             range.{hasColonyShip && ' Send it to an unclaimed system to found a colony there.'}
+            {invade === null && fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) && ' Send transports to an enemy colony to invade it.'}
           </p>
         </section>
       )}

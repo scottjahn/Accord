@@ -1,4 +1,5 @@
 import {
+  garrisonStrength,
   forecastColony,
   getColonyEconomy,
   sameSector,
@@ -11,7 +12,7 @@ import {
   type GameState,
   type StarSystem,
 } from '../../sim';
-import { sectorLabel, ships, signed, turns } from '../format';
+import { lineValue, sectorLabel, ships, signed, turns } from '../format';
 import { AllocationSliders } from './AllocationSliders';
 import { BuildQueue } from './BuildQueue';
 
@@ -128,6 +129,39 @@ export function SystemPanel(props: Props) {
   );
 }
 
+/** What stands between this colony and an invader, with its causes. */
+function Defence({ system, content }: { system: StarSystem; content: Content }) {
+  const garrison = garrisonStrength(system, content);
+  const batteries = Object.entries(system.colony!.buildings)
+    .filter(([id]) => (content.buildings[id as keyof typeof content.buildings]?.combat.attack ?? 0) > 0)
+    .reduce((sum, [, count]) => sum + count, 0);
+  return (
+    <section>
+      <h3>Defence</h3>
+      <table className="breakdown">
+        <tbody>
+          {garrison.lines.map((line, i) => (
+            <tr key={i}>
+              <td>{line.source}</td>
+              <td className="num">{lineValue(line)}</td>
+            </tr>
+          ))}
+          <tr className="breakdown-total">
+            <td>Garrison</td>
+            <td className="num" data-testid="garrison">
+              {garrison.total}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="muted hint">
+        {batteries === 0 ? 'No orbital batteries.' : `${batteries} orbital ${batteries === 1 ? 'battery defends' : 'batteries defend'} this sector.`} An
+        invader needs more troops than the garrison.
+      </p>
+    </section>
+  );
+}
+
 function OwnColony({ state, content, player, system, error, dispatch }: Props) {
   const colony = system.colony!;
   const economy = getColonyEconomy(state, system.id, content);
@@ -172,6 +206,8 @@ function OwnColony({ state, content, player, system, error, dispatch }: Props) {
           {outlook.text}
         </p>
       </section>
+
+      <Defence system={system} content={content} />
 
       {error && (
         <p className="error" role="alert">

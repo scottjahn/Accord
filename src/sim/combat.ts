@@ -376,8 +376,9 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
 }
 
 /**
- * Eliminates empires with no colony and no colony ship, and declares a winner
- * when only one empire is left. Mutates the state.
+ * Eliminates empires with no colony and no colony ship, and declares a winner:
+ * the last empire left, or one that dominates (holds the set share of all
+ * colonies and every surviving rival's home system). Mutates the state.
  */
 export function checkVictory(state: GameState, content: Content, events: TurnEvent[]): void {
   const ids = sortedKeys(state.empires);
@@ -390,9 +391,22 @@ export function checkVictory(state: GameState, content: Content, events: TurnEve
     for (const fleet of fleetsOf(state, id)) delete state.fleets[fleet.id];
     events.push({ type: 'empireEliminated', empire: id });
   }
+  if (ids.length < 2 || state.winner !== null) return;
   const standing = ids.filter((id) => !state.empires[id].eliminated);
-  if (ids.length > 1 && standing.length === 1 && state.winner === null) {
-    state.winner = standing[0];
-    events.push({ type: 'gameWon', empire: standing[0] });
+  let winner: EmpireId | null = standing.length === 1 ? standing[0] : null;
+
+  const share = content.rules.combat.dominationPercent;
+  if (winner === null && share > 0) {
+    const total = sortedKeys(state.systems).filter((id) => state.systems[id].colony).length;
+    winner =
+      standing.find((id) => {
+        const held = coloniesOf(state, id).length;
+        const homes = standing.every((rival) => rival === id || state.systems[state.empires[rival].homeSystem]?.colony?.owner === id);
+        return homes && held * 100 >= total * share;
+      }) ?? null;
+  }
+  if (winner !== null) {
+    state.winner = winner;
+    events.push({ type: 'gameWon', empire: winner });
   }
 }

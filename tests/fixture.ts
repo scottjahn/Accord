@@ -96,7 +96,7 @@ export const rawFixture = {
       { type: 'barren', maxPopulation: 10 },
     ],
     difficulty: { easy: -20, normal: 0, hard: 25 },
-    combat: { maxRounds: 4, minRollPercent: 100, evadeFirePercent: 50, repairPercent: 25, garrisonPerPopulation: 1, captureLossPercent: 25, captureBuildingLossPercent: 50 },
+    combat: { maxRounds: 4, minRollPercent: 100, evadeFirePercent: 50, repairPercent: 25, garrisonPerPopulation: 1, captureLossPercent: 25, captureBuildingLossPercent: 50, dominationPercent: 67 },
     fleets: {
       baseRange: 2,
       propulsionLevelsPerRange: 2,

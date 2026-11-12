@@ -95,6 +95,12 @@ export interface CombatRules {
   /** Percent of population and of each building lost when a colony is captured. */
   captureLossPercent: number;
   captureBuildingLossPercent: number;
+  /**
+   * An empire wins by domination when it holds at least this percent of all
+   * colonies and every surviving rival's home system. 0 turns domination off,
+   * leaving only total conquest.
+   */
+  dominationPercent: number;
 }
 
 export interface FleetRules {
@@ -471,7 +477,7 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     errors.push('rules.combat: must be an object');
   } else {
     if (!isPos(combat.maxRounds)) errors.push('rules.combat.maxRounds: must be a positive integer');
-    for (const key of ['minRollPercent', 'evadeFirePercent', 'repairPercent', 'captureLossPercent', 'captureBuildingLossPercent'] as const) {
+    for (const key of ['minRollPercent', 'evadeFirePercent', 'repairPercent', 'captureLossPercent', 'captureBuildingLossPercent', 'dominationPercent'] as const) {
       if (!isNat(combat[key]) || (combat[key] as number) > 100) errors.push(`rules.combat.${key}: must be an integer from 0 to 100`);
     }
     if (isNat(combat.minRollPercent) && (combat.minRollPercent as number) < 1) errors.push('rules.combat.minRollPercent: must be at least 1');
