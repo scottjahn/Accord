@@ -67,7 +67,7 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
       : null;
   const coloniseError = colonise ? validateCommand(state, colonise, content) : null;
   const invade: Command | null =
-    mine && here && view.systems[here.id]?.known && fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) && here.colony && here.colony.owner !== player
+    mine && here && view.systems[here.id]?.known && fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) && ((here.colony && here.colony.owner !== player) || here.minor)
       ? { type: 'invadeSystem', empire: player, fleet: fleet.id, system: here.id }
       : null;
   const invadeError = invade ? validateCommand(state, invade, content) : null;

@@ -57,6 +57,8 @@ export function scoreBuilding(
     const amount = effect.kind === 'flat' ? effect.value : (economy.outputs[effect.output].total * effect.value) / 100;
     value += amount * need[effect.output];
   }
+  // Morale buildings matter when the colony is unhappy and barely otherwise.
+  value += def.morale * (colony.morale < 95 ? 0.6 : 0.05);
   const score = 30 + Math.min(50, (600 * value) / def.cost);
   return def.energyUpkeep > headroom ? score * 0.4 : score;
 }

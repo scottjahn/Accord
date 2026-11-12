@@ -68,9 +68,14 @@ export function directFleets(plan: Planner, empireId: EmpireId, content: Content
   });
   for (const fleet of warFleets) guards.set(heading(fleet), (guards.get(heading(fleet)) ?? 0) + 1);
 
-  const posts = [...picture.colonies].sort(
-    (a, b) => threatDistance(picture, a.sector) - threatDistance(picture, b.sector) || (a.id < b.id ? -1 : 1),
-  );
+  // After the colonies come minor races that want protection: a guard there wins them over.
+  const wards = picture.minors.filter((s) => content.minors[s.minor!.race]?.wants.includes('protection'));
+  const posts = [
+    ...[...picture.colonies].sort(
+      (a, b) => threatDistance(picture, a.sector) - threatDistance(picture, b.sector) || (a.id < b.id ? -1 : 1),
+    ),
+    ...wards,
+  ];
   const needAt = (sector: { x: number; y: number }) => (posture === 'fortify' && threatDistance(picture, sector) <= 4 ? 2 : 1);
 
   for (const { id } of guard ? warFleets : []) {

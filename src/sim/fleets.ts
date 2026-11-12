@@ -1,6 +1,8 @@
 import type { Content, HullDef } from './content';
 import { applyGovernor } from './economy/governor';
 import { maxPopulationOf } from './economy/outputs';
+import { memberBonuses } from './members';
+import { addEmpireMorale } from './morale';
 import { inBounds, sameSector, sectorDistance, sectorKey, sectorsAround } from './geometry';
 import { sortedKeys, type EmpireId, type FleetId, type HullId, type ShipId, type SystemId } from './ids';
 import { nextInt } from './rng';
@@ -38,7 +40,8 @@ export function fleetSpeed(fleet: Fleet, content: Content): number {
 export function empireRange(state: GameState, empireId: EmpireId, content: Content): number {
   const rules = content.rules.fleets;
   const propulsion = state.empires[empireId].research.levels.propulsion;
-  return rules.baseRange + Math.floor(propulsion / rules.propulsionLevelsPerRange);
+  const allies = memberBonuses(state, empireId, content, 'range').reduce((sum, line) => sum + line.value, 0);
+  return rules.baseRange + Math.floor(propulsion / rules.propulsionLevelsPerRange) + allies;
 }
 
 /** How far from an owned colony this fleet may travel: limited by its shortest-ranged ship. */
@@ -196,6 +199,7 @@ export function coloniseBlocker(
   content: Content,
   occupied: boolean = system.colony !== null,
 ): string | null {
+  if (system.minor) return `${system.name} is home to an independent people`;
   if (occupied) return `${system.name} is already colonised`;
   if (maxPopulationOf(system) < content.rules.fleets.colonyStartPopulation) return `${system.name} cannot support a colony`;
   if (!hullsOf(fleet, content).some((h) => h.role === 'colony')) return 'The fleet has no colony ship';
@@ -268,8 +272,11 @@ export function resolveColonisation(state: GameState, content: Content, events: 
       buildings: {},
       buildQueue: [],
       morale: 100,
+      moraleEffects: [],
+      minorRace: null,
     };
     applyGovernor(state, system, content);
+    addEmpireMorale(state, winner, 'colonyFounded', content);
     events.push({ type: 'colonyFounded', empire: winner, system: systemId });
   }
 }

@@ -7,6 +7,7 @@ import {
   type GameState,
   type Governor,
   type HullRole,
+  type MinorDef,
   type OutputKind,
   type Sector,
   type TurnEvent,
@@ -34,6 +35,24 @@ export const ROLE_LABELS: Record<HullRole, string> = {
   warship: 'Warship',
   transport: 'Troop transport',
 };
+
+/** What a minor race gives the empire it joins, in words. */
+export function bonusText(def: MinorDef, content: Content): string {
+  const { kind, value, output } = def.bonus;
+  switch (kind) {
+    case 'output':
+      return `${signed(value)}% ${OUTPUT_LABELS[output!].toLowerCase()} in every colony`;
+    case 'morale':
+      return `${signed(value)} morale in every colony`;
+    case 'range':
+      return `${signed(value)} supply range`;
+    case 'garrison':
+      return `${signed(value)}% garrison strength`;
+    case 'attack':
+      return `${signed(value)}% attack in battle`;
+  }
+  return content.minors[def.id]?.name ?? '';
+}
 
 export const signed = (n: number): string => (n > 0 ? `+${n}` : `${n}`);
 
@@ -106,6 +125,12 @@ export function eventText(event: TurnEvent, state: GameState, content: Content):
       return `Battle at ${placeName(state, event.report.sector)}: ${lost}`;
     }
     case 'invasion':
+      if (event.report.minor) {
+        const people = content.minors[event.report.minor]?.name ?? event.report.minor;
+        return event.report.captured
+          ? `Invasion of ${systemName(event.report.system)}: the ${people} were overrun`
+          : `Invasion of ${systemName(event.report.system)}: the ${people} held`;
+      }
       return event.report.captured
         ? `${factionName(event.report.attacker)} captured ${systemName(event.report.system)}`
         : `${factionName(event.report.attacker)} failed to take ${systemName(event.report.system)}`;
@@ -113,5 +138,9 @@ export function eventText(event: TurnEvent, state: GameState, content: Content):
       return `${factionName(event.empire)} has been eliminated`;
     case 'gameWon':
       return `${factionName(event.empire)} has won the game`;
+    case 'minorJoined':
+      return `The ${content.minors[event.race]?.name ?? event.race} of ${systemName(event.system)} have joined ${factionName(event.empire)}`;
+    case 'minorConquered':
+      return `${factionName(event.empire)} conquered the ${content.minors[event.race]?.name ?? event.race} of ${systemName(event.system)}`;
   }
 }

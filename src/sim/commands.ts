@@ -4,6 +4,8 @@ import { atWar, invadeBlocker, warKey } from './combat';
 import { coloniseBlocker, empireSupport, findPath, fleetOfShip } from './fleets';
 import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
+import { courtGain, minorOf } from './minors';
+import { addEmpireMorale } from './morale';
 import { meetsRequirements } from './research';
 import {
   FIELDS,
@@ -42,6 +44,7 @@ export type Command =
   | { type: 'invadeSystem'; empire: EmpireId; fleet: FleetId; system: SystemId }
   | { type: 'setStance'; empire: EmpireId; fleet: FleetId; stance: Stance }
   | { type: 'declareWar'; empire: EmpireId; on: EmpireId }
+  | { type: 'courtMinor'; empire: EmpireId; system: SystemId; points: number }
   | { type: 'mergeFleets'; empire: EmpireId; from: FleetId; into: FleetId }
   | { type: 'splitFleet'; empire: EmpireId; fleet: FleetId; ships: ShipId[] };
 
@@ -67,6 +70,7 @@ export type CommandErrorCode =
   | 'cannotInvade'
   | 'badStance'
   | 'badWar'
+  | 'cannotCourt'
   | 'gameOver'
   | 'badFleets';
 
@@ -258,6 +262,16 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       if (other.eliminated) return fail('badWar', 'That empire has been eliminated');
       return atWar(state, cmd.empire, cmd.on) ? fail('badWar', 'You are already at war with that empire') : null;
     }
+    case 'courtMinor': {
+      const system = state.systems[cmd.system];
+      if (!system || !(cmd.system in empire.knownSystems)) return fail('unknownSystem', `No known system ${cmd.system}`);
+      const def = minorOf(system, content);
+      if (!def) return fail('cannotCourt', `No independent people live at ${system.name}`);
+      const cost = content.rules.minors.influenceCost;
+      if (!Number.isInteger(cmd.points) || cmd.points < cost) return fail('cannotCourt', `Courting takes at least ${cost} intel`);
+      if (cmd.points > empire.intelPool) return fail('cannotCourt', `You have ${empire.intelPool} intel, not ${cmd.points}`);
+      return null;
+    }
     case 'mergeFleets': {
       const from = ownFleet(state, cmd.empire, cmd.from);
       if (isError(from)) return from;
@@ -320,7 +334,7 @@ export function submitCommands(
  * copy) and have just checked the command with validateCommand.
  */
 export function applyValidated(next: GameState, cmd: Command, content: Content): void {
-  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' && cmd.type !== 'invadeSystem' ? next.systems[cmd.system].colony! : null;
+  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' && cmd.type !== 'invadeSystem' && cmd.type !== 'courtMinor' ? next.systems[cmd.system].colony! : null;
 
   switch (cmd.type) {
     case 'setAllocation':
@@ -379,7 +393,16 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       break;
     case 'declareWar':
       next.wars[warKey(cmd.empire, cmd.on)] = next.turn;
+      addEmpireMorale(next, cmd.empire, 'warDeclared', content);
       break;
+    case 'courtMinor': {
+      const system = next.systems[cmd.system];
+      const minor = system.minor!;
+      const current = minor.attitude[cmd.empire] ?? content.rules.minors.startAttitude;
+      minor.attitude[cmd.empire] = Math.min(100, current + courtGain(minorOf(system, content)!, cmd.points, content));
+      next.empires[cmd.empire].intelPool -= cmd.points;
+      break;
+    }
     case 'mergeFleets':
       next.fleets[cmd.into].ships.push(...next.fleets[cmd.from].ships);
       delete next.fleets[cmd.from];

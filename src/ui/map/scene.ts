@@ -28,6 +28,8 @@ export interface MapSystem {
   /** The owner's faction colour as far as the player knows, or the neutral colour. */
   color: number;
   known: boolean;
+  /** A known, independent minor race lives here. */
+  minor: boolean;
   owned: boolean;
   isHome: boolean;
   /** Dot radius in world units, larger for systems that can hold more people. */
@@ -81,6 +83,7 @@ export function buildScene(state: GameState, content: Content, view: EmpireView,
       sector: system.sector,
       color: owner ? factionColor(owner) : NEUTRAL_COLOR,
       known: sight.known,
+      minor: sight.known && system.minor !== null,
       owned: owner !== null,
       isHome: owner !== null && state.empires[owner].homeSystem === id,
       radius: sight.known ? 4 + Math.min(5, Math.floor(maxPopulationOf(system) / 12)) : 3,

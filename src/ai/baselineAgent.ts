@@ -58,7 +58,7 @@ export function baselineAgent(state: GameState, empireId: EmpireId, content: Con
     return sortedKeys(known)
       .filter((id) => known[id] === null)
       .map((id) => current.systems[id])
-      .filter((s) => maxPopulationOf(s) >= content.rules.fleets.colonyStartPopulation)
+      .filter((s) => !s.minor && maxPopulationOf(s) >= content.rules.fleets.colonyStartPopulation)
       .sort((a, b) => sectorDistance(a.sector, from) - sectorDistance(b.sector, from) || (a.id < b.id ? -1 : 1));
   };
 

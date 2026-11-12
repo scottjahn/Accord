@@ -66,6 +66,8 @@ describe('galaxy generation', () => {
         buildings: { farm: 1, reactor: 1 },
         buildQueue: [],
         morale: 100,
+        moraleEffects: [],
+        minorRace: null,
       });
     }
     expect(state.turn).toBe(1);

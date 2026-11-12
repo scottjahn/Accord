@@ -696,3 +696,11 @@ h3.spaced {
 .modal.result .fleet-actions {
   justify-content: center;
 }
+
+/* Milestone 6: morale and minor races */
+.good {
+  color: var(--good);
+}
+.hint.bad {
+  color: var(--bad);
+}

@@ -5,6 +5,7 @@ import { setTargets } from './operational';
 import { POSTURE_REVIEW_TURNS, choosePosture, scorePostures } from './strategic';
 import { manageColonies } from './tactical/colonies';
 import { directFleets } from './tactical/fleets';
+import { conquerMinors, conquestTargets, courtMinors } from './tactical/minors';
 import { enemiesOf, knownColoniesOf, wageWar } from './tactical/war';
 
 /** What the standard AI carries from turn to turn. */
@@ -27,7 +28,7 @@ export function readMemory(memory: Json | null): StandardMemory | null {
  * 2. operational: every turn, turn the posture into targets (settlers, scouts,
  *    warships, research split);
  * 3. tactical: per colony choose what to build and who governs; per fleet
- *    choose where to go.
+ *    choose where to go; and court or conquer the minor races it has found.
  *
  * It sees only its redacted state, acts only through commands, and is
  * deterministic: the same known state and memory give the same commands.
@@ -43,7 +44,7 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
     ? { posture: choosePosture(scorePostures(plan.state, empireId, content, picture, personality)), postureTurn: known.turn }
     : previous;
 
-  const targets = setTargets(next.posture, picture, personality);
+  const targets = setTargets(next.posture, picture, personality, conquestTargets(picture, empireId, content, personality).length);
   const current = known.empires[empireId].research.allocation;
   if (FIELDS.some((f) => current[f] !== targets.research[f])) {
     plan.attempt({ type: 'setResearchAllocation', empire: empireId, allocation: targets.research });
@@ -60,6 +61,8 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
   manageColonies(plan, empireId, content, next.posture, targets);
   directFleets(plan, empireId, content, next.posture, picture);
   if (next.posture === 'war') wageWar(plan, empireId, content, targets.strikeSize);
+  else conquerMinors(plan, empireId, content, personality, picture);
+  courtMinors(plan, empireId, content, personality, picture);
 
   return { commands: plan.issued, memory: { posture: next.posture, postureTurn: next.postureTurn } };
 };

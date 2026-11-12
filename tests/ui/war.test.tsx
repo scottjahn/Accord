@@ -69,6 +69,8 @@ function saveOnTheBrink(): { outpost: StarSystem; enemyHome: StarSystem } {
     buildings: { ['shipyard' as BuildingId]: 1 },
     buildQueue: [],
     morale: 100,
+    moraleEffects: [],
+    minorRace: null,
   };
   for (let i = 0; i < 6; i++) spawnShip(state, HUMAN, outpost.sector, 'frigate' as HullId, content);
   for (let i = 0; i < 6; i++) spawnShip(state, HUMAN, outpost.sector, 'transport' as HullId, content);

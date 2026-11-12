@@ -1,4 +1,5 @@
 import type { Content } from '../content';
+import { maxPopulationOf } from '../economy/outputs';
 import { spawnShip } from '../fleets';
 import { sectorDistance } from '../geometry';
 import { sortedKeys, type BuildingId, type EmpireId, type FactionId, type SystemId } from '../ids';
@@ -99,7 +100,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
     const planetCount = nextInt(rng, rules.planetsPerSystem[0], rules.planetsPerSystem[1]);
     const planets: Planet[] = [];
     for (let p = 0; p < planetCount; p++) planets.push(rollPlanet(rng, typeIds, totalWeight, content));
-    systems[id] = { id, name: names[i], sector: sectors[i], planets, colony: null };
+    systems[id] = { id, name: names[i], sector: sectors[i], planets, colony: null, minor: null };
     ids.push(id);
   }
 
@@ -119,6 +120,8 @@ export function createGame(config: GameConfig, content: Content): GameState {
       buildings: { ...rules.startingBuildings } as Record<BuildingId, number>,
       buildQueue: [],
       morale: 100,
+      moraleEffects: [],
+      minorRace: null,
     };
     empires[id] = {
       id,
@@ -128,9 +131,29 @@ export function createGame(config: GameConfig, content: Content): GameState {
       research: newResearchState(),
       intelPool: 0,
       eliminated: false,
+      lastWarTurn: 0,
+      members: [],
       knownSystems: {},
     };
   });
+
+  // Minor races take the roomiest unclaimed systems. With none asked for, no rolls are used.
+  if (preset.minors > 0) {
+    const sites = ids.filter((id) => !systems[id].colony && maxPopulationOf(systems[id]) >= rules.minors.minPopulation);
+    shuffle(rng, sites);
+    const races = sortedKeys(content.minors);
+    shuffle(rng, races);
+    for (let i = 0; i < Math.min(preset.minors, sites.length, races.length); i++) {
+      const system = systems[sites[i]];
+      system.minor = {
+        race: races[i],
+        population: Math.min(content.minors[races[i]].population, maxPopulationOf(system)),
+        attitude: {},
+        leader: null,
+        leadTurns: 0,
+      };
+    }
+  }
 
   const state: GameState = {
     saveVersion: SAVE_VERSION,

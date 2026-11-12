@@ -34,6 +34,7 @@ export function applyGrowth(
   rules: Rules,
   systemId: SystemId,
   events: TurnEvent[],
+  unrest = false,
 ): void {
   const surplus = food - colony.population * rules.foodPerPop;
   const stock = colony.foodStock + surplus;
@@ -53,7 +54,8 @@ export function applyGrowth(
     return;
   }
 
-  if (surplus > 0 && colony.population < maxPopulation) {
+  // A colony in unrest is fed but does not grow.
+  if (surplus > 0 && colony.population < maxPopulation && !unrest) {
     colony.growthProgress += surplus;
     while (colony.population < maxPopulation && colony.growthProgress >= growthCost(colony.population, rules)) {
       colony.growthProgress -= growthCost(colony.population, rules);

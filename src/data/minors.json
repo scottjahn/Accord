@@ -1,0 +1,247 @@
+[
+  {
+    "id": "aurelin",
+    "name": "Aurelin",
+    "description": "Scholars who archive everything they have ever observed.",
+    "population": 10,
+    "garrison": 4,
+    "wants": [
+      "technology",
+      "influence"
+    ],
+    "favouredField": "computing",
+    "techLevel": 2,
+    "bonus": {
+      "kind": "output",
+      "output": "research",
+      "value": 10
+    }
+  },
+  {
+    "id": "brakka",
+    "name": "Brakka",
+    "description": "Miners and foundry-clans who respect anyone who can protect a claim.",
+    "population": 12,
+    "garrison": 10,
+    "wants": [
+      "protection",
+      "neighbours"
+    ],
+    "favouredField": "construction",
+    "techLevel": 2,
+    "bonus": {
+      "kind": "output",
+      "output": "industry",
+      "value": 10
+    }
+  },
+  {
+    "id": "sylvari",
+    "name": "Sylvari",
+    "description": "Gardeners of living worlds, wary of strangers but generous to friends.",
+    "population": 14,
+    "garrison": 4,
+    "wants": [
+      "neighbours",
+      "technology"
+    ],
+    "favouredField": "biology",
+    "techLevel": 2,
+    "bonus": {
+      "kind": "output",
+      "output": "food",
+      "value": 12
+    }
+  },
+  {
+    "id": "thren",
+    "name": "Thren",
+    "description": "A warrior order that sells its loyalty only to the strong.",
+    "population": 9,
+    "garrison": 16,
+    "wants": [
+      "protection",
+      "technology"
+    ],
+    "favouredField": "weapons",
+    "techLevel": 2,
+    "bonus": {
+      "kind": "attack",
+      "value": 10
+    }
+  },
+  {
+    "id": "ozmari",
+    "name": "Ozmari",
+    "description": "Far-ranging pilots who chart routes nobody else can find.",
+    "population": 8,
+    "garrison": 3,
+    "wants": [
+      "influence",
+      "technology"
+    ],
+    "favouredField": "propulsion",
+    "techLevel": 2,
+    "bonus": {
+      "kind": "range",
+      "value": 1
+    }
+  },
+  {
+    "id": "veshti",
+    "name": "Veshti",
+    "description": "Listeners and brokers of secrets, courted by every power.",
+    "population": 8,
+    "garrison": 3,
+    "wants": [
+      "influence",
+      "neighbours"
+    ],
+    "favouredField": "computing",
+    "techLevel": 3,
+    "bonus": {
+      "kind": "output",
+      "output": "intel",
+      "value": 20
+    }
+  },
+  {
+    "id": "kaldur",
+    "name": "Kaldur",
+    "description": "Fortress-builders whose homes have never been taken.",
+    "population": 11,
+    "garrison": 20,
+    "wants": [
+      "protection",
+      "neighbours"
+    ],
+    "favouredField": "construction",
+    "techLevel": 3,
+    "bonus": {
+      "kind": "garrison",
+      "value": 25
+    }
+  },
+  {
+    "id": "iloni",
+    "name": "Iloni",
+    "description": "Singers and storytellers whose festivals lift whole sectors.",
+    "population": 10,
+    "garrison": 2,
+    "wants": [
+      "neighbours",
+      "influence"
+    ],
+    "favouredField": "biology",
+    "techLevel": 1,
+    "bonus": {
+      "kind": "morale",
+      "value": 6
+    }
+  },
+  {
+    "id": "qorrin",
+    "name": "Qorrin",
+    "description": "Engineers of stellar collectors who never run short of power.",
+    "population": 9,
+    "garrison": 5,
+    "wants": [
+      "technology",
+      "protection"
+    ],
+    "favouredField": "energy",
+    "techLevel": 2,
+    "bonus": {
+      "kind": "output",
+      "output": "energy",
+      "value": 15
+    }
+  },
+  {
+    "id": "mireth",
+    "name": "Mireth",
+    "description": "Patient traders in rare seed-stock and old machines.",
+    "population": 12,
+    "garrison": 5,
+    "wants": [
+      "neighbours",
+      "protection"
+    ],
+    "favouredField": "energy",
+    "techLevel": 1,
+    "bonus": {
+      "kind": "output",
+      "output": "industry",
+      "value": 8
+    }
+  },
+  {
+    "id": "ushara",
+    "name": "Ushara",
+    "description": "Mystics who read morale in the stars and are usually right.",
+    "population": 9,
+    "garrison": 4,
+    "wants": [
+      "influence",
+      "protection"
+    ],
+    "favouredField": "computing",
+    "techLevel": 1,
+    "bonus": {
+      "kind": "morale",
+      "value": 5
+    }
+  },
+  {
+    "id": "dravik",
+    "name": "Dravik",
+    "description": "Privateers who will fly escort for whoever keeps them in refits.",
+    "population": 8,
+    "garrison": 8,
+    "wants": [
+      "protection",
+      "influence"
+    ],
+    "favouredField": "weapons",
+    "techLevel": 3,
+    "bonus": {
+      "kind": "attack",
+      "value": 8
+    }
+  },
+  {
+    "id": "nemari",
+    "name": "Nemari",
+    "description": "Tidal farmers whose surplus has ended more than one famine.",
+    "population": 13,
+    "garrison": 3,
+    "wants": [
+      "neighbours",
+      "technology"
+    ],
+    "favouredField": "biology",
+    "techLevel": 3,
+    "bonus": {
+      "kind": "output",
+      "output": "food",
+      "value": 10
+    }
+  },
+  {
+    "id": "hesk",
+    "name": "Hesk",
+    "description": "Shipwrights of slow, tireless long-haulers.",
+    "population": 10,
+    "garrison": 6,
+    "wants": [
+      "technology",
+      "neighbours"
+    ],
+    "favouredField": "propulsion",
+    "techLevel": 3,
+    "bonus": {
+      "kind": "range",
+      "value": 1
+    }
+  }
+]

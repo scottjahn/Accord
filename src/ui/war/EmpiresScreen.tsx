@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { atWar, coloniesOf, sortedKeys, type Command, type Content, type EmpireId, type EmpireView, type GameState } from '../../sim';
+import { atWar, coloniesOf, minorStanding, sortedKeys, type Command, type Content, type EmpireId, type EmpireView, type GameState } from '../../sim';
+import { bonusText } from '../format';
 
 interface Props {
   state: GameState;
@@ -16,6 +17,10 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
   const [confirming, setConfirming] = useState<EmpireId | null>(null);
   const rivals = sortedKeys(state.empires).filter((id) => id !== player);
   const mine = coloniesOf(state, player).length;
+  const minors = sortedKeys(state.systems)
+    .map((id) => state.systems[id])
+    .filter((s) => s.minor && view.systems[s.id]?.known);
+  const members = state.empires[player].members;
   const knownColonies = (id: EmpireId) => sortedKeys(view.systems).filter((s) => view.systems[s].owner === id).length;
 
   return (
@@ -79,6 +84,33 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
             );
           })}
         </ul>
+
+        <h3 className="spaced">Minor races</h3>
+        {members.length > 0 && (
+          <p>
+            Members of your empire: {members.map((m) => `${content.minors[m].name} (${bonusText(content.minors[m], content)})`).join('; ')}.
+          </p>
+        )}
+        {minors.length === 0 ? (
+          <p className="muted">You have not found any independent peoples{members.length > 0 ? ' still on their own' : ''}.</p>
+        ) : (
+          <ul className="planet-list" aria-label="Minor races">
+            {minors.map((s) => {
+              const def = content.minors[s.minor!.race];
+              const attitude = s.minor!.attitude[player];
+              return (
+                <li key={s.id}>
+                  <span>
+                    {def.name} of {s.name}
+                  </span>
+                  <span className="muted">
+                    {attitude === undefined ? 'not yet met' : `attitude ${attitude} · ${minorStanding(s, player)}`} · {bonusText(def, content)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );

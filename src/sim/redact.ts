@@ -36,6 +36,7 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
       system.name = '';
       system.planets = [];
       system.colony = null;
+      system.minor = null;
     } else if (!sight.visible) {
       system.colony = null;
     } else if (system.colony && system.colony.owner !== empireId) {
@@ -49,7 +50,18 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
         buildings: {},
         buildQueue: [],
         morale: 100,
+        moraleEffects: [],
+        minorRace: system.colony.minorRace,
       };
+    }
+    // An empire knows how a minor race feels about itself, not about its rivals.
+    if (system.minor) {
+      const own = system.minor.attitude[empireId];
+      system.minor.attitude = (own === undefined ? {} : { [empireId]: own }) as typeof system.minor.attitude;
+      if (system.minor.leader !== empireId) {
+        system.minor.leader = null;
+        system.minor.leadTurns = 0;
+      }
     }
   }
 
@@ -65,6 +77,7 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
     rival.research = newResearchState();
     rival.intelPool = 0;
     rival.knownSystems = {};
+    rival.lastWarTurn = 0;
     if (mine[rival.homeSystem] !== id) rival.homeSystem = '' as SystemId;
   }
 

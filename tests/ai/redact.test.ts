@@ -41,7 +41,7 @@ describe('redacted state', () => {
     const { state, content } = newGame(5);
     const hidden = unknownTo(state, ALPHA);
     const known = redactFor(state, ALPHA, content).systems[hidden.id];
-    expect(known).toEqual({ id: hidden.id, name: '', sector: hidden.sector, planets: [], colony: null });
+    expect(known).toEqual({ id: hidden.id, name: '', sector: hidden.sector, planets: [], colony: null, minor: null });
   });
 
   it('removes a rival colony that is out of sight but keeps the last owner seen', () => {

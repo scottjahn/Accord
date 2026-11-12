@@ -31,6 +31,10 @@ export function checkInvariants(state: GameState, content: Content): string[] {
     if (allocated !== 100) problems.push(`${id}: research allocation sums to ${allocated}`);
     if (!isNat(empire.intelPool)) problems.push(`${id}: intelPool is ${empire.intelPool}`);
     if (!content.factions[empire.faction]) problems.push(`${id}: unknown faction ${empire.faction}`);
+    for (const member of empire.members) {
+      const held = sortedKeys(state.systems).some((s) => state.systems[s].colony?.owner === id && state.systems[s].colony?.minorRace === member);
+      if (!held) problems.push(`${id}: lists member ${member} but holds no colony of theirs`);
+    }
     if (!state.systems[empire.homeSystem]) problems.push(`${id}: home system ${empire.homeSystem} does not exist`);
   }
 
@@ -43,6 +47,13 @@ export function checkInvariants(state: GameState, content: Content): string[] {
     sectors.add(key);
     if (x < 0 || y < 0 || x >= state.galaxy.width || y >= state.galaxy.height) problems.push(`${id}: sector ${key} is off the map`);
 
+    if (system.minor) {
+      if (system.colony) problems.push(`${id}: has both a colony and an independent minor race`);
+      if (!content.minors[system.minor.race]) problems.push(`${id}: unknown minor race ${system.minor.race}`);
+      for (const value of Object.values(system.minor.attitude)) {
+        if (!Number.isInteger(value) || value < 0 || value > 100) problems.push(`${id}: attitude ${value} is outside 0..100`);
+      }
+    }
     const colony = system.colony;
     if (!colony) continue;
 

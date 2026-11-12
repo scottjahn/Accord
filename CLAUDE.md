@@ -17,6 +17,8 @@ Read `DESIGN.md` for the game design and milestone list.
 - **Fog of war goes through `getEmpireView`.** The UI draws from it and agents must decide from it (or from `empire.knownSystems`); never show or act on a rival's state that the view hides.
 - **AI players get a redacted state.** `runAgent` passes `redactFor(state, empire)`, never the real state, and `tests/ai/redact.test.ts` proves hidden changes cannot alter the AI's commands. Anything new that fog should hide must be removed in `src/sim/redact.ts`.
 - **AI tuning is data.** Personality weights live in `src/data/ai.json`; measure a change with `npm run batch` before and after.
+- **Morale is a list of causes, not a number to set.** Change it with `addColonyMorale` / `addEmpireMorale` and an event kind from `rules.morale.events`; `colony.morale` is recomputed from `moraleBreakdown`. The fixture runs morale at full strength with no guard bonus so older expectations hold.
+- **Minor races live in `system.minor` until they join or fall.** A member's bonus comes from `empire.members`, kept in step on joining and on capture. The fixture's `tiny` preset has no minors; use `newGame(seed, 'peopled')` or place one by hand.
 - **Combat is exact in rule tests.** The fixture sets `minRollPercent` to 100 so every shot does full damage; tests that are about randomness lower it themselves.
 - **Long AI runs are opt-in.** `npm test` plays 4 full AI games for the conquest exit test; `npm run test:long` plays 20. Use `npm run batch` when tuning.
 - **Agents return only legal commands.** `playTurn` throws on an illegal one. Check with `validateCommand` against a working copy, as `baselineAgent` does.

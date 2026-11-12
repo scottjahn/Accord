@@ -16,7 +16,9 @@
         "weapons": 10
       },
       "warshipsPerColony": 50,
-      "scouts": 2
+      "scouts": 2,
+      "minorInfluence": 100,
+      "conquersMinors": 0
     },
     "vashran": {
       "posture": {
@@ -34,7 +36,9 @@
         "weapons": 25
       },
       "warshipsPerColony": 100,
-      "scouts": 1
+      "scouts": 1,
+      "minorInfluence": 40,
+      "conquersMinors": 1
     }
   }
 }

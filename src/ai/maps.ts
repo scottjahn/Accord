@@ -27,6 +27,8 @@ export interface Picture {
   population: number;
   /** Free systems worth settling that are inside supply range, best first. */
   opportunities: Opportunity[];
+  /** Independent minor races this empire has found and can reach with its supply range. */
+  minors: StarSystem[];
   /** Systems never scanned, anywhere on the map. */
   unexplored: StarSystem[];
   /** Sectors of known rival colonies and of rival fleets in sight. */
@@ -57,6 +59,9 @@ export function survey(known: GameState, empireId: EmpireId, content: Content): 
     colonies,
     population: colonies.reduce((sum, s) => sum + s.colony!.population, 0),
     opportunities: [],
+    minors: sortedKeys(me.knownSystems)
+      .map((id) => known.systems[id])
+      .filter((s) => s.minor && reach.has(sectorKey(s.sector))),
     unexplored: sortedKeys(known.systems)
       .filter((id) => !(id in me.knownSystems))
       .map((id) => known.systems[id]),
@@ -65,7 +70,8 @@ export function survey(known: GameState, empireId: EmpireId, content: Content): 
 
   for (const id of sortedKeys(me.knownSystems)) {
     const system = known.systems[id];
-    if (me.knownSystems[id] !== null || system.colony) continue;
+    // A minor race's home cannot be settled; it is courted or conquered instead.
+    if (me.knownSystems[id] !== null || system.colony || system.minor) continue;
     const capacity = maxPopulationOf(system);
     if (capacity < minPopulation || !reach.has(sectorKey(system.sector))) continue;
     const food = system.planets.reduce((sum, p) => sum + p.foodBonus, 0);

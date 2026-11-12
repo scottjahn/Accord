@@ -1,6 +1,10 @@
 import type { Content } from './content';
 import { applyGovernor } from './economy/governor';
+import { maxPopulationOf } from './economy/outputs';
 import { coloniesOf, findPath, fleetsOf, systemAt } from './fleets';
+import { memberBonuses } from './members';
+import { minorGarrison } from './minors';
+import { addColonyMorale, addEmpireMorale } from './morale';
 import { sameSector, sectorDistance, sectorKey } from './geometry';
 import { sortedKeys, type EmpireId, type FleetId } from './ids';
 import { nextInt } from './rng';
@@ -42,6 +46,7 @@ export function combatBonuses(state: GameState, empireId: EmpireId, content: Con
     attack += content.fields[field].combat.attackPercent * levels[field];
     shield += content.fields[field].combat.shieldPercent * levels[field];
   }
+  attack += memberBonuses(state, empireId, content, 'attack').reduce((sum, line) => sum + line.value, 0);
   return { attack, shield: Math.min(75, shield) };
 }
 
@@ -256,12 +261,20 @@ export function resolveBattles(state: GameState, content: Content, events: TurnE
       outcome: stillHere.some((f) => f.armed && hostile(f, stillHere)) ? 'ongoing' : 'decided',
     };
     events.push({ type: 'battle', empires: report.sides.map((s) => s.empire), report });
+
+    // A side that is wiped out while an enemy survives has lost; the survivors have won.
+    const beaten = report.sides.filter((s) => s.after === 0);
+    const standing = report.sides.filter((s) => s.after > 0);
+    if (beaten.length > 0 && standing.length > 0) {
+      for (const side of beaten) addEmpireMorale(state, side.empire, 'battleLost', content);
+      for (const side of standing) addEmpireMorale(state, side.empire, 'battleWon', content);
+    }
   }
   return silenced;
 }
 
-/** Ground strength of a colony's defenders, with its causes. */
-export function garrisonStrength(system: StarSystem, content: Content): { total: number; lines: BreakdownLine[] } {
+/** Ground strength of a colony's defenders, with its causes. Pass the state to include member-race bonuses. */
+export function garrisonStrength(system: StarSystem, content: Content, state?: GameState): { total: number; lines: BreakdownLine[] } {
   const colony = system.colony!;
   const perPop = content.rules.combat.garrisonPerPopulation;
   const lines: BreakdownLine[] = [{ source: `Population ${colony.population}`, kind: 'base', value: colony.population * perPop }];
@@ -271,6 +284,7 @@ export function garrisonStrength(system: StarSystem, content: Content): { total:
       lines.push({ source: `${def.name} x${colony.buildings[id]}`, kind: 'flat', value: def.combat.garrison * colony.buildings[id] });
     }
   }
+  if (state) lines.push(...memberBonuses(state, colony.owner, content, 'garrison'));
   return { total: totalOfLines(lines), lines };
 }
 
@@ -297,6 +311,7 @@ export function troopStrength(state: GameState, fleets: Fleet[], content: Conten
 /** Why this fleet cannot invade this system, or null if it can. `owner` is who holds it as far as the empire knows. */
 export function invadeBlocker(state: GameState, fleet: Fleet, system: StarSystem, owner: EmpireId | null, content: Content): string | null {
   if (!fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0)) return 'The fleet has no troop transports';
+  if (system.minor) return null; // an independent people can be invaded without a declaration of war
   if (owner === null) return `${system.name} has no colony to invade`;
   if (owner === fleet.owner) return `${system.name} is already yours`;
   if (!atWar(state, fleet.owner, owner)) return `You are not at war with the owner of ${system.name}`;
@@ -328,6 +343,11 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
       continue;
     }
 
+    if (system.minor) {
+      conquerMinor(state, system, fleets, content, events);
+      continue;
+    }
+
     const defended =
       fleetsOf(state, defender!).some((f) => sameSector(f.sector, system.sector) && f.ships.some((s) => (content.hulls[s.hull]?.attack ?? 0) > 0)) ||
       (!silenced.has(sectorKey(system.sector)) &&
@@ -335,7 +355,7 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
     if (defended) continue; // keep the order and try again next turn
 
     const attack = troopStrength(state, fleets, content);
-    const defence = garrisonStrength(system, content);
+    const defence = garrisonStrength(system, content, state);
     const roll = nextInt(state.rng, rules.minRollPercent, 100);
     const captured = Math.floor((attack.total * roll) / 100) > defence.total;
 
@@ -355,16 +375,27 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
         colony.buildings[b] = Math.floor((colony.buildings[b] * (100 - rules.captureBuildingLossPercent)) / 100);
         if (colony.buildings[b] === 0) delete colony.buildings[b];
       }
+      // A member race that is conquered stops granting its bonus to anyone.
+      if (colony.minorRace) {
+        const loser = state.empires[defender!];
+        loser.members = loser.members.filter((m) => m !== colony.minorRace);
+        colony.minorRace = null;
+      }
+      colony.moraleEffects = [];
       colony.buildQueue = [];
       colony.growthProgress = 0;
       colony.allocation = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
       colony.governor = 'balanced';
       applyGovernor(state, system, content);
+      addEmpireMorale(state, attacker, 'colonyCaptured', content);
+      addEmpireMorale(state, defender!, 'colonyLost', content);
+      addColonyMorale(state, system, 'conquered', content);
     }
     const report: InvasionReport = {
       system: system.id,
       attacker,
       defender: defender!,
+      minor: null,
       attack,
       defence,
       roll,
@@ -373,6 +404,60 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
     };
     events.push({ type: 'invasion', empires: [attacker, defender!], report });
   }
+}
+
+/** Lands troops on an independent minor race. A conquered people gives its world but not its bonus. */
+function conquerMinor(state: GameState, system: StarSystem, fleets: Fleet[], content: Content, events: TurnEvent[]): void {
+  const rules = content.rules.combat;
+  const attacker = fleets[0].owner;
+  const minor = system.minor!;
+  const attack = troopStrength(state, fleets, content);
+  const defence = minorGarrison(system, content);
+  const roll = nextInt(state.rng, rules.minRollPercent, 100);
+  const captured = Math.floor((attack.total * roll) / 100) > defence.total;
+
+  for (const fleet of fleets) {
+    fleet.order = 'none';
+    fleet.ships = fleet.ships.filter((s) => (content.hulls[s.hull]?.troops ?? 0) === 0);
+    if (fleet.ships.length === 0) delete state.fleets[fleet.id];
+  }
+
+  let populationLost = 0;
+  if (captured) {
+    const before = Math.max(1, Math.min(minor.population, maxPopulationOf(system)));
+    const population = Math.max(1, before - Math.ceil((before * rules.captureLossPercent) / 100));
+    populationLost = before - population;
+    system.colony = {
+      owner: attacker,
+      population,
+      growthProgress: 0,
+      foodStock: 0,
+      allocation: { food: 0, industry: 0, energy: 0, intel: 0, research: 0 },
+      governor: 'balanced',
+      buildings: {},
+      buildQueue: [],
+      morale: 100,
+      moraleEffects: [],
+      minorRace: null,
+    };
+    system.minor = null;
+    applyGovernor(state, system, content);
+    addEmpireMorale(state, attacker, 'minorConquered', content);
+    addColonyMorale(state, system, 'conquered', content);
+    // Word gets round: every other minor thinks less of the conqueror.
+    for (const id of sortedKeys(state.systems)) {
+      const other = state.systems[id].minor;
+      if (other && attacker in other.attitude) {
+        other.attitude[attacker] = Math.max(0, other.attitude[attacker] - content.rules.minors.conquestPenalty);
+      }
+    }
+    events.push({ type: 'minorConquered', empire: attacker, system: system.id, race: minor.race });
+  }
+  events.push({
+    type: 'invasion',
+    empires: [attacker],
+    report: { system: system.id, attacker, defender: null, minor: minor.race, attack, defence, roll, captured, populationLost },
+  });
 }
 
 /**

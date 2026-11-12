@@ -35,7 +35,7 @@ export function toPercents(weights: Record<FieldId, number>): Record<FieldId, nu
 }
 
 /** Turns a posture into this turn's targets. */
-export function setTargets(posture: Posture, picture: Picture, personality: Personality): Targets {
+export function setTargets(posture: Posture, picture: Picture, personality: Personality, minorsToConquer = 0): Targets {
   const colonies = picture.colonies.length;
   const free = picture.opportunities.length;
 
@@ -45,7 +45,8 @@ export function setTargets(posture: Posture, picture: Picture, personality: Pers
   const garrison = colonies < 2 ? 0 : Math.max(1, Math.ceil((colonies * personality.warshipsPerColony * navy) / 10000));
   // At war the navy is at least a strike force, and troops come first: ships win battles, transports win colonies.
   const warships = posture === 'war' ? Math.max(6, garrison) : garrison;
-  const transports = posture === 'war' ? Math.min(10, 3 + Math.floor(colonies / 4)) : 0;
+  // In peace a power that conquers minor races keeps a small landing force for them.
+  const transports = posture === 'war' ? Math.min(10, 3 + Math.floor(colonies / 4)) : minorsToConquer > 0 ? 3 : 0;
   // Big enough to win a fight, small enough that losses do not stop it ever forming again.
   const strikeSize = Math.min(8, Math.max(3, Math.floor(warships / 2)));
 

@@ -11,6 +11,8 @@ export interface Metrics {
   population: number;
   ships: number;
   research: number;
+  /** Minor races that have joined. */
+  members: number;
 }
 
 export function measure(state: GameState, empireId: EmpireId): Metrics {
@@ -20,6 +22,7 @@ export function measure(state: GameState, empireId: EmpireId): Metrics {
     population: colonies.reduce((sum, s) => sum + s.colony!.population, 0),
     ships: fleetsOf(state, empireId).reduce((sum, f) => sum + f.ships.length, 0),
     research: FIELDS.reduce((sum, f) => sum + state.empires[empireId].research.levels[f], 0),
+    members: state.empires[empireId].members.length,
   };
 }
 
@@ -89,7 +92,7 @@ function main(): void {
     firstSeed: Number(args.seed ?? 1),
   });
 
-  const metrics: (keyof Metrics)[] = ['colonies', 'population', 'ships', 'research'];
+  const metrics: (keyof Metrics)[] = ['colonies', 'population', 'ships', 'research', 'members'];
   const average = (agent: 0 | 1, metric: keyof Metrics) =>
     (results.reduce((sum, g) => sum + g.results[agent][metric], 0) / results.length).toFixed(1);
   console.log(`${games} games, ${turns} turns, ${names[0]} (A) vs ${names[1]} (B), factions swapped every other game`);

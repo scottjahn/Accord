@@ -98,5 +98,76 @@
     "captureLossPercent": 25,
     "captureBuildingLossPercent": 50,
     "dominationPercent": 67
+  },
+  "morale": {
+    "outputPercent": 50,
+    "unrestBelow": 60,
+    "maxSwing": 60,
+    "guard": 3,
+    "maxPeacePenalty": 20,
+    "events": {
+      "battleWon": {
+        "value": 4,
+        "turns": 5,
+        "label": "Victory in battle"
+      },
+      "battleLost": {
+        "value": -4,
+        "turns": 5,
+        "label": "Defeat in battle"
+      },
+      "colonyCaptured": {
+        "value": 6,
+        "turns": 10,
+        "label": "A colony captured"
+      },
+      "colonyLost": {
+        "value": -8,
+        "turns": 10,
+        "label": "A colony lost"
+      },
+      "conquered": {
+        "value": -30,
+        "turns": 20,
+        "label": "Recently conquered"
+      },
+      "warDeclared": {
+        "value": -5,
+        "turns": 10,
+        "label": "We declared war"
+      },
+      "starvation": {
+        "value": -10,
+        "turns": 5,
+        "label": "Starvation"
+      },
+      "colonyFounded": {
+        "value": 2,
+        "turns": 5,
+        "label": "A new colony founded"
+      },
+      "minorJoined": {
+        "value": 8,
+        "turns": 15,
+        "label": "A people joined us"
+      },
+      "minorConquered": {
+        "value": -10,
+        "turns": 15,
+        "label": "We conquered a free people"
+      }
+    }
+  },
+  "minors": {
+    "minPopulation": 8,
+    "startAttitude": 30,
+    "joinAt": 80,
+    "joinTurns": 3,
+    "protection": 2,
+    "technology": 2,
+    "neighbours": 1,
+    "neighbourRange": 2,
+    "influenceCost": 5,
+    "conquestPenalty": 15
   }
 }

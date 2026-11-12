@@ -83,6 +83,13 @@ export class MapRenderer {
         this.stars.circle(system.x, system.y, system.radius + 5).fill({ color: system.color, alpha: 0.25 });
       }
       this.stars.circle(system.x, system.y, system.radius).fill({ color: system.color, alpha: system.known ? 1 : 0.45 });
+      if (system.minor) {
+        // A gold diamond marks an independent people.
+        const r = system.radius + 7;
+        this.stars
+          .poly([system.x, system.y - r, system.x + r, system.y, system.x, system.y + r, system.x - r, system.y])
+          .stroke({ width: 1.5, color: 0xe8c15a, alpha: 0.95 });
+      }
       if (system.isHome) {
         this.stars.circle(system.x, system.y, system.radius + 8).stroke({ width: 1.5, color: system.color, alpha: 0.9 });
       }

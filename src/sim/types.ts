@@ -1,8 +1,47 @@
-import type { BuildingId, EmpireId, FactionId, FleetId, HullId, ShipId, SystemId } from './ids';
+import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, ShipId, SystemId } from './ids';
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
+
+/** Things that move morale. Each has a value, a duration and a label in content rules. */
+export const MORALE_EVENTS = [
+  'battleWon',
+  'battleLost',
+  'colonyCaptured',
+  'colonyLost',
+  'conquered',
+  'warDeclared',
+  'starvation',
+  'colonyFounded',
+  'minorJoined',
+  'minorConquered',
+] as const;
+export type MoraleEventKind = (typeof MORALE_EVENTS)[number];
+
+/** One timed cause of a colony's morale. */
+export interface MoraleEffect {
+  source: MoraleEventKind;
+  value: number;
+  /** Turns until it wears off; null would mean permanent. */
+  turnsLeft: number | null;
+}
+
+/** What a minor race can want from an empire courting it. */
+export const MINOR_WANTS = ['protection', 'technology', 'neighbours', 'influence'] as const;
+export type MinorWant = (typeof MINOR_WANTS)[number];
+
+/** An independent minor race living in a system. */
+export interface MinorState {
+  race: MinorId;
+  population: number;
+  /** 0-100 toward each empire that has found it. */
+  attitude: Record<EmpireId, number>;
+  /** The empire currently over the joining threshold and ahead of all others, if any. */
+  leader: EmpireId | null;
+  /** Turns in a row that empire has led. */
+  leadTurns: number;
+}
 
 /**
  * How a fleet fights: engage goes for armed enemies; raid goes for unarmed
@@ -67,8 +106,11 @@ export interface Colony {
   governor: Governor;
   buildings: Record<BuildingId, number>;
   buildQueue: BuildItem[];
-  /** 100 is neutral. Fixed until milestone 6, but already part of the output formula. */
+  /** 100 is neutral. Kept in step with its causes by the sim; see moraleBreakdown. */
   morale: number;
+  moraleEffects: MoraleEffect[];
+  /** Set when this colony is a minor race that joined its owner; it then grants that race's bonus. */
+  minorRace: MinorId | null;
 }
 
 export interface StarSystem {
@@ -78,6 +120,8 @@ export interface StarSystem {
   planets: Planet[];
   /** null while the system is unowned. */
   colony: Colony | null;
+  /** An independent minor race living here, until it joins or is conquered. */
+  minor: MinorState | null;
 }
 
 export interface ResearchState {
@@ -119,6 +163,10 @@ export interface Empire {
   intelPool: number;
   /** True once the empire has lost its last colony and colony ship. */
   eliminated: boolean;
+  /** The last turn this empire was at war with anyone; 0 if never. */
+  lastWarTurn: number;
+  /** Minor races that have joined and whose home this empire still holds, sorted. */
+  members: MinorId[];
   /**
    * Systems this empire has scanned, with the owner it last saw there
    * (null = unclaimed when last seen). Systems never scanned are absent.
@@ -203,7 +251,9 @@ export interface CombatReport {
 export interface InvasionReport {
   system: SystemId;
   attacker: EmpireId;
-  defender: EmpireId;
+  /** The empire that held the colony, or null if it was an independent minor race. */
+  defender: EmpireId | null;
+  minor: MinorId | null;
   attack: OutputBreakdown;
   defence: OutputBreakdown;
   /** Percent of the attack strength that counted; the colony falls if that beats the defence. */
@@ -227,4 +277,6 @@ export type TurnEvent =
   | { type: 'battle'; empires: EmpireId[]; report: CombatReport }
   | { type: 'invasion'; empires: EmpireId[]; report: InvasionReport }
   | { type: 'empireEliminated'; empire: EmpireId }
-  | { type: 'gameWon'; empire: EmpireId };
+  | { type: 'gameWon'; empire: EmpireId }
+  | { type: 'minorJoined'; empire: EmpireId; system: SystemId; race: MinorId }
+  | { type: 'minorConquered'; empire: EmpireId; system: SystemId; race: MinorId };

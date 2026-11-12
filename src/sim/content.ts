@@ -1,13 +1,17 @@
-import type { BuildingId, FactionId, HullId } from './ids';
+import type { BuildingId, FactionId, HullId, MinorId } from './ids';
 import {
   DIFFICULTIES,
   FIELDS,
+  MINOR_WANTS,
+  MORALE_EVENTS,
   GOVERNORS,
   MAX_RESEARCH_LEVEL,
   OUTPUT_KINDS,
   type AutoGovernor,
   type Difficulty,
   type FieldId,
+  type MinorWant,
+  type MoraleEventKind,
   type OutputKind,
   type Outputs,
   type Result,
@@ -68,6 +72,10 @@ export interface Personality {
   warshipsPerColony: number;
   /** Scouts to keep while there is anything left to explore. */
   scouts: number;
+  /** Percent of the intel pool spent each turn on courting minor races. */
+  minorInfluence: number;
+  /** 1 if this power invades minor races that do not warm to it, 0 if it only courts them. */
+  conquersMinors: number;
 }
 
 export interface AiContent {
@@ -79,6 +87,60 @@ export interface ResearchRules {
   levelCosts: number[];
   /** eraThresholds[n] is the total of all field levels needed for era n + 1. */
   eraThresholds: number[];
+}
+
+export const BONUS_KINDS = ['output', 'morale', 'range', 'garrison', 'attack'] as const;
+
+/** A minor race: what it wants from a suitor and what it gives the empire it joins. */
+export interface MinorDef {
+  id: MinorId;
+  name: string;
+  description: string;
+  population: number;
+  /** Added to its ground defence. */
+  garrison: number;
+  wants: MinorWant[];
+  /** The research field it admires, and the level that impresses it. */
+  favouredField: FieldId;
+  techLevel: number;
+  /**
+   * output: percent to one output in every colony; morale: points in every
+   * colony; range: sectors of supply range; garrison and attack: percent.
+   */
+  bonus: { kind: (typeof BONUS_KINDS)[number]; output?: OutputKind; value: number };
+}
+
+export interface MoraleRules {
+  /** Percent of output gained or lost per 100 morale points away from 100. */
+  outputPercent: number;
+  /** Below this a colony is in unrest and does not grow. */
+  unrestBelow: number;
+  /** Morale never moves further than this from 100. */
+  maxSwing: number;
+  /** Morale from having an armed ship in the colony's sector. */
+  guard: number;
+  /** Cap on the long-peace effect, in either direction. */
+  maxPeacePenalty: number;
+  events: Record<MoraleEventKind, { value: number; turns: number; label: string }>;
+}
+
+export interface MinorRules {
+  /** A system needs at least this capacity to hold a minor race. */
+  minPopulation: number;
+  startAttitude: number;
+  /** Attitude at which a minor will join, and for how many turns in a row. */
+  joinAt: number;
+  joinTurns: number;
+  /** Attitude gained per turn for each want that is met. */
+  protection: number;
+  technology: number;
+  neighbours: number;
+  /** A colony within this many sectors counts as a neighbour. */
+  neighbourRange: number;
+  /** Intel points per point of attitude when courting. */
+  influenceCost: number;
+  /** Attitude every other minor loses toward an empire that conquers one. */
+  conquestPenalty: number;
 }
 
 export interface CombatRules {
@@ -142,6 +204,8 @@ export interface FactionDef {
   color: string;
   /** Percent modifier per output, e.g. { research: 10 }. */
   outputModifiers: Partial<Outputs>;
+  /** How this power's people react: overrides for event values, and morale gained or lost per ten turns of peace. */
+  morale: { events: Partial<Record<MoraleEventKind, number>>; peacePerTenTurns: number };
 }
 
 export interface BuildingEffect {
@@ -163,6 +227,8 @@ export interface BuildingDef {
   requires: Requirements;
   /** attack and hp make it an orbital battery that fights in the colony's sector; garrison adds to ground defence. */
   combat: { attack: number; hp: number; garrison: number };
+  /** Morale each one adds to its colony. */
+  morale: number;
 }
 
 export interface PlanetTypeDef {
@@ -180,6 +246,8 @@ export interface GalaxyPreset {
   width: number;
   height: number;
   systems: number;
+  /** Independent minor races placed in the galaxy. */
+  minors: number;
 }
 
 export interface Rules {
@@ -203,6 +271,8 @@ export interface Rules {
   /** Percent added to every output of AI-controlled empires at each difficulty. */
   difficulty: Record<Difficulty, number>;
   combat: CombatRules;
+  morale: MoraleRules;
+  minors: MinorRules;
 }
 
 export interface Content {
@@ -212,6 +282,7 @@ export interface Content {
   fields: Record<FieldId, FieldDef>;
   research: ResearchRules;
   ai: AiContent;
+  minors: Record<MinorId, MinorDef>;
   planetTypes: Record<string, PlanetTypeDef>;
   galaxyPresets: Record<string, GalaxyPreset>;
   names: { prefixes: string[]; suffixes: string[] };
@@ -276,6 +347,11 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (typeof f.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(f.color)) {
       errors.push(`factions.${id}: color must be #rrggbb`);
     }
+    if (f.morale === undefined) f.morale = { events: {}, peacePerTenTurns: 0 };
+    const fm = f.morale;
+    if (!isObj(fm) || !isObj(fm.events) || !isInt(fm.peacePerTenTurns) || !Object.entries(fm.events).every(([k, v]) => MORALE_EVENTS.includes(k as MoraleEventKind) && isInt(v))) {
+      errors.push(`factions.${id}: morale needs events (morale event -> integer) and an integer peacePerTenTurns`);
+    }
     const mods = f.outputModifiers;
     if (!isObj(mods) || !Object.entries(mods).every(([k, v]) => isKind(k) && isInt(v))) {
       errors.push(`factions.${id}: outputModifiers must map output kinds to integer percents`);
@@ -289,6 +365,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (!isPos(b.maxPerSystem)) errors.push(`buildings.${id}: maxPerSystem must be a positive integer`);
     if (b.requires === undefined) b.requires = {};
     if (b.combat === undefined) b.combat = { attack: 0, hp: 0, garrison: 0 };
+    if (b.morale === undefined) b.morale = 0;
+    if (!isInt(b.morale)) errors.push(`buildings.${id}: morale must be an integer`);
     const bc = b.combat;
     if (!isObj(bc) || !isNat(bc.attack) || !isNat(bc.hp) || !isNat(bc.garrison) || ((bc.attack as number) > 0 && (bc.hp as number) < 1)) {
       errors.push(`buildings.${id}: combat needs attack, hp and garrison as integers >= 0, and hp above 0 if it can attack`);
@@ -323,6 +401,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
   const presets = indexById(raw.galaxyPresets, 'galaxyPresets', errors);
   let largestGalaxy = 0;
   for (const [id, g] of Object.entries(presets)) {
+    if (g.minors === undefined) g.minors = 0;
+    if (!isNat(g.minors)) errors.push(`galaxyPresets.${id}: minors must be an integer >= 0`);
     if (!isPos(g.width) || !isPos(g.height) || !isPos(g.systems)) {
       errors.push(`galaxyPresets.${id}: width, height and systems must be positive integers`);
     } else if (g.systems > g.width * g.height) {
@@ -472,6 +552,56 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
   }
 
+  const minors = raw.minors === undefined ? {} : indexById(raw.minors, 'minors', errors);
+  for (const [id, m] of Object.entries(minors)) {
+    const bonus = m.bonus;
+    const valid =
+      typeof m.description === 'string' &&
+      isPos(m.population) &&
+      isNat(m.garrison) &&
+      Array.isArray(m.wants) &&
+      m.wants.length > 0 &&
+      (m.wants as unknown[]).every((w) => MINOR_WANTS.includes(w as MinorWant)) &&
+      FIELDS.includes(m.favouredField as FieldId) &&
+      isPos(m.techLevel) &&
+      isObj(bonus) &&
+      BONUS_KINDS.includes(bonus.kind as (typeof BONUS_KINDS)[number]) &&
+      isInt(bonus.value) &&
+      (bonus.kind !== 'output' || isKind(bonus.output));
+    if (!valid) errors.push(`minors.${id}: needs description, population, garrison, wants, favouredField, techLevel and a bonus`);
+  }
+  for (const [id, g] of Object.entries(presets)) {
+    if (isNat(g.minors) && (g.minors as number) > Object.keys(minors).length) errors.push(`galaxyPresets.${id}: asks for more minors than are defined`);
+  }
+
+  const moraleRules = isObj(rules) ? rules.morale : undefined;
+  if (!isObj(moraleRules) || !isObj(moraleRules.events)) {
+    errors.push('rules.morale: must be an object with events');
+  } else {
+    for (const key of ['outputPercent', 'unrestBelow', 'maxSwing', 'maxPeacePenalty'] as const) {
+      if (!isNat(moraleRules[key])) errors.push(`rules.morale.${key}: must be an integer >= 0`);
+    }
+    if (!isInt(moraleRules.guard)) errors.push('rules.morale.guard: must be an integer');
+    for (const kind of MORALE_EVENTS) {
+      const e = (moraleRules.events as Obj)[kind];
+      if (!isObj(e) || !isInt(e.value) || !isPos(e.turns) || typeof e.label !== 'string') {
+        errors.push(`rules.morale.events.${kind}: needs an integer value, positive turns and a label`);
+      }
+    }
+  }
+
+  const minorRules = isObj(rules) ? rules.minors : undefined;
+  if (!isObj(minorRules)) {
+    errors.push('rules.minors: must be an object');
+  } else {
+    for (const key of ['minPopulation', 'startAttitude', 'joinAt', 'protection', 'technology', 'neighbours', 'neighbourRange', 'conquestPenalty'] as const) {
+      if (!isNat(minorRules[key])) errors.push(`rules.minors.${key}: must be an integer >= 0`);
+    }
+    for (const key of ['joinTurns', 'influenceCost'] as const) {
+      if (!isPos(minorRules[key])) errors.push(`rules.minors.${key}: must be a positive integer`);
+    }
+  }
+
   const combat = isObj(rules) ? rules.combat : undefined;
   if (!isObj(combat)) {
     errors.push('rules.combat: must be an object');
@@ -504,8 +634,10 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
         FIELDS.every((k) => isNat((p.research as Obj)[k])) &&
         FIELDS.some((k) => ((p.research as Obj)[k] as number) > 0) &&
         isNat(p.warshipsPerColony) &&
-        isNat(p.scouts);
-      if (!valid) errors.push(`ai.personalities.${id}: needs posture, research, warshipsPerColony and scouts`);
+        isNat(p.scouts) &&
+        isNat(p.minorInfluence) &&
+        isNat(p.conquersMinors);
+      if (!valid) errors.push(`ai.personalities.${id}: needs posture, research, warshipsPerColony, scouts, minorInfluence and conquersMinors`);
     }
   }
 
@@ -519,6 +651,7 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
       fields,
       research,
       ai,
+      minors,
       planetTypes,
       galaxyPresets: presets,
       names,

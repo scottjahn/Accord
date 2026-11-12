@@ -13,7 +13,13 @@ interface Props {
 
 /** A battle or an invasion in full, so every result can be traced to its rolls. */
 export function ReportScreen({ state, content, player, event, onClose }: Props) {
-  const factionName = (id: EmpireId) => (id === player ? 'You' : (content.factions[state.empires[id].faction]?.name ?? id));
+  const factionName = (id: EmpireId | null): string => {
+    if (id === null) {
+      const race = event.type === 'invasion' ? event.report.minor : null;
+      return race ? `the ${content.minors[race]?.name ?? race}` : 'the defenders';
+    }
+    return id === player ? 'You' : (content.factions[state.empires[id].faction]?.name ?? id);
+  };
   const title =
     event.type === 'battle'
       ? `Battle at ${placeName(state, event.report.sector)}`
@@ -96,7 +102,7 @@ function Strength({ title, value }: { title: string; value: OutputBreakdown }) {
   );
 }
 
-function Invasion({ report, factionName }: { report: InvasionReport; factionName: (id: EmpireId) => string }) {
+function Invasion({ report, factionName }: { report: InvasionReport; factionName: (id: EmpireId | null) => string }) {
   const landed = Math.floor((report.attack.total * report.roll) / 100);
   return (
     <>
@@ -105,7 +111,7 @@ function Invasion({ report, factionName }: { report: InvasionReport; factionName
         {factionName(report.defender)}.
       </p>
       <Strength title={`${factionName(report.attacker)}: troops`} value={report.attack} />
-      <Strength title={`${factionName(report.defender)}: garrison`} value={report.defence} />
+      <Strength title={`${factionName(report.defender).replace(/^the /, 'The ')}: garrison`} value={report.defence} />
       <p className="muted report-outcome">
         Roll {report.roll}%: {landed} of {report.attack.total} troops counted against a garrison of {report.defence.total}. The colony
         falls if the troops that count outnumber the garrison.

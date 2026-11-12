@@ -146,5 +146,20 @@
       "hp": 0,
       "garrison": 12
     }
+  },
+  {
+    "id": "forum",
+    "name": "Forum",
+    "cost": 90,
+    "energyUpkeep": 1,
+    "maxPerSystem": 1,
+    "effects": [],
+    "requires": {},
+    "combat": {
+      "attack": 0,
+      "hp": 0,
+      "garrison": 0
+    },
+    "morale": 8
   }
 ]

@@ -1,5 +1,7 @@
 import {
   garrisonStrength,
+  inUnrest,
+  moraleBreakdown,
   forecastColony,
   getColonyEconomy,
   sameSector,
@@ -12,7 +14,8 @@ import {
   type GameState,
   type StarSystem,
 } from '../../sim';
-import { lineValue, sectorLabel, ships, signed, turns } from '../format';
+import { bonusText, lineValue, sectorLabel, ships, signed, turns } from '../format';
+import { MinorPanel } from './MinorPanel';
 import { AllocationSliders } from './AllocationSliders';
 import { BuildQueue } from './BuildQueue';
 
@@ -92,6 +95,8 @@ export function SystemPanel(props: Props) {
               <span className="dot" style={{ background: ownerFaction.color }} /> {ownerFaction.name}
               {owner?.homeSystem === system.id ? ' home system' : ''}
             </>
+          ) : system.minor ? (
+            `Home of the ${content.minors[system.minor.race]?.name ?? 'an independent people'}`
           ) : (
             'Unclaimed'
           )}
@@ -117,6 +122,8 @@ export function SystemPanel(props: Props) {
 
       {fleetList}
 
+      {system.minor && <MinorPanel state={state} content={content} player={player} system={system} dispatch={props.dispatch} />}
+
       {colony && !mine && (
         <section>
           <h3>Colony</h3>
@@ -129,9 +136,47 @@ export function SystemPanel(props: Props) {
   );
 }
 
+/** The colony's mood and every cause of it. */
+function Morale({ state, system, content }: { state: GameState; system: StarSystem; content: Content }) {
+  const colony = system.colony!;
+  const morale = moraleBreakdown(state, system, content);
+  const effect = Math.trunc(((morale.total - 100) * content.rules.morale.outputPercent) / 100);
+  const member = colony.minorRace ? content.minors[colony.minorRace] : null;
+  return (
+    <section>
+      <h3>Morale</h3>
+      <table className="breakdown">
+        <tbody>
+          {morale.lines.map((line, i) => (
+            <tr key={i}>
+              <td>{line.source}</td>
+              <td className="num">{line.kind === 'base' ? line.value : signed(line.value)}</td>
+            </tr>
+          ))}
+          <tr className="breakdown-total">
+            <td>Morale</td>
+            <td className="num" data-testid="morale">
+              {morale.total}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p className={inUnrest(colony, content) ? 'bad hint' : 'muted hint'} data-testid="morale-effect">
+        {effect === 0 ? 'No effect on output.' : `${signed(effect)}% to every output.`}
+        {inUnrest(colony, content) && ' Unrest: the colony will not grow.'}
+      </p>
+      {member && (
+        <p className="hint">
+          Home of the {member.name}, who joined you: {bonusText(member, content)}.
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** What stands between this colony and an invader, with its causes. */
-function Defence({ system, content }: { system: StarSystem; content: Content }) {
-  const garrison = garrisonStrength(system, content);
+function Defence({ state, system, content }: { state: GameState; system: StarSystem; content: Content }) {
+  const garrison = garrisonStrength(system, content, state);
   const batteries = Object.entries(system.colony!.buildings)
     .filter(([id]) => (content.buildings[id as keyof typeof content.buildings]?.combat.attack ?? 0) > 0)
     .reduce((sum, [, count]) => sum + count, 0);
@@ -207,7 +252,8 @@ function OwnColony({ state, content, player, system, error, dispatch }: Props) {
         </p>
       </section>
 
-      <Defence system={system} content={content} />
+      <Morale state={state} system={system} content={content} />
+      <Defence state={state} system={system} content={content} />
 
       {error && (
         <p className="error" role="alert">

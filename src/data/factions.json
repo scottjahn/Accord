@@ -1,4 +1,35 @@
 [
-  { "id": "concord", "name": "The Concord", "color": "#4da3ff", "outputModifiers": { "research": 10 } },
-  { "id": "vashran", "name": "Vashran Dominate", "color": "#e5533d", "outputModifiers": { "industry": 10 } }
+  {
+    "id": "concord",
+    "name": "The Concord",
+    "color": "#4da3ff",
+    "outputModifiers": {
+      "research": 10
+    },
+    "morale": {
+      "events": {
+        "warDeclared": -30,
+        "minorConquered": -25,
+        "minorJoined": 12
+      },
+      "peacePerTenTurns": 0
+    }
+  },
+  {
+    "id": "vashran",
+    "name": "Vashran Dominate",
+    "color": "#e5533d",
+    "outputModifiers": {
+      "industry": 10
+    },
+    "morale": {
+      "events": {
+        "warDeclared": 6,
+        "colonyCaptured": 10,
+        "minorConquered": 0,
+        "battleWon": 6
+      },
+      "peacePerTenTurns": -2
+    }
+  }
 ]

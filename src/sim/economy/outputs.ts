@@ -1,5 +1,6 @@
 import type { Content } from '../content';
 import { sortedKeys, type BuildingId } from '../ids';
+import { memberBonuses } from '../members';
 import {
   FIELDS,
   OUTPUT_KINDS,
@@ -90,7 +91,11 @@ function linesFor(
   const handicap = empire.controller === 'ai' ? content.rules.difficulty[state.difficulty] : 0;
   if (handicap) lines.push({ source: `Difficulty (${state.difficulty})`, kind: 'percent', value: handicap });
 
-  if (colony.morale !== 100) lines.push({ source: 'Morale', kind: 'percent', value: colony.morale - 100 });
+  lines.push(...memberBonuses(state, colony.owner, content, 'output', kind));
+
+  // Morale moves output by a set share of its distance from 100.
+  const mood = Math.trunc(((colony.morale - 100) * content.rules.morale.outputPercent) / 100);
+  if (mood !== 0) lines.push({ source: 'Morale', kind: 'percent', value: mood });
 
   return lines;
 }

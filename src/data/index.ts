@@ -4,6 +4,7 @@ import buildings from './buildings.json';
 import factions from './factions.json';
 import galaxyPresets from './galaxy-presets.json';
 import hulls from './hulls.json';
+import minors from './minors.json';
 import names from './names.json';
 import planetTypes from './planets.json';
 import rules from './rules.json';
@@ -20,6 +21,7 @@ export function loadContent(): Content {
     ai,
     buildings,
     hulls,
+    minors,
     fields: techs.fields,
     research: techs.research,
     planetTypes,

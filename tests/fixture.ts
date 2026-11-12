@@ -30,6 +30,7 @@ export const rawFixture = {
     { id: 'shipyard', name: 'Shipyard', cost: 50, energyUpkeep: 0, maxPerSystem: 1, effects: [] },
     { id: 'battery', name: 'Battery', cost: 60, energyUpkeep: 0, maxPerSystem: 2, effects: [], combat: { attack: 12, hp: 40, garrison: 0 } },
     { id: 'barracks', name: 'Barracks', cost: 40, energyUpkeep: 0, maxPerSystem: 2, effects: [], combat: { attack: 0, hp: 0, garrison: 12 } },
+    { id: 'forum', name: 'Forum', cost: 40, energyUpkeep: 0, maxPerSystem: 1, effects: [], morale: 10 },
     { id: 'vault', name: 'Vault', cost: 90, energyUpkeep: 0, maxPerSystem: 1, effects: [], requires: { computing: 1 } },
   ],
   hulls: [
@@ -54,12 +55,16 @@ export const rawFixture = {
         research: { biology: 1, construction: 1, energy: 1, propulsion: 1, computing: 1, weapons: 1 },
         warshipsPerColony: 100,
         scouts: 1,
+        minorInfluence: 100,
+        conquersMinors: 0,
       },
       beta: {
         posture: { expand: 100, develop: 100, fortify: 100, war: 100 },
         research: { biology: 1, construction: 1, energy: 1, propulsion: 1, computing: 1, weapons: 3 },
         warshipsPerColony: 100,
         scouts: 1,
+        minorInfluence: 50,
+        conquersMinors: 1,
       },
     },
   },
@@ -71,7 +76,17 @@ export const rawFixture = {
     { id: 'terran', name: 'Terran', weight: 1, maxPopulation: [10, 20], foodBonus: 10, energyBonus: 0 },
     { id: 'barren', name: 'Barren', weight: 1, maxPopulation: [2, 6], foodBonus: -5, energyBonus: 5 },
   ],
-  galaxyPresets: [{ id: 'tiny', width: 8, height: 6, systems: 12 }],
+  galaxyPresets: [
+    { id: 'tiny', width: 8, height: 6, systems: 12 },
+    { id: 'peopled', width: 8, height: 6, systems: 12, minors: 2 },
+  ],
+  minors: [
+    { id: 'sages', name: 'Sages', description: 'Scholars.', population: 8, garrison: 4, wants: ['technology', 'influence'], favouredField: 'computing', techLevel: 1, bonus: { kind: 'output', output: 'research', value: 20 } },
+    { id: 'wardens', name: 'Wardens', description: 'Soldiers.', population: 6, garrison: 10, wants: ['protection', 'neighbours'], favouredField: 'weapons', techLevel: 1, bonus: { kind: 'garrison', value: 50 } },
+    { id: 'pilots', name: 'Pilots', description: 'Navigators.', population: 6, garrison: 2, wants: ['influence', 'protection'], favouredField: 'propulsion', techLevel: 1, bonus: { kind: 'range', value: 1 } },
+    { id: 'bards', name: 'Bards', description: 'Singers.', population: 6, garrison: 2, wants: ['neighbours', 'influence'], favouredField: 'biology', techLevel: 1, bonus: { kind: 'morale', value: 6 } },
+    { id: 'blades', name: 'Blades', description: 'Duellists.', population: 6, garrison: 8, wants: ['protection', 'technology'], favouredField: 'weapons', techLevel: 1, bonus: { kind: 'attack', value: 20 } },
+  ],
   names: { prefixes: ['Al', 'Be', 'Ca', 'De'], suffixes: ['ra', 'ton', 'mir', 'dus'] },
   rules: {
     baseYieldPerWorker: { food: 4, industry: 2, energy: 2, intel: 1, research: 1 },
@@ -96,6 +111,26 @@ export const rawFixture = {
       { type: 'barren', maxPopulation: 10 },
     ],
     difficulty: { easy: -20, normal: 0, hard: 25 },
+    morale: {
+      outputPercent: 100,
+      unrestBelow: 60,
+      maxSwing: 60,
+      guard: 0,
+      maxPeacePenalty: 20,
+      events: {
+        battleWon: { value: 5, turns: 5, label: 'Victory in battle' },
+        battleLost: { value: -5, turns: 5, label: 'Defeat in battle' },
+        colonyCaptured: { value: 6, turns: 10, label: 'A colony captured' },
+        colonyLost: { value: -8, turns: 10, label: 'A colony lost' },
+        conquered: { value: -30, turns: 20, label: 'Recently conquered' },
+        warDeclared: { value: -5, turns: 10, label: 'We declared war' },
+        starvation: { value: -10, turns: 5, label: 'Starvation' },
+        colonyFounded: { value: 2, turns: 5, label: 'A new colony founded' },
+        minorJoined: { value: 8, turns: 15, label: 'A people joined us' },
+        minorConquered: { value: -10, turns: 15, label: 'We conquered a free people' },
+      },
+    },
+    minors: { minPopulation: 6, startAttitude: 30, joinAt: 80, joinTurns: 3, protection: 4, technology: 3, neighbours: 2, neighbourRange: 2, influenceCost: 5, conquestPenalty: 15 },
     combat: { maxRounds: 4, minRollPercent: 100, evadeFirePercent: 50, repairPercent: 25, garrisonPerPopulation: 1, captureLossPercent: 25, captureBuildingLossPercent: 50, dominationPercent: 67 },
     fleets: {
       baseRange: 2,
@@ -124,12 +159,12 @@ export const BETA = 'emp-2' as EmpireId;
  * A two-empire game on the fixture content. Each home starts with population 10
  * (max 40), a farm and a reactor, food +5% and energy +5% from its planets.
  */
-export function newGame(seed = 1): { state: GameState; content: Content } {
+export function newGame(seed = 1, preset: 'tiny' | 'peopled' = 'tiny'): { state: GameState; content: Content } {
   const content = fixtureContent();
   const state = createGame(
     {
       seed,
-      galaxyPreset: 'tiny',
+      galaxyPreset: preset,
       empires: [
         { faction: 'alpha', controller: 'ai' },
         { faction: 'beta', controller: 'ai' },
