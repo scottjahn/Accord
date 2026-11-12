@@ -1,24 +1,87 @@
 {
-  "baseYieldPerWorker": { "food": 4, "industry": 2, "energy": 2, "intel": 1, "research": 1 },
+  "baseYieldPerWorker": {
+    "food": 4,
+    "industry": 2,
+    "energy": 2,
+    "intel": 1,
+    "research": 1
+  },
   "foodPerPop": 2,
   "foodStockCapPerPop": 10,
   "growthCostBase": 20,
   "growthCostPerPop": 4,
   "starvationLossPercent": 10,
   "maxQueueLength": 8,
-  "planetsPerSystem": [1, 5],
+  "planetsPerSystem": [
+    1,
+    5
+  ],
   "startingPopulation": 10,
-  "startingAllocation": { "food": 6, "industry": 2, "energy": 1, "intel": 0, "research": 1 },
-  "startingBuildings": { "farm": 1, "factory": 1, "reactor": 1 },
+  "startingAllocation": {
+    "food": 6,
+    "industry": 2,
+    "energy": 1,
+    "intel": 0,
+    "research": 1
+  },
+  "startingBuildings": {
+    "farm": 1,
+    "factory": 1,
+    "reactor": 1,
+    "shipyard": 1
+  },
   "governors": {
-    "balanced": { "food": 0, "industry": 50, "intel": 20, "research": 30 },
-    "growth": { "food": 50, "industry": 30, "intel": 0, "research": 20 },
-    "industry": { "food": 0, "industry": 80, "intel": 10, "research": 10 },
-    "research": { "food": 0, "industry": 20, "intel": 0, "research": 80 }
+    "balanced": {
+      "food": 0,
+      "industry": 50,
+      "intel": 20,
+      "research": 30
+    },
+    "growth": {
+      "food": 50,
+      "industry": 30,
+      "intel": 0,
+      "research": 20
+    },
+    "industry": {
+      "food": 0,
+      "industry": 80,
+      "intel": 10,
+      "research": 10
+    },
+    "research": {
+      "food": 0,
+      "industry": 20,
+      "intel": 0,
+      "research": 80
+    }
   },
   "homePlanets": [
-    { "type": "terran", "maxPopulation": 30 },
-    { "type": "arid", "maxPopulation": 18 },
-    { "type": "barren", "maxPopulation": 10 }
-  ]
+    {
+      "type": "terran",
+      "maxPopulation": 30
+    },
+    {
+      "type": "arid",
+      "maxPopulation": 18
+    },
+    {
+      "type": "barren",
+      "maxPopulation": 10
+    }
+  ],
+  "fleets": {
+    "baseRange": 3,
+    "propulsionLevelsPerRange": 2,
+    "colonyScanRange": 2,
+    "supportBase": 6,
+    "populationPerSupport": 5,
+    "colonyStartPopulation": 2,
+    "refitCostPercent": 50,
+    "shipyardBuilding": "shipyard",
+    "startingShips": [
+      "scout",
+      "colony_ship"
+    ]
+  }
 }

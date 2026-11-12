@@ -42,7 +42,7 @@ describe('session', () => {
 
     const after = session.getSnapshot();
     expect(after).not.toBe(before);
-    expect(colonyOf(after.state, ALPHA).buildQueue).toEqual([{ building: 'lab', progress: 0 }]);
+    expect(colonyOf(after.state, ALPHA).buildQueue).toEqual([{ kind: 'building', building: 'lab', progress: 0 }]);
     expect(colonyOf(before.state, ALPHA).buildQueue).toEqual([]);
     expect(after.lastError).toBeNull();
     expect(listener).toHaveBeenCalledTimes(1);
@@ -91,7 +91,7 @@ describe('session', () => {
     // Nobody queued anything for the human.
     expect(colonyOf(state, ALPHA).buildQueue).toEqual([]);
     expect(colonyOf(state, ALPHA).governor).toBe('balanced');
-    expect(state.empires[ALPHA].researchPool).toBeGreaterThan(0);
+    expect(Object.values(state.empires[ALPHA].research.progress).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
   });
 
   it('round-trips a save through export and import', () => {

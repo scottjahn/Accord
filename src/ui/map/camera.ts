@@ -28,6 +28,11 @@ export function sectorCenter(sector: Point): Point {
   return { x: (sector.x + 0.5) * SECTOR_SIZE, y: (sector.y + 0.5) * SECTOR_SIZE };
 }
 
+/** The sector containing a world point (may be off the map). */
+export function worldToSector(world: Point): Point {
+  return { x: Math.floor(world.x / SECTOR_SIZE), y: Math.floor(world.y / SECTOR_SIZE) };
+}
+
 export function screenToWorld(camera: Camera, screen: Point): Point {
   return { x: screen.x / camera.zoom + camera.x, y: screen.y / camera.zoom + camera.y };
 }

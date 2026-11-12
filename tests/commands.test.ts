@@ -17,7 +17,7 @@ function setup() {
     const r = submit(s, cmd);
     return r.ok ? 'ok' : r.error.code;
   };
-  const enqueue = (building: string): Command => ({ type: 'enqueueBuild', empire: ALPHA, system: home, building: B(building) });
+  const enqueue = (building: string): Extract<Command, { type: 'enqueueBuild' }> => ({ type: 'enqueueBuild', empire: ALPHA, system: home, building: B(building) });
   return { state, content, home, submit, mustApply, codeOf, enqueue };
 }
 
@@ -68,8 +68,8 @@ describe('commands', () => {
     const { state, mustApply, enqueue } = setup();
     const next = mustApply(mustApply(state, enqueue('factory')), enqueue('lab'));
     expect(colonyOf(next, ALPHA).buildQueue).toEqual([
-      { building: 'factory', progress: 0 },
-      { building: 'lab', progress: 0 },
+      { kind: 'building', building: 'factory', progress: 0 },
+      { kind: 'building', building: 'lab', progress: 0 },
     ]);
   });
 
@@ -96,11 +96,11 @@ describe('commands', () => {
   it('removes a queued item, losing its progress', () => {
     const { state, home, mustApply, codeOf } = setup();
     colonyOf(state, ALPHA).buildQueue = [
-      { building: B('factory'), progress: 30 },
-      { building: B('lab'), progress: 0 },
+      { kind: 'building', building: B('factory'), progress: 30 },
+      { kind: 'building', building: B('lab'), progress: 0 },
     ];
     const next = mustApply(state, { type: 'dequeueBuild', empire: ALPHA, system: home, index: 0 });
-    expect(colonyOf(next, ALPHA).buildQueue).toEqual([{ building: 'lab', progress: 0 }]);
+    expect(colonyOf(next, ALPHA).buildQueue).toEqual([{ kind: 'building', building: 'lab', progress: 0 }]);
     expect(codeOf(state, { type: 'dequeueBuild', empire: ALPHA, system: home, index: 2 })).toBe('badIndex');
     expect(codeOf(state, { type: 'dequeueBuild', empire: ALPHA, system: home, index: -1 })).toBe('badIndex');
   });
@@ -108,15 +108,15 @@ describe('commands', () => {
   it('reorders the queue and keeps progress with each item', () => {
     const { state, home, mustApply, codeOf } = setup();
     colonyOf(state, ALPHA).buildQueue = [
-      { building: B('factory'), progress: 30 },
-      { building: B('lab'), progress: 5 },
-      { building: B('farm'), progress: 0 },
+      { kind: 'building', building: B('factory'), progress: 30 },
+      { kind: 'building', building: B('lab'), progress: 5 },
+      { kind: 'building', building: B('farm'), progress: 0 },
     ];
     const next = mustApply(state, { type: 'moveBuild', empire: ALPHA, system: home, from: 2, to: 0 });
     expect(colonyOf(next, ALPHA).buildQueue).toEqual([
-      { building: 'farm', progress: 0 },
-      { building: 'factory', progress: 30 },
-      { building: 'lab', progress: 5 },
+      { kind: 'building', building: 'farm', progress: 0 },
+      { kind: 'building', building: 'factory', progress: 30 },
+      { kind: 'building', building: 'lab', progress: 5 },
     ]);
     expect(codeOf(state, { type: 'moveBuild', empire: ALPHA, system: home, from: 0, to: 3 })).toBe('badIndex');
   });

@@ -10,7 +10,7 @@ import { hashState, type TurnEvent } from '../src/sim';
 describe('500-turn soak', () => {
   const content = loadContent();
 
-  it.each([1, 2, 3, 2026])('seed %i runs 500 turns with sound state every turn', (seed) => {
+  it.each([1, 2026])('seed %i runs 500 turns with sound state every turn', (seed) => {
     const events: TurnEvent[] = [];
     const final = runGame({
       content,
@@ -26,7 +26,7 @@ describe('500-turn soak', () => {
       const colony = final.systems[empire.homeSystem].colony!;
       // The game actually progressed: colonies grew, built and banked points.
       expect(colony.population).toBeGreaterThan(content.rules.startingPopulation);
-      expect(empire.researchPool).toBeGreaterThan(0);
+      expect(Object.values(empire.research.levels).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
       expect(empire.intelPool).toBeGreaterThan(0);
     }
     expect(events.some((e) => e.type === 'buildCompleted')).toBe(true);

@@ -10,11 +10,13 @@ import {
   screenToWorld,
   sectorCenter,
   worldToScreen,
+  worldToSector,
   zoomAt,
   type Camera,
 } from '../src/ui/map/camera';
 import { NEUTRAL_COLOR, buildScene } from '../src/ui/map/scene';
-import { ALPHA, BETA, homeOf, newGame } from './fixture';
+import { getEmpireView } from '../src/sim';
+import { ALPHA, BETA, addFleet, homeOf, newGame } from './fixture';
 
 const camera: Camera = { x: 100, y: 40, zoom: 1.5 };
 
@@ -88,34 +90,82 @@ describe('camera', () => {
 });
 
 describe('map scene', () => {
-  it('describes every system with position, owner colour and home flag', () => {
+  it('finds the sector under a world point', () => {
+    expect(worldToSector({ x: 0, y: 0 })).toEqual({ x: 0, y: 0 });
+    expect(worldToSector({ x: 63.9, y: 64 })).toEqual({ x: 0, y: 1 });
+    expect(worldToSector({ x: -1, y: 200 })).toEqual({ x: -1, y: 3 });
+    expect(worldToSector(sectorCenter({ x: 5, y: 2 }))).toEqual({ x: 5, y: 2 });
+  });
+
+  it('shows only what the player knows', () => {
     const { state, content } = newGame(2);
-    const scene = buildScene(state, content);
+    const view = getEmpireView(state, ALPHA, content);
+    const scene = buildScene(state, content, view);
     expect(scene.width).toBe(8);
     expect(scene.height).toBe(6);
     expect(scene.systems).toHaveLength(12);
+    expect(scene.visible).toBe(view.visible);
+    expect(scene.range).toBeNull();
+    expect(scene.route).toBeNull();
 
-    const alphaHome = scene.systems.find((s) => s.id === homeOf(state, ALPHA).id)!;
-    expect(alphaHome).toMatchObject({ color: 0x4da3ff, owned: true, isHome: true });
-    expect({ x: alphaHome.x, y: alphaHome.y }).toEqual(sectorCenter(homeOf(state, ALPHA).sector));
+    const home = homeOf(state, ALPHA);
+    const alphaHome = scene.systems.find((s) => s.id === home.id)!;
+    expect(alphaHome).toMatchObject({ color: 0x4da3ff, owned: true, isHome: true, known: true, name: home.name });
+    expect({ x: alphaHome.x, y: alphaHome.y }).toEqual(sectorCenter(home.sector));
 
+    // The rival's home has not been scanned: a dim anonymous star.
     const betaHome = scene.systems.find((s) => s.id === homeOf(state, BETA).id)!;
-    expect(betaHome.color).toBe(0xe5533d);
-
-    const neutral = scene.systems.filter((s) => !s.owned);
-    expect(neutral).toHaveLength(10);
-    for (const s of neutral) {
-      expect(s.color).toBe(NEUTRAL_COLOR);
-      expect(s.isHome).toBe(false);
-    }
+    expect(betaHome).toMatchObject({ color: NEUTRAL_COLOR, owned: false, isHome: false, known: false, name: '' });
   });
 
-  it('can pick a system from a click at its position', () => {
+  it('colours a rival system from the last time it was seen', () => {
     const { state, content } = newGame(2);
-    const scene = buildScene(state, content);
+    state.empires[ALPHA].knownSystems[homeOf(state, BETA).id] = BETA;
+    const scene = buildScene(state, content, getEmpireView(state, ALPHA, content));
+    const betaHome = scene.systems.find((s) => s.id === homeOf(state, BETA).id)!;
+    expect(betaHome).toMatchObject({ color: 0xe5533d, owned: true, isHome: true, known: true });
+  });
+
+  it('draws one fleet marker per owner per sector and marks the selection', () => {
+    const { state, content } = newGame(2);
+    const home = homeOf(state, ALPHA).sector;
+    const mine = addFleet(state, content, ALPHA, home, ['frigate']);
+    addFleet(state, content, ALPHA, home, ['scout', 'scout']);
+    addFleet(state, content, BETA, home, ['frigate']);
+    addFleet(state, content, BETA, homeOf(state, BETA).sector, ['frigate']); // out of sight
+
+    const scene = buildScene(state, content, getEmpireView(state, ALPHA, content), mine);
+    expect(scene.fleets).toHaveLength(2);
+    expect(scene.fleets.find((f) => f.own)).toMatchObject({ sector: home, ships: 3, color: 0x4da3ff, selected: true, slot: 0 });
+    expect(scene.fleets.find((f) => !f.own)).toMatchObject({ sector: home, ships: 1, color: 0xe5533d, selected: false, slot: 1 });
+  });
+
+  it('gives the supply range and route of the selected fleet', () => {
+    const { state, content } = newGame(2);
+    const home = homeOf(state, ALPHA).sector;
+    const fleet = addFleet(state, content, ALPHA, home, ['frigate']);
+    const dest = { x: home.x + (home.x < 6 ? 2 : -2), y: home.y };
+    fleet.destination = dest;
+
+    const scene = buildScene(state, content, getEmpireView(state, ALPHA, content), fleet);
+    expect(scene.range!.has(`${home.x},${home.y}`)).toBe(true);
+    expect(scene.range!.has(`${dest.x},${dest.y}`)).toBe(true);
+    expect(scene.route).toHaveLength(3);
+    expect(scene.route![0]).toEqual(sectorCenter(home));
+    expect(scene.route![2]).toEqual(sectorCenter(dest));
+
+    // A rival's fleet shows no range or route.
+    const theirs = addFleet(state, content, BETA, home, ['frigate']);
+    expect(buildScene(state, content, getEmpireView(state, ALPHA, content), theirs).range).toBeNull();
+  });
+
+  it('can pick the sector of a system from a click at its position', () => {
+    const { state, content } = newGame(2);
+    const scene = buildScene(state, content, getEmpireView(state, ALPHA, content));
     const fitted = fitCamera(scene, { width: 800, height: 600 });
     const target = scene.systems[5];
     const click = worldToScreen(fitted, target);
+    expect(worldToSector(screenToWorld(fitted, click))).toEqual(target.sector);
     expect(pickNearest(scene.systems, screenToWorld(fitted, click), SECTOR_SIZE * 0.45)?.id).toBe(target.id);
   });
 });

@@ -14,6 +14,9 @@ Read `DESIGN.md` for the game design and milestone list.
 - **Every number is traceable.** Outputs are returned as `OutputBreakdown` with one line per cause.
 
 - **The UI does no game maths.** Screens show what `getColonyEconomy` and `forecastColony` return and change the game only through `session.dispatch`. If the UI needs a new number, add it to the sim with a test.
+- **Fog of war goes through `getEmpireView`.** The UI draws from it and agents must decide from it (or from `empire.knownSystems`); never show or act on a rival's state that the view hides.
+- **Agents return only legal commands.** `playTurn` throws on an illegal one. Check with `validateCommand` against a working copy, as `baselineAgent` does.
+- **Disabled buttons explain themselves with the sim's own message:** call `validateCommand` and show its `message` rather than re-deriving the rule in the UI.
 - **PixiJS stays inside `src/ui/map/mapRenderer.ts`.** Pan, zoom and hit-testing live in `camera.ts` as pure functions with tests.
 
 ## Commands

@@ -3,6 +3,7 @@ import { SECTOR_SIZE, type Camera } from './camera';
 import type { MapScene } from './scene';
 
 const GRID_COLOR = 0x8fa3c8;
+const RANGE_COLOR = 0x6cb6ff;
 const LABEL_MIN_ZOOM = 0.5;
 
 /** Draws the galaxy with PixiJS. Knows nothing about game rules; it renders a MapScene. */
@@ -10,9 +11,12 @@ export class MapRenderer {
   private readonly app = new Application();
   private readonly world = new Container();
   private readonly grid = new Graphics();
+  private readonly range = new Graphics();
   private readonly territory = new Graphics();
-  private readonly stars = new Graphics();
+  private readonly fog = new Graphics();
   private readonly selection = new Graphics();
+  private readonly stars = new Graphics();
+  private readonly fleets = new Graphics();
   private readonly labels = new Container();
   private readonly labelById = new Map<string, Text>();
   private zoom = 1;
@@ -27,7 +31,7 @@ export class MapRenderer {
       autoDensity: true,
     });
     host.appendChild(this.app.canvas);
-    this.world.addChild(this.grid, this.territory, this.selection, this.stars, this.labels);
+    this.world.addChild(this.grid, this.territory, this.fog, this.range, this.selection, this.stars, this.fleets, this.labels);
     this.app.stage.addChild(this.world);
     this.ready = true;
   }
@@ -36,15 +40,34 @@ export class MapRenderer {
     return { width: this.app.screen.width, height: this.app.screen.height };
   }
 
-  setScene(scene: MapScene, selected: string | null): void {
+  setScene(scene: MapScene, selectedSystem: string | null): void {
     if (!this.ready) return;
-    const width = scene.width * SECTOR_SIZE;
-    const height = scene.height * SECTOR_SIZE;
+    const S = SECTOR_SIZE;
+    const width = scene.width * S;
+    const height = scene.height * S;
 
     this.grid.clear();
-    for (let x = 0; x <= scene.width; x++) this.grid.moveTo(x * SECTOR_SIZE, 0).lineTo(x * SECTOR_SIZE, height);
-    for (let y = 0; y <= scene.height; y++) this.grid.moveTo(0, y * SECTOR_SIZE).lineTo(width, y * SECTOR_SIZE);
+    for (let x = 0; x <= scene.width; x++) this.grid.moveTo(x * S, 0).lineTo(x * S, height);
+    for (let y = 0; y <= scene.height; y++) this.grid.moveTo(0, y * S).lineTo(width, y * S);
     this.grid.stroke({ width: 1, color: GRID_COLOR, alpha: 0.14 });
+
+    // Fog over everything the player cannot see right now; supply range for the selected fleet.
+    this.fog.clear();
+    this.range.clear();
+    for (let y = 0; y < scene.height; y++) {
+      for (let x = 0; x < scene.width; x++) {
+        const key = `${x},${y}`;
+        if (!scene.visible.has(key)) this.fog.rect(x * S, y * S, S, S).fill({ color: 0x000000, alpha: 0.42 });
+        if (scene.range?.has(key)) this.range.rect(x * S + 1, y * S + 1, S - 2, S - 2).fill({ color: RANGE_COLOR, alpha: 0.1 });
+      }
+    }
+    if (scene.route && scene.route.length > 1) {
+      this.range.moveTo(scene.route[0].x, scene.route[0].y);
+      for (const point of scene.route.slice(1)) this.range.lineTo(point.x, point.y);
+      this.range.stroke({ width: 2, color: 0xffffff, alpha: 0.8 });
+      const end = scene.route[scene.route.length - 1];
+      this.range.circle(end.x, end.y, 6).stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
+    }
 
     this.territory.clear();
     this.stars.clear();
@@ -54,21 +77,22 @@ export class MapRenderer {
     for (const system of scene.systems) {
       if (system.owned) {
         this.territory
-          .rect(system.sector.x * SECTOR_SIZE + 1, system.sector.y * SECTOR_SIZE + 1, SECTOR_SIZE - 2, SECTOR_SIZE - 2)
+          .rect(system.sector.x * S + 1, system.sector.y * S + 1, S - 2, S - 2)
           .fill({ color: system.color, alpha: 0.16 })
           .stroke({ width: 1, color: system.color, alpha: 0.5 });
         this.stars.circle(system.x, system.y, system.radius + 5).fill({ color: system.color, alpha: 0.25 });
       }
-      this.stars.circle(system.x, system.y, system.radius).fill({ color: system.color });
+      this.stars.circle(system.x, system.y, system.radius).fill({ color: system.color, alpha: system.known ? 1 : 0.45 });
       if (system.isHome) {
         this.stars.circle(system.x, system.y, system.radius + 8).stroke({ width: 1.5, color: system.color, alpha: 0.9 });
       }
-      if (system.id === selected) {
+      if (system.id === selectedSystem) {
         this.selection
-          .rect(system.sector.x * SECTOR_SIZE + 2, system.sector.y * SECTOR_SIZE + 2, SECTOR_SIZE - 4, SECTOR_SIZE - 4)
+          .rect(system.sector.x * S + 2, system.sector.y * S + 2, S - 4, S - 4)
           .stroke({ width: 2, color: 0xffffff, alpha: 0.95 });
       }
 
+      if (!system.known) continue;
       seen.add(system.id);
       let label = this.labelById.get(system.id);
       if (!label) {
@@ -82,7 +106,7 @@ export class MapRenderer {
         this.labels.addChild(label);
       }
       label.text = system.name;
-      label.alpha = system.owned || system.id === selected ? 1 : 0.6;
+      label.alpha = system.owned || system.id === selectedSystem ? 1 : 0.6;
       label.position.set(system.x, system.y + system.radius + 6);
     }
 
@@ -91,6 +115,22 @@ export class MapRenderer {
       label.destroy();
       this.labelById.delete(id);
     }
+
+    // Fleets: a chevron in the sector's top-right corner, one per owner, with a pip per ship.
+    this.fleets.clear();
+    for (const fleet of scene.fleets) {
+      const cx = (fleet.sector.x + 1) * S - 14 - fleet.slot * 18;
+      const cy = fleet.sector.y * S + 14;
+      if (fleet.selected) this.fleets.circle(cx, cy, 11).stroke({ width: 2, color: 0xffffff, alpha: 0.95 });
+      this.fleets
+        .poly([cx, cy - 7, cx + 6, cy + 6, cx, cy + 2, cx - 6, cy + 6])
+        .fill({ color: fleet.color })
+        .stroke({ width: 1, color: 0x000000, alpha: 0.6 });
+      for (let i = 0; i < Math.min(fleet.ships, 5); i++) {
+        this.fleets.circle(cx - 6 + i * 3, cy + 10, 1).fill({ color: 0xffffff, alpha: 0.9 });
+      }
+    }
+
     this.scaleLabels();
   }
 

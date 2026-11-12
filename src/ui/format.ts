@@ -1,4 +1,16 @@
-import type { BreakdownLine, BuildingDef, Content, Governor, OutputKind, TurnEvent, GameState } from '../sim';
+import {
+  systemAt,
+  type BreakdownLine,
+  type BuildingDef,
+  type Content,
+  type EmpireId,
+  type GameState,
+  type Governor,
+  type HullRole,
+  type OutputKind,
+  type Sector,
+  type TurnEvent,
+} from '../sim';
 
 export const OUTPUT_LABELS: Record<OutputKind, string> = {
   food: 'Food',
@@ -16,9 +28,26 @@ export const GOVERNOR_LABELS: Record<Governor, string> = {
   research: 'Research',
 };
 
+export const ROLE_LABELS: Record<HullRole, string> = {
+  scout: 'Scout',
+  colony: 'Colony ship',
+  warship: 'Warship',
+};
+
 export const signed = (n: number): string => (n > 0 ? `+${n}` : `${n}`);
 
 export const turns = (n: number): string => (n === 1 ? '1 turn' : `${n} turns`);
+
+export const sectors = (n: number): string => (n === 1 ? '1 sector' : `${n} sectors`);
+
+export const ships = (n: number): string => (n === 1 ? '1 ship' : `${n} ships`);
+
+export const sectorLabel = (sector: Sector): string => `${sector.x + 1}, ${sector.y + 1}`;
+
+/** The system's name if there is one in the sector, otherwise the sector coordinates. */
+export function placeName(state: GameState, sector: Sector): string {
+  return systemAt(state, sector)?.name ?? `sector ${sectorLabel(sector)}`;
+}
 
 export function lineValue(line: BreakdownLine): string {
   return line.kind === 'percent' ? `${signed(line.value)}%` : signed(line.value);
@@ -37,14 +66,34 @@ export function modifiersText(modifiers: Partial<Record<OutputKind, number>>): s
   return parts.length > 0 ? parts.join(', ') : 'No modifiers';
 }
 
+/** Whether an event belongs in this player's turn report. */
+export function eventIsMine(event: TurnEvent, state: GameState, player: EmpireId): boolean {
+  if ('empire' in event) return event.empire === player;
+  return state.systems[event.system]?.colony?.owner === player;
+}
+
 export function eventText(event: TurnEvent, state: GameState, content: Content): string {
-  const name = state.systems[event.system]?.name ?? event.system;
+  const systemName = (id: string | null) => (id && state.systems[id as keyof typeof state.systems]?.name) || 'a system';
   switch (event.type) {
     case 'buildCompleted':
-      return `${name}: ${content.buildings[event.building]?.name ?? event.building} completed`;
+      return `${systemName(event.system)}: ${content.buildings[event.building]?.name ?? event.building} completed`;
+    case 'shipBuilt':
+      return `${systemName(event.system)}: ${content.hulls[event.hull]?.name ?? event.hull} launched`;
+    case 'refitCompleted':
+      return `${systemName(event.system)}: refit to ${content.hulls[event.hull]?.name ?? event.hull} complete`;
     case 'populationGrew':
-      return `${name}: population grew to ${event.population}`;
+      return `${systemName(event.system)}: population grew to ${event.population}`;
     case 'starvation':
-      return `${name}: starvation, ${event.lost} population lost`;
+      return `${systemName(event.system)}: starvation, ${event.lost} population lost`;
+    case 'researchCompleted':
+      return `${content.fields[event.field].name} reached level ${event.level}`;
+    case 'fleetArrived':
+      return `Fleet arrived at ${placeName(state, event.sector)}`;
+    case 'fleetBlocked':
+      return 'A fleet lost its route and stopped';
+    case 'colonyFounded':
+      return `Colony founded at ${systemName(event.system)}`;
+    case 'coloniseFailed':
+      return `Could not colonise ${systemName(event.system)}`;
   }
 }

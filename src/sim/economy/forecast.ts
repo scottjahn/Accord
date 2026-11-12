@@ -1,6 +1,7 @@
 import type { Content } from '../content';
 import { sortedKeys, type BuildingId } from '../ids';
 import { OUTPUT_KINDS, type GameState, type StarSystem } from '../types';
+import { itemCost, itemName } from './build';
 import { growthCost } from './growth';
 import { computeColonyEconomy } from './outputs';
 
@@ -19,7 +20,7 @@ export interface ColonyForecast {
   /** Buildings without power this turn; only buildings with at least one offline. */
   offline: Record<BuildingId, number>;
   /** One entry per build queue item, in queue order. turnsLeft is null with no industry. */
-  queue: { building: BuildingId; turnsLeft: number | null }[];
+  queue: { name: string; cost: number; turnsLeft: number | null }[];
 }
 
 export function forecastColony(state: GameState, system: StarSystem, content: Content): ColonyForecast {
@@ -46,9 +47,11 @@ export function forecastColony(state: GameState, system: StarSystem, content: Co
   const industry = economy.outputs.industry.total;
   let remaining = 0;
   const queue = colony.buildQueue.map((item) => {
-    remaining += Math.max(0, (content.buildings[item.building]?.cost ?? 0) - item.progress);
+    const cost = itemCost(item, content) ?? 0;
+    remaining += Math.max(0, cost - item.progress);
     return {
-      building: item.building,
+      name: itemName(item, content),
+      cost,
       turnsLeft: industry > 0 ? Math.max(1, Math.ceil(remaining / industry)) : null,
     };
   });

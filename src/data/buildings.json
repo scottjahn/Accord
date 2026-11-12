@@ -5,7 +5,14 @@
     "cost": 40,
     "energyUpkeep": 1,
     "maxPerSystem": 5,
-    "effects": [{ "output": "food", "kind": "flat", "value": 4 }]
+    "effects": [
+      {
+        "output": "food",
+        "kind": "flat",
+        "value": 4
+      }
+    ],
+    "requires": {}
   },
   {
     "id": "factory",
@@ -13,7 +20,14 @@
     "cost": 60,
     "energyUpkeep": 2,
     "maxPerSystem": 6,
-    "effects": [{ "output": "industry", "kind": "flat", "value": 3 }]
+    "effects": [
+      {
+        "output": "industry",
+        "kind": "flat",
+        "value": 3
+      }
+    ],
+    "requires": {}
   },
   {
     "id": "reactor",
@@ -21,7 +35,14 @@
     "cost": 50,
     "energyUpkeep": 0,
     "maxPerSystem": 6,
-    "effects": [{ "output": "energy", "kind": "flat", "value": 6 }]
+    "effects": [
+      {
+        "output": "energy",
+        "kind": "flat",
+        "value": 6
+      }
+    ],
+    "requires": {}
   },
   {
     "id": "lab",
@@ -29,7 +50,14 @@
     "cost": 80,
     "energyUpkeep": 2,
     "maxPerSystem": 5,
-    "effects": [{ "output": "research", "kind": "flat", "value": 3 }]
+    "effects": [
+      {
+        "output": "research",
+        "kind": "flat",
+        "value": 3
+      }
+    ],
+    "requires": {}
   },
   {
     "id": "listening_post",
@@ -37,7 +65,14 @@
     "cost": 80,
     "energyUpkeep": 2,
     "maxPerSystem": 4,
-    "effects": [{ "output": "intel", "kind": "flat", "value": 3 }]
+    "effects": [
+      {
+        "output": "intel",
+        "kind": "flat",
+        "value": 3
+      }
+    ],
+    "requires": {}
   },
   {
     "id": "foundry",
@@ -45,7 +80,16 @@
     "cost": 150,
     "energyUpkeep": 3,
     "maxPerSystem": 2,
-    "effects": [{ "output": "industry", "kind": "percent", "value": 10 }]
+    "effects": [
+      {
+        "output": "industry",
+        "kind": "percent",
+        "value": 10
+      }
+    ],
+    "requires": {
+      "construction": 2
+    }
   },
   {
     "id": "university",
@@ -53,6 +97,24 @@
     "cost": 180,
     "energyUpkeep": 3,
     "maxPerSystem": 1,
-    "effects": [{ "output": "research", "kind": "percent", "value": 15 }]
+    "effects": [
+      {
+        "output": "research",
+        "kind": "percent",
+        "value": 15
+      }
+    ],
+    "requires": {
+      "computing": 2
+    }
+  },
+  {
+    "id": "shipyard",
+    "name": "Shipyard",
+    "cost": 120,
+    "energyUpkeep": 2,
+    "maxPerSystem": 1,
+    "effects": [],
+    "requires": {}
   }
 ]

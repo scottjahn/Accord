@@ -1,5 +1,5 @@
 import type { Content, EmpireId, GameState, TurnEvent } from '../../sim';
-import { eventText } from '../format';
+import { eventIsMine, eventText } from '../format';
 
 interface Props {
   state: GameState;
@@ -8,9 +8,11 @@ interface Props {
   events: TurnEvent[];
 }
 
-/** What happened in the player's own systems during the turn that just resolved. */
+const BAD: TurnEvent['type'][] = ['starvation', 'coloniseFailed', 'fleetBlocked'];
+
+/** What happened to the player's own empire during the turn that just resolved. */
 export function EventLog({ state, content, player, events }: Props) {
-  const mine = events.filter((e) => state.systems[e.system]?.colony?.owner === player);
+  const mine = events.filter((e) => eventIsMine(e, state, player));
   if (state.turn === 1) return null;
   return (
     <div className="event-log" aria-label="Last turn" aria-live="polite">
@@ -20,7 +22,7 @@ export function EventLog({ state, content, player, events }: Props) {
       ) : (
         <ul>
           {mine.map((event, i) => (
-            <li key={i} className={event.type === 'starvation' ? 'bad' : undefined}>
+            <li key={i} className={BAD.includes(event.type) ? 'bad' : undefined}>
               {eventText(event, state, content)}
             </li>
           ))}

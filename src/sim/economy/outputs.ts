@@ -1,6 +1,7 @@
 import type { Content } from '../content';
 import { sortedKeys, type BuildingId } from '../ids';
 import {
+  FIELDS,
   OUTPUT_KINDS,
   type BreakdownLine,
   type Colony,
@@ -72,7 +73,17 @@ function linesFor(
     lines.push({ source: `Planet ${i + 1} (${typeName})`, kind: 'percent', value: bonus });
   });
 
-  const faction = content.factions[state.empires[colony.owner].faction];
+  const empire = state.empires[colony.owner];
+  for (const field of FIELDS) {
+    const level = empire.research.levels[field];
+    if (level === 0) continue;
+    for (const effect of content.fields[field].effects) {
+      if (effect.output !== kind) continue;
+      lines.push({ source: `${content.fields[field].name} level ${level}`, kind: 'percent', value: effect.percentPerLevel * level });
+    }
+  }
+
+  const faction = content.factions[empire.faction];
   const factionBonus = faction?.outputModifiers[kind] ?? 0;
   if (factionBonus !== 0) lines.push({ source: faction.name, kind: 'percent', value: factionBonus });
 

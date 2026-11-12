@@ -7,6 +7,9 @@ export type SystemId = Brand<string, 'SystemId'>;
 export type EmpireId = Brand<string, 'EmpireId'>;
 export type FactionId = Brand<string, 'FactionId'>;
 export type BuildingId = Brand<string, 'BuildingId'>;
+export type HullId = Brand<string, 'HullId'>;
+export type FleetId = Brand<string, 'FleetId'>;
+export type ShipId = Brand<string, 'ShipId'>;
 
 /**
  * Keys of a record in sorted order. The sim always iterates records through this

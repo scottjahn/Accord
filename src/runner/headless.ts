@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { loadContent } from '../data';
-import { getOutputs, hashState, serialize, sortedKeys, type Content, type GameState } from '../sim';
+import { FIELDS, eraOf, fleetsOf, getOutputs, hashState, serialize, sortedKeys, type Content, type GameState } from '../sim';
 import { runGame } from './runGame';
 
 /**
@@ -39,9 +39,11 @@ function summarise(state: GameState, content: Content): string {
       0,
     );
     const home = getOutputs(state, empire.homeSystem, content);
+    const levels = FIELDS.map((f) => empire.research.levels[f]).join('/');
+    const ships = fleetsOf(state, id).reduce((sum, f) => sum + f.ships.length, 0);
     lines.push(
       `  ${content.factions[empire.faction].name.padEnd(18)} systems ${owned.length}  pop ${population}  buildings ${buildings}` +
-        `  research ${empire.researchPool}  intel ${empire.intelPool}` +
+        `  ships ${ships}  era ${eraOf(empire.research, content)} (${levels})  intel ${empire.intelPool}` +
         `  home F${home.food.total} I${home.industry.total} E${home.energy.total} N${home.intel.total} R${home.research.total}`,
     );
   }

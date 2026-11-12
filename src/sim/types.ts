@@ -1,8 +1,8 @@
-import type { BuildingId, EmpireId, FactionId, SystemId } from './ids';
+import type { BuildingId, EmpireId, FactionId, FleetId, HullId, ShipId, SystemId } from './ids';
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /**
  * Who assigns a colony's workers. 'manual' leaves the allocation alone; the
@@ -15,6 +15,10 @@ export type AutoGovernor = Exclude<Governor, 'manual'>;
 export const OUTPUT_KINDS = ['food', 'industry', 'energy', 'intel', 'research'] as const;
 export type OutputKind = (typeof OUTPUT_KINDS)[number];
 export type Outputs = Record<OutputKind, number>;
+
+export const FIELDS = ['biology', 'construction', 'energy', 'propulsion', 'computing', 'weapons'] as const;
+export type FieldId = (typeof FIELDS)[number];
+export const MAX_RESEARCH_LEVEL = 10;
 
 export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
@@ -32,11 +36,11 @@ export interface Planet {
   energyBonus: number;
 }
 
-export interface BuildItem {
-  building: BuildingId;
-  /** Industry points already spent on this item. */
-  progress: number;
-}
+/** Something a colony is building. `progress` is the industry already spent on it. */
+export type BuildItem =
+  | { kind: 'building'; building: BuildingId; progress: number }
+  | { kind: 'ship'; hull: HullId; progress: number }
+  | { kind: 'refit'; ship: ShipId; hull: HullId; progress: number };
 
 export interface Colony {
   owner: EmpireId;
@@ -61,13 +65,46 @@ export interface StarSystem {
   colony: Colony | null;
 }
 
+export interface ResearchState {
+  /** 0 to MAX_RESEARCH_LEVEL per field. */
+  levels: Record<FieldId, number>;
+  /** Research points banked toward the next level of each field. */
+  progress: Record<FieldId, number>;
+  /** How each turn's research is split: integer percents summing to 100. */
+  allocation: Record<FieldId, number>;
+}
+
+export interface Ship {
+  id: ShipId;
+  hull: HullId;
+  hp: number;
+}
+
+/** 'colonise' founds a colony with one colony ship when the fleet reaches its destination. */
+export type FleetOrder = 'none' | 'colonise';
+
+export interface Fleet {
+  id: FleetId;
+  owner: EmpireId;
+  sector: Sector;
+  ships: Ship[];
+  /** Where the fleet is heading, or null if it is holding position. */
+  destination: Sector | null;
+  order: FleetOrder;
+}
+
 export interface Empire {
   id: EmpireId;
   faction: FactionId;
   controller: 'human' | 'ai';
   homeSystem: SystemId;
-  researchPool: number;
+  research: ResearchState;
   intelPool: number;
+  /**
+   * Systems this empire has scanned, with the owner it last saw there
+   * (null = unclaimed when last seen). Systems never scanned are absent.
+   */
+  knownSystems: Record<SystemId, EmpireId | null>;
 }
 
 export interface GameState {
@@ -79,6 +116,9 @@ export interface GameState {
   galaxy: { width: number; height: number };
   systems: Record<SystemId, StarSystem>;
   empires: Record<EmpireId, Empire>;
+  fleets: Record<FleetId, Fleet>;
+  /** Counter for fleet and ship ids. */
+  nextId: number;
 }
 
 export interface GameConfig {
@@ -104,5 +144,12 @@ export interface OutputBreakdown {
 
 export type TurnEvent =
   | { type: 'buildCompleted'; system: SystemId; building: BuildingId }
+  | { type: 'shipBuilt'; system: SystemId; hull: HullId; fleet: FleetId }
+  | { type: 'refitCompleted'; system: SystemId; hull: HullId }
   | { type: 'populationGrew'; system: SystemId; population: number }
-  | { type: 'starvation'; system: SystemId; lost: number; population: number };
+  | { type: 'starvation'; system: SystemId; lost: number; population: number }
+  | { type: 'researchCompleted'; empire: EmpireId; field: FieldId; level: number }
+  | { type: 'fleetArrived'; empire: EmpireId; fleet: FleetId; sector: Sector }
+  | { type: 'fleetBlocked'; empire: EmpireId; fleet: FleetId }
+  | { type: 'colonyFounded'; empire: EmpireId; system: SystemId }
+  | { type: 'coloniseFailed'; empire: EmpireId; system: SystemId | null };

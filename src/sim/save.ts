@@ -40,6 +40,7 @@ export function deserialize(json: string): Result<GameState, SaveError> {
     return bad('Save has no galaxy size');
   }
   if (!isObj(raw.systems) || !isObj(raw.empires)) return bad('Save has no systems or empires');
+  if (!isObj(raw.fleets) || !Number.isInteger(raw.nextId)) return bad('Save has no fleets');
 
   return { ok: true, value: raw as unknown as GameState };
 }

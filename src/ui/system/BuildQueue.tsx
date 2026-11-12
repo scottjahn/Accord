@@ -1,15 +1,18 @@
 import {
   sortedKeys,
+  validateCommand,
   type Colony,
   type ColonyForecast,
   type Command,
   type Content,
   type EmpireId,
+  type GameState,
   type SystemId,
 } from '../../sim';
-import { effectsText, turns } from '../format';
+import { ROLE_LABELS, effectsText, turns } from '../format';
 
 interface Props {
+  state: GameState;
   colony: Colony;
   content: Content;
   forecast: ColonyForecast;
@@ -18,11 +21,14 @@ interface Props {
   dispatch: (command: Command) => boolean;
 }
 
-export function BuildQueue({ colony, content, forecast, player, systemId, dispatch }: Props) {
+export function BuildQueue({ state, colony, content, forecast, player, systemId, dispatch }: Props) {
   const queue = colony.buildQueue;
-  const queueFull = queue.length >= content.rules.maxQueueLength;
   const target = { empire: player, system: systemId };
   const offline = sortedKeys(forecast.offline);
+  const yard = content.rules.fleets.shipyardBuilding;
+  const hasYard = (colony.buildings[yard] ?? 0) > 0;
+  /** Why the sim would reject this command, so the button can say so. */
+  const blocker = (command: Command) => validateCommand(state, command, content)?.message;
 
   return (
     <section>
@@ -36,19 +42,17 @@ export function BuildQueue({ colony, content, forecast, player, systemId, dispat
       {queue.length === 0 ? (
         <p className="warn">Nothing queued. Industry is going to waste.</p>
       ) : (
-        <ol className="queue-list" aria-label="Queued buildings">
+        <ol className="queue-list" aria-label="Build queue items">
           {queue.map((item, i) => {
-            const def = content.buildings[item.building];
-            const name = def?.name ?? item.building;
-            const left = forecast.queue[i]?.turnsLeft ?? null;
+            const { name, cost, turnsLeft } = forecast.queue[i];
             return (
               <li key={i}>
                 <div className="queue-info">
                   <span>{name}</span>
                   <span className="muted">
-                    {item.progress} / {def?.cost ?? '?'} · {left === null ? 'stalled' : turns(left)}
+                    {item.progress} / {cost} · {turnsLeft === null ? 'stalled' : turns(turnsLeft)}
                   </span>
-                  <progress max={def?.cost ?? 1} value={item.progress} aria-label={`${name} progress`} />
+                  <progress max={cost || 1} value={item.progress} aria-label={`${name} progress`} />
                 </div>
                 <div className="queue-actions">
                   <button
@@ -96,9 +100,9 @@ export function BuildQueue({ colony, content, forecast, player, systemId, dispat
         {sortedKeys(content.buildings).map((id) => {
           const def = content.buildings[id];
           const built = colony.buildings[id] ?? 0;
-          const queued = queue.filter((item) => item.building === id).length;
-          const atLimit = built + queued >= def.maxPerSystem;
-          const reason = atLimit ? 'Limit reached' : queueFull ? 'Queue is full' : undefined;
+          const queued = queue.filter((item) => item.kind === 'building' && item.building === id).length;
+          const command: Command = { type: 'enqueueBuild', ...target, building: id };
+          const reason = blocker(command);
           return (
             <li key={id}>
               <div className="building-info">
@@ -110,9 +114,11 @@ export function BuildQueue({ colony, content, forecast, player, systemId, dispat
                   </span>
                 </span>
                 <span className="muted">
-                  {effectsText(def)} · cost {def.cost}
-                  {def.energyUpkeep > 0 && ` · ${def.energyUpkeep} energy`}
+                  {[effectsText(def), `cost ${def.cost}`, def.energyUpkeep > 0 && `${def.energyUpkeep} energy`]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
+                {reason && <span className="muted reason">{reason}</span>}
               </div>
               <button
                 type="button"
@@ -120,7 +126,7 @@ export function BuildQueue({ colony, content, forecast, player, systemId, dispat
                 aria-label={`Build ${def.name}`}
                 disabled={reason !== undefined}
                 title={reason}
-                onClick={() => dispatch({ type: 'enqueueBuild', ...target, building: id })}
+                onClick={() => dispatch(command)}
               >
                 Build
               </button>
@@ -128,6 +134,40 @@ export function BuildQueue({ colony, content, forecast, player, systemId, dispat
           );
         })}
       </ul>
+
+      <h3 className="spaced">Ships</h3>
+      {!hasYard ? (
+        <p className="muted">Build a {content.buildings[yard].name} here to construct ships.</p>
+      ) : (
+        <ul className="building-list">
+          {sortedKeys(content.hulls).map((id) => {
+            const hull = content.hulls[id];
+            const command: Command = { type: 'enqueueShip', ...target, hull: id };
+            const reason = blocker(command);
+            return (
+              <li key={id}>
+                <div className="building-info">
+                  <span>{hull.name}</span>
+                  <span className="muted">
+                    {ROLE_LABELS[hull.role]} · cost {hull.cost} · speed {hull.speed} · support {hull.support}
+                  </span>
+                  {reason && <span className="muted reason">{reason}</span>}
+                </div>
+                <button
+                  type="button"
+                  className="btn small"
+                  aria-label={`Build ${hull.name}`}
+                  disabled={reason !== undefined}
+                  title={reason}
+                  onClick={() => dispatch(command)}
+                >
+                  Build
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

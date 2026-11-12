@@ -1,17 +1,20 @@
-import type { Content, EmpireId, GameState } from '../../sim';
+import { empireSupport, eraOf, fleetsOf, type Content, type EmpireId, type GameState } from '../../sim';
 
 interface Props {
   state: GameState;
   content: Content;
   player: EmpireId;
   onEndTurn: () => void;
+  onResearch: () => void;
   onSave: () => void;
   onQuit: () => void;
 }
 
-export function TopBar({ state, content, player, onEndTurn, onSave, onQuit }: Props) {
+export function TopBar({ state, content, player, onEndTurn, onResearch, onSave, onQuit }: Props) {
   const empire = state.empires[player];
   const faction = content.factions[empire.faction];
+  const support = empireSupport(state, player, content);
+  const idle = fleetsOf(state, player).filter((f) => !f.destination && f.order === 'none').length;
   return (
     <header className="topbar">
       <div className="topbar-id">
@@ -25,8 +28,18 @@ export function TopBar({ state, content, player, onEndTurn, onSave, onQuit }: Pr
           <dd data-testid="turn">{state.turn}</dd>
         </div>
         <div>
-          <dt>Research</dt>
-          <dd data-testid="research-pool">{empire.researchPool}</dd>
+          <dt>Era</dt>
+          <dd data-testid="era">{eraOf(empire.research, content)}</dd>
+        </div>
+        <div>
+          <dt>Fleet support</dt>
+          <dd data-testid="support">
+            {support.used} / {support.cap}
+          </dd>
+        </div>
+        <div>
+          <dt>Idle fleets</dt>
+          <dd data-testid="idle-fleets">{idle}</dd>
         </div>
         <div>
           <dt>Intel</dt>
@@ -39,6 +52,9 @@ export function TopBar({ state, content, player, onEndTurn, onSave, onQuit }: Pr
         </button>
         <button type="button" className="btn" onClick={onSave}>
           Save file
+        </button>
+        <button type="button" className="btn" onClick={onResearch}>
+          Research
         </button>
         <button type="button" className="btn primary" onClick={onEndTurn}>
           End turn

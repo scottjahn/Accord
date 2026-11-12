@@ -43,7 +43,7 @@ describe('governor allocation', () => {
 
   it('uses industry when something is queued and gives rounding leftovers to the top weight', () => {
     const { state, content } = setup();
-    colonyOf(state, ALPHA).buildQueue = [{ building: B('factory'), progress: 0 }];
+    colonyOf(state, ALPHA).buildQueue = [{ kind: 'building', building: B('factory'), progress: 0 }];
     // Rest 5 at 50/20/30: industry 2, intel 1, research 1, leftover 1 -> industry.
     expect(governorAllocation(state, homeOf(state, ALPHA), content, 'balanced')).toEqual({
       food: 5,
@@ -56,7 +56,7 @@ describe('governor allocation', () => {
 
   it('differs by governor', () => {
     const { state, content } = setup();
-    colonyOf(state, ALPHA).buildQueue = [{ building: B('factory'), progress: 0 }];
+    colonyOf(state, ALPHA).buildQueue = [{ kind: 'building', building: B('factory'), progress: 0 }];
     const home = homeOf(state, ALPHA);
     expect(governorAllocation(state, home, content, 'growth')).toEqual({ food: 8, industry: 1, energy: 0, intel: 0, research: 1 });
     expect(governorAllocation(state, home, content, 'industry').industry).toBe(5);

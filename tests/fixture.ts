@@ -1,6 +1,10 @@
 import {
   createGame,
+  spawnShip,
   validateContent,
+  type Fleet,
+  type HullId,
+  type Sector,
   type Colony,
   type Content,
   type EmpireId,
@@ -23,7 +27,27 @@ export const rawFixture = {
     { id: 'factory', name: 'Factory', cost: 60, energyUpkeep: 2, maxPerSystem: 3, effects: [{ output: 'industry', kind: 'flat', value: 3 }] },
     { id: 'reactor', name: 'Reactor', cost: 50, energyUpkeep: 0, maxPerSystem: 3, effects: [{ output: 'energy', kind: 'flat', value: 6 }] },
     { id: 'lab', name: 'Lab', cost: 80, energyUpkeep: 2, maxPerSystem: 2, effects: [{ output: 'research', kind: 'percent', value: 25 }] },
+    { id: 'shipyard', name: 'Shipyard', cost: 50, energyUpkeep: 0, maxPerSystem: 1, effects: [] },
+    { id: 'vault', name: 'Vault', cost: 90, energyUpkeep: 0, maxPerSystem: 1, effects: [], requires: { computing: 1 } },
   ],
+  hulls: [
+    { id: 'scout', name: 'Scout', role: 'scout', tier: 1, cost: 20, speed: 3, rangeBonus: 1, scan: 2, support: 1, attack: 0, defence: 1, hp: 10, requires: {} },
+    { id: 'colony_ship', name: 'Colony Ship', role: 'colony', tier: 1, cost: 40, speed: 1, rangeBonus: 0, scan: 1, support: 2, attack: 0, defence: 1, hp: 20, requires: {} },
+    { id: 'frigate', name: 'Frigate', role: 'warship', tier: 1, cost: 30, speed: 2, rangeBonus: 0, scan: 1, support: 2, attack: 4, defence: 2, hp: 30, requires: {} },
+    { id: 'destroyer', name: 'Destroyer', role: 'warship', tier: 2, cost: 60, speed: 2, rangeBonus: 0, scan: 1, support: 3, attack: 8, defence: 4, hp: 50, requires: { weapons: 1 } },
+  ],
+  fields: [
+    { id: 'biology', name: 'Biology', effects: [{ output: 'food', percentPerLevel: 5 }] },
+    { id: 'construction', name: 'Construction', effects: [{ output: 'industry', percentPerLevel: 5 }] },
+    { id: 'energy', name: 'Energy', effects: [{ output: 'energy', percentPerLevel: 5 }] },
+    { id: 'propulsion', name: 'Propulsion', effects: [] },
+    { id: 'computing', name: 'Computing', effects: [{ output: 'research', percentPerLevel: 10 }, { output: 'intel', percentPerLevel: 10 }] },
+    { id: 'weapons', name: 'Weapons', effects: [] },
+  ],
+  research: {
+    levelCosts: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    eraThresholds: [0, 2, 4, 6, 8],
+  },
   planetTypes: [
     { id: 'terran', name: 'Terran', weight: 1, maxPopulation: [10, 20], foodBonus: 10, energyBonus: 0 },
     { id: 'barren', name: 'Barren', weight: 1, maxPopulation: [2, 6], foodBonus: -5, energyBonus: 5 },
@@ -52,6 +76,17 @@ export const rawFixture = {
       { type: 'terran', maxPopulation: 30 },
       { type: 'barren', maxPopulation: 10 },
     ],
+    fleets: {
+      baseRange: 2,
+      propulsionLevelsPerRange: 2,
+      colonyScanRange: 1,
+      supportBase: 4,
+      populationPerSupport: 5,
+      colonyStartPopulation: 2,
+      refitCostPercent: 50,
+      shipyardBuilding: 'shipyard',
+      startingShips: [] as string[],
+    },
   },
 };
 
@@ -86,6 +121,20 @@ export function newGame(seed = 1): { state: GameState; content: Content } {
 
 export function homeOf(state: GameState, empire: EmpireId): StarSystem {
   return state.systems[state.empires[empire].homeSystem];
+}
+
+/** Adds one new fleet holding the given hulls. Mutates the state. */
+export function addFleet(state: GameState, content: Content, owner: EmpireId, sector: Sector, hulls: string[]): Fleet {
+  let fleet: Fleet | null = null;
+  for (const hull of hulls) {
+    const single = spawnShip(state, owner, { x: -1, y: -1 }, hull as HullId, content);
+    delete state.fleets[single.id];
+    if (!fleet) fleet = { ...single, sector: { ...sector } };
+    else fleet.ships.push(...single.ships);
+  }
+  if (!fleet) throw new Error('addFleet: no hulls');
+  state.fleets[fleet.id] = fleet;
+  return fleet;
 }
 
 export function colonyOf(state: GameState, empire: EmpireId): Colony {

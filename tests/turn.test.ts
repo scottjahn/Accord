@@ -14,13 +14,14 @@ describe('processTurn', () => {
     expect(next).not.toBe(state);
   });
 
-  it('adds research and intel to the owning empire', () => {
+  it('banks research and intel for the owning empire', () => {
+    const banked = (s: typeof state, e: typeof ALPHA) => Object.values(s.empires[e].research.progress).reduce((a, b) => a + b, 0);
     const { state, content } = newGame();
     colonyOf(state, ALPHA).allocation = { food: 6, industry: 0, energy: 1, intel: 2, research: 1 };
     const { state: next } = processTurn(state, content);
-    expect(next.empires[ALPHA].researchPool).toBe(1);
+    expect(banked(next, ALPHA)).toBe(1);
     expect(next.empires[ALPHA].intelPool).toBe(2);
-    expect(next.empires[BETA].researchPool).toBe(1);
+    expect(banked(next, BETA)).toBe(1);
     expect(next.empires[BETA].intelPool).toBe(0);
   });
 });
@@ -60,7 +61,7 @@ describe('food and growth', () => {
     expect(after.population).toBe(40);
     expect(after.growthProgress).toBe(0);
     expect(after.foodStock).toBe(400); // 398 + 8 surplus, capped at 10 per pop
-    expect(events.filter((e) => e.system === homeOf(next, ALPHA).id)).toEqual([]);
+    expect(events.filter((e) => 'system' in e && e.system === homeOf(next, ALPHA).id)).toEqual([]);
   });
 
   it('draws down the stockpile before anyone starves', () => {
@@ -108,9 +109,9 @@ describe('food and growth', () => {
 describe('build queue', () => {
   it('spends industry on the first item', () => {
     const { state, content } = newGame();
-    colonyOf(state, ALPHA).buildQueue = [{ building: B('factory'), progress: 0 }];
+    colonyOf(state, ALPHA).buildQueue = [{ kind: 'building', building: B('factory'), progress: 0 }];
     const { state: next, events } = processTurn(state, content);
-    expect(colonyOf(next, ALPHA).buildQueue).toEqual([{ building: 'factory', progress: 4 }]);
+    expect(colonyOf(next, ALPHA).buildQueue).toEqual([{ kind: 'building', building: 'factory', progress: 4 }]);
     expect(colonyOf(next, ALPHA).buildings).toEqual({ farm: 1, reactor: 1 });
     expect(events).toEqual([]);
   });
@@ -121,14 +122,14 @@ describe('build queue', () => {
     colony.allocation = { food: 0, industry: 10, energy: 0, intel: 0, research: 0 };
     colony.foodStock = 100;
     colony.buildQueue = [
-      { building: B('factory'), progress: 50 },
-      { building: B('lab'), progress: 0 },
+      { kind: 'building', building: B('factory'), progress: 50 },
+      { kind: 'building', building: B('lab'), progress: 0 },
     ];
     // industry 20: 10 finishes the factory, 10 goes to the lab
     const { state: next, events } = processTurn(state, content);
     const after = colonyOf(next, ALPHA);
     expect(after.buildings).toEqual({ farm: 1, reactor: 1, factory: 1 });
-    expect(after.buildQueue).toEqual([{ building: 'lab', progress: 10 }]);
+    expect(after.buildQueue).toEqual([{ kind: 'building', building: 'lab', progress: 10 }]);
     expect(events).toContainEqual({ type: 'buildCompleted', system: homeOf(next, ALPHA).id, building: 'factory' });
   });
 
@@ -136,15 +137,15 @@ describe('build queue', () => {
     const { state, content } = newGame();
     const colony = colonyOf(state, ALPHA);
     colony.buildQueue = [
-      { building: B('farm'), progress: 38 },
-      { building: B('reactor'), progress: 48 },
-      { building: B('lab'), progress: 0 },
+      { kind: 'building', building: B('farm'), progress: 38 },
+      { kind: 'building', building: B('reactor'), progress: 48 },
+      { kind: 'building', building: B('lab'), progress: 0 },
     ];
     // industry 4: 2 + 2 finish both, nothing left over
     const { state: next, events } = processTurn(state, content);
     const after = colonyOf(next, ALPHA);
     expect(after.buildings).toEqual({ farm: 2, reactor: 2 });
-    expect(after.buildQueue).toEqual([{ building: 'lab', progress: 0 }]);
+    expect(after.buildQueue).toEqual([{ kind: 'building', building: 'lab', progress: 0 }]);
     expect(events.filter((e) => e.type === 'buildCompleted')).toHaveLength(2);
   });
 
@@ -158,7 +159,7 @@ describe('build queue', () => {
   it('uses the outputs from the start of the turn, so a new building helps next turn', () => {
     const { state, content } = newGame();
     const colony = colonyOf(state, ALPHA);
-    colony.buildQueue = [{ building: B('farm'), progress: 39 }];
+    colony.buildQueue = [{ kind: 'building', building: B('farm'), progress: 39 }];
     const { state: next } = processTurn(state, content);
     expect(colonyOf(next, ALPHA).buildings[B('farm')]).toBe(2);
     expect(colonyOf(next, ALPHA).foodStock).toBe(9); // still the one-farm surplus

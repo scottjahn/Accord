@@ -30,7 +30,9 @@ describe('golden replay', () => {
         const colony = final.systems[empire.homeSystem].colony!;
         return {
           faction: empire.faction,
-          researchPool: empire.researchPool,
+          research: empire.research.levels,
+          colonies: Object.values(final.systems).filter((s) => s.colony?.owner === id).length,
+          ships: Object.values(final.fleets).filter((f) => f.owner === id).reduce((n, f) => n + f.ships.length, 0),
           intelPool: empire.intelPool,
           population: colony.population,
           buildings: colony.buildings,

@@ -1,14 +1,17 @@
 import {
   forecastColony,
   getColonyEconomy,
+  sameSector,
   type Command,
   type CommandError,
   type Content,
   type EmpireId,
+  type EmpireView,
+  type FleetId,
   type GameState,
   type StarSystem,
 } from '../../sim';
-import { signed, turns } from '../format';
+import { sectorLabel, ships, signed, turns } from '../format';
 import { AllocationSliders } from './AllocationSliders';
 import { BuildQueue } from './BuildQueue';
 
@@ -16,15 +19,63 @@ interface Props {
   state: GameState;
   content: Content;
   player: EmpireId;
+  /** What the player can see; the panel shows nothing beyond it. */
+  view: EmpireView;
   system: StarSystem;
   /** The most recent rejected command, shown to the player. */
   error: CommandError | null;
   dispatch: (command: Command) => boolean;
+  onSelectFleet: (id: FleetId) => void;
 }
 
-export function SystemPanel({ state, content, player, system, error, dispatch }: Props) {
-  const colony = system.colony;
-  const owner = colony ? state.empires[colony.owner] : null;
+export function SystemPanel(props: Props) {
+  const { state, content, player, view, system, onSelectFleet } = props;
+  const sight = view.systems[system.id];
+  const fleets = view.fleets.filter((f) => sameSector(f.sector, system.sector));
+
+  const fleetList = fleets.length > 0 && (
+    <section>
+      <h3>Fleets here</h3>
+      <ul className="building-list">
+        {fleets.map((fleet) => {
+          const faction = content.factions[state.empires[fleet.owner].faction];
+          const names = fleet.ships.map((s) => content.hulls[s.hull]?.name ?? s.hull).join(', ');
+          return (
+            <li key={fleet.id}>
+              <div className="building-info">
+                <span>
+                  <span className="dot" style={{ background: faction.color }} /> {names}
+                </span>
+                <span className="muted">
+                  {fleet.owner === player ? 'Yours' : faction.name} · {ships(fleet.ships.length)}
+                  {fleet.destination && ' · under way'}
+                </span>
+              </div>
+              <button type="button" className="btn small" aria-label={`Select fleet: ${names}`} onClick={() => onSelectFleet(fleet.id)}>
+                Select
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+
+  if (!sight?.known) {
+    return (
+      <div className="system-panel">
+        <header className="system-head">
+          <h2>Unexplored system</h2>
+          <p className="muted">Sector {sectorLabel(system.sector)}</p>
+        </header>
+        <p className="muted">Bring a ship or a colony within scan range to find out what is here.</p>
+        {fleetList}
+      </div>
+    );
+  }
+
+  const colony = sight.visible ? system.colony : null;
+  const owner = sight.owner ? state.empires[sight.owner] : null;
   const ownerFaction = owner ? content.factions[owner.faction] : null;
   const mine = colony?.owner === player;
 
@@ -33,7 +84,7 @@ export function SystemPanel({ state, content, player, system, error, dispatch }:
       <header className="system-head">
         <h2>{system.name}</h2>
         <p className="muted">
-          Sector {system.sector.x + 1}, {system.sector.y + 1}
+          Sector {sectorLabel(system.sector)}
           {' · '}
           {ownerFaction ? (
             <>
@@ -43,6 +94,7 @@ export function SystemPanel({ state, content, player, system, error, dispatch }:
           ) : (
             'Unclaimed'
           )}
+          {!sight.visible && ' (last seen)'}
         </p>
       </header>
 
@@ -62,6 +114,8 @@ export function SystemPanel({ state, content, player, system, error, dispatch }:
         </ul>
       </section>
 
+      {fleetList}
+
       {colony && !mine && (
         <section>
           <h3>Colony</h3>
@@ -69,7 +123,7 @@ export function SystemPanel({ state, content, player, system, error, dispatch }:
         </section>
       )}
 
-      {colony && mine && <OwnColony state={state} content={content} player={player} system={system} error={error} dispatch={dispatch} />}
+      {colony && mine && <OwnColony {...props} />}
     </div>
   );
 }
@@ -126,7 +180,7 @@ function OwnColony({ state, content, player, system, error, dispatch }: Props) {
       )}
 
       <AllocationSliders colony={colony} economy={economy} idle={forecast.idleWorkers} player={player} systemId={system.id} dispatch={dispatch} />
-      <BuildQueue colony={colony} content={content} forecast={forecast} player={player} systemId={system.id} dispatch={dispatch} />
+      <BuildQueue state={state} colony={colony} content={content} forecast={forecast} player={player} systemId={system.id} dispatch={dispatch} />
     </>
   );
 }

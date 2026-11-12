@@ -1,5 +1,77 @@
-import type { BuildingId, FactionId } from './ids';
-import { GOVERNORS, OUTPUT_KINDS, type AutoGovernor, type OutputKind, type Outputs, type Result } from './types';
+import type { BuildingId, FactionId, HullId } from './ids';
+import {
+  FIELDS,
+  GOVERNORS,
+  MAX_RESEARCH_LEVEL,
+  OUTPUT_KINDS,
+  type AutoGovernor,
+  type FieldId,
+  type OutputKind,
+  type Outputs,
+  type Result,
+} from './types';
+
+/** Research levels needed before something can be built, e.g. { weapons: 2 }. */
+export type Requirements = Partial<Record<FieldId, number>>;
+
+export interface FieldDef {
+  id: FieldId;
+  name: string;
+  /** Each level of the field adds this percent to the output, in every colony. */
+  effects: { output: OutputKind; percentPerLevel: number }[];
+}
+
+export const HULL_ROLES = ['scout', 'colony', 'warship'] as const;
+export type HullRole = (typeof HULL_ROLES)[number];
+
+export interface HullDef {
+  id: HullId;
+  name: string;
+  role: HullRole;
+  /** Hull generation; a ship can be refitted to a higher tier of the same role. */
+  tier: number;
+  /** Industry points to build one. */
+  cost: number;
+  /** Sectors moved per turn. A fleet moves at the speed of its slowest ship. */
+  speed: number;
+  /** Added to the empire's supply range for this hull. */
+  rangeBonus: number;
+  /** Sectors around the ship that it reveals. */
+  scan: number;
+  /** Fleet support this ship uses. */
+  support: number;
+  /** Combat stats; unused until combat arrives in milestone 5. */
+  attack: number;
+  defence: number;
+  hp: number;
+  requires: Requirements;
+}
+
+export interface ResearchRules {
+  /** levelCosts[n] is the research needed to go from level n to n + 1. */
+  levelCosts: number[];
+  /** eraThresholds[n] is the total of all field levels needed for era n + 1. */
+  eraThresholds: number[];
+}
+
+export interface FleetRules {
+  /** Supply range in sectors around every owned colony. */
+  baseRange: number;
+  /** Every this many Propulsion levels add one sector of range. */
+  propulsionLevelsPerRange: number;
+  /** Sectors around a colony that it reveals. */
+  colonyScanRange: number;
+  /** Fleet support cap = supportBase + total population / populationPerSupport. */
+  supportBase: number;
+  populationPerSupport: number;
+  colonyStartPopulation: number;
+  /** A refit costs this percent of the new hull's cost. */
+  refitCostPercent: number;
+  /** The building a colony needs before it can build or refit ships. */
+  shipyardBuilding: BuildingId;
+  /** Hulls every empire starts with at its home system. */
+  startingShips: HullId[];
+}
 
 /**
  * How an automated governor splits the workers left over after the colony is
@@ -39,6 +111,7 @@ export interface BuildingDef {
   energyUpkeep: number;
   maxPerSystem: number;
   effects: BuildingEffect[];
+  requires: Requirements;
 }
 
 export interface PlanetTypeDef {
@@ -75,11 +148,15 @@ export interface Rules {
   /** Every home system gets exactly these planets, for a fair start. */
   homePlanets: { type: string; maxPopulation: number }[];
   governors: Record<AutoGovernor, GovernorWeights>;
+  fleets: FleetRules;
 }
 
 export interface Content {
   factions: Record<FactionId, FactionDef>;
   buildings: Record<BuildingId, BuildingDef>;
+  hulls: Record<HullId, HullDef>;
+  fields: Record<FieldId, FieldDef>;
+  research: ResearchRules;
   planetTypes: Record<string, PlanetTypeDef>;
   galaxyPresets: Record<string, GalaxyPreset>;
   names: { prefixes: string[]; suffixes: string[] };
@@ -100,6 +177,15 @@ const isStringList = (v: unknown): v is string[] =>
 
 function isOutputs(v: unknown, test: (n: unknown) => boolean): v is Outputs {
   return isObj(v) && OUTPUT_KINDS.every((k) => test(v[k])) && Object.keys(v).length === OUTPUT_KINDS.length;
+}
+
+function checkRequires(value: unknown, label: string, errors: string[]): void {
+  const valid =
+    isObj(value) &&
+    Object.entries(value).every(
+      ([k, v]) => FIELDS.includes(k as FieldId) && isInt(v) && v >= 1 && v <= MAX_RESEARCH_LEVEL,
+    );
+  if (!valid) errors.push(`${label}: requires must map research fields to levels 1-${MAX_RESEARCH_LEVEL}`);
 }
 
 function indexById(list: unknown, label: string, errors: string[]): Record<string, Obj> {
@@ -146,6 +232,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (!isPos(b.cost)) errors.push(`buildings.${id}: cost must be a positive integer`);
     if (!isNat(b.energyUpkeep)) errors.push(`buildings.${id}: energyUpkeep must be an integer >= 0`);
     if (!isPos(b.maxPerSystem)) errors.push(`buildings.${id}: maxPerSystem must be a positive integer`);
+    if (b.requires === undefined) b.requires = {};
+    checkRequires(b.requires, `buildings.${id}`, errors);
     if (!Array.isArray(b.effects)) {
       errors.push(`buildings.${id}: effects must be an array`);
       continue;
@@ -262,12 +350,71 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
   }
 
+  const hulls = indexById(raw.hulls, 'hulls', errors);
+  for (const [id, h] of Object.entries(hulls)) {
+    if (!HULL_ROLES.includes(h.role as HullRole)) errors.push(`hulls.${id}: role must be one of ${HULL_ROLES.join(', ')}`);
+    for (const key of ['tier', 'cost', 'speed', 'support', 'hp'] as const) {
+      if (!isPos(h[key])) errors.push(`hulls.${id}: ${key} must be a positive integer`);
+    }
+    for (const key of ['rangeBonus', 'scan', 'attack', 'defence'] as const) {
+      if (!isNat(h[key])) errors.push(`hulls.${id}: ${key} must be an integer >= 0`);
+    }
+    checkRequires(h.requires, `hulls.${id}`, errors);
+  }
+
+  const fields = indexById(raw.fields, 'fields', errors);
+  for (const field of FIELDS) {
+    if (!fields[field]) errors.push(`fields: missing ${field}`);
+  }
+  for (const [id, f] of Object.entries(fields)) {
+    if (!FIELDS.includes(id as FieldId)) errors.push(`fields.${id}: unknown field`);
+    const valid =
+      Array.isArray(f.effects) &&
+      (f.effects as unknown[]).every((e) => isObj(e) && isKind(e.output) && isInt(e.percentPerLevel));
+    if (!valid) errors.push(`fields.${id}: each effect needs output and an integer percentPerLevel`);
+  }
+
+  const research = raw.research;
+  if (!isObj(research)) {
+    errors.push('research: must be an object');
+  } else {
+    const costs = research.levelCosts;
+    if (!Array.isArray(costs) || costs.length !== MAX_RESEARCH_LEVEL || !costs.every(isPos)) {
+      errors.push(`research.levelCosts: needs ${MAX_RESEARCH_LEVEL} positive integers`);
+    }
+    const eras = research.eraThresholds;
+    const ascending = Array.isArray(eras) && eras.every((n, i) => isNat(n) && (i === 0 ? n === 0 : n > eras[i - 1]));
+    if (!ascending || (eras as unknown[]).length === 0) errors.push('research.eraThresholds: must start at 0 and increase');
+  }
+
+  const fleetRules = isObj(rules) ? rules.fleets : undefined;
+  if (!isObj(fleetRules)) {
+    errors.push('rules.fleets: must be an object');
+  } else {
+    for (const key of ['baseRange', 'colonyScanRange', 'supportBase'] as const) {
+      if (!isNat(fleetRules[key])) errors.push(`rules.fleets.${key}: must be an integer >= 0`);
+    }
+    for (const key of ['propulsionLevelsPerRange', 'populationPerSupport', 'colonyStartPopulation', 'refitCostPercent'] as const) {
+      if (!isPos(fleetRules[key])) errors.push(`rules.fleets.${key}: must be a positive integer`);
+    }
+    if (typeof fleetRules.shipyardBuilding !== 'string' || !buildings[fleetRules.shipyardBuilding]) {
+      errors.push('rules.fleets.shipyardBuilding: must be a known building');
+    }
+    const starting = fleetRules.startingShips;
+    if (!Array.isArray(starting) || !starting.every((h) => typeof h === 'string' && hulls[h])) {
+      errors.push('rules.fleets.startingShips: must be a list of known hulls');
+    }
+  }
+
   if (errors.length > 0) return { ok: false, error: errors };
   return {
     ok: true,
     value: {
       factions,
       buildings,
+      hulls,
+      fields,
+      research,
       planetTypes,
       galaxyPresets: presets,
       names,

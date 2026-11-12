@@ -4,6 +4,21 @@ import type { AutoGovernor, GameState, Outputs, StarSystem } from '../types';
 import { computeColonyEconomy } from './outputs';
 
 /**
+ * The smallest worker count in 0..max that is enough, or max if none is.
+ * Output never falls as workers are added, so a binary search is exact.
+ */
+function fewestWorkers(max: number, enough: (workers: number) => boolean): number {
+  let low = 0;
+  let high = max;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (enough(mid)) high = mid;
+    else low = mid + 1;
+  }
+  return low;
+}
+
+/**
  * The allocation an automated governor would choose for a colony right now.
  *
  * 1. Energy: the fewest workers that power every building, using at most a
@@ -32,25 +47,12 @@ export function governorAllocation(
     (sum, id) => sum + colony.buildings[id] * (content.buildings[id]?.energyUpkeep ?? 0),
     0,
   );
-  const energyCap = Math.floor(pop / 3);
-  let energy = energyCap;
-  for (let w = 0; w <= energyCap; w++) {
-    if (trial({ ...none, energy: w }).outputs.energy.total >= upkeep) {
-      energy = w;
-      break;
-    }
-  }
+  const energy = fewestWorkers(Math.floor(pop / 3), (w) => trial({ ...none, energy: w }).outputs.energy.total >= upkeep);
 
   const base = trial({ ...none, energy });
   const growing = pop < base.maxPopulation;
   const foodTarget = base.foodNeeded + (growing ? Math.max(2, Math.ceil(pop / 5)) : 0);
-  let food = pop - energy;
-  for (let w = 0; w <= pop - energy; w++) {
-    if (trial({ ...none, energy, food: w }).outputs.food.total >= foodTarget) {
-      food = w;
-      break;
-    }
-  }
+  const food = fewestWorkers(pop - energy, (w) => trial({ ...none, energy, food: w }).outputs.food.total >= foodTarget);
 
   const weights = { ...content.rules.governors[governor] };
   if (colony.buildQueue.length === 0) {

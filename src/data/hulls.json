@@ -1,0 +1,32 @@
+[
+  {
+    "id": "scout", "name": "Scout", "role": "scout", "tier": 1,
+    "cost": 40, "speed": 3, "rangeBonus": 2, "scan": 2, "support": 1,
+    "attack": 0, "defence": 1, "hp": 10, "requires": {}
+  },
+  {
+    "id": "colony_ship", "name": "Colony Ship", "role": "colony", "tier": 1,
+    "cost": 100, "speed": 1, "rangeBonus": 0, "scan": 1, "support": 2,
+    "attack": 0, "defence": 1, "hp": 20, "requires": {}
+  },
+  {
+    "id": "ark", "name": "Ark", "role": "colony", "tier": 2,
+    "cost": 150, "speed": 2, "rangeBonus": 1, "scan": 1, "support": 2,
+    "attack": 0, "defence": 2, "hp": 30, "requires": { "propulsion": 3 }
+  },
+  {
+    "id": "frigate", "name": "Frigate", "role": "warship", "tier": 1,
+    "cost": 80, "speed": 2, "rangeBonus": 0, "scan": 1, "support": 2,
+    "attack": 4, "defence": 2, "hp": 30, "requires": {}
+  },
+  {
+    "id": "destroyer", "name": "Destroyer", "role": "warship", "tier": 2,
+    "cost": 140, "speed": 2, "rangeBonus": 0, "scan": 1, "support": 3,
+    "attack": 8, "defence": 4, "hp": 50, "requires": { "weapons": 2, "construction": 2 }
+  },
+  {
+    "id": "cruiser", "name": "Cruiser", "role": "warship", "tier": 3,
+    "cost": 240, "speed": 2, "rangeBonus": 1, "scan": 2, "support": 4,
+    "attack": 14, "defence": 8, "hp": 90, "requires": { "weapons": 4, "propulsion": 3 }
+  }
+]

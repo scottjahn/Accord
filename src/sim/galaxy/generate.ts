@@ -1,5 +1,8 @@
 import type { Content } from '../content';
+import { spawnShip } from '../fleets';
+import { sectorDistance } from '../geometry';
 import { sortedKeys, type BuildingId, type EmpireId, type FactionId, type SystemId } from '../ids';
+import { newResearchState } from '../research';
 import { nextInt, seedRng, shuffle, type RngState } from '../rng';
 import {
   SAVE_VERSION,
@@ -10,11 +13,9 @@ import {
   type Sector,
   type StarSystem,
 } from '../types';
+import { updateKnownSystems } from '../view';
 
-/** Moves between sectors can be diagonal, so distance is Chebyshev. */
-export function sectorDistance(a: Sector, b: Sector): number {
-  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-}
+export { sectorDistance };
 
 function makePlanet(type: string, maxPopulation: number, content: Content): Planet {
   const def = content.planetTypes[type];
@@ -120,12 +121,13 @@ export function createGame(config: GameConfig, content: Content): GameState {
       faction: e.faction as FactionId,
       controller: e.controller,
       homeSystem: home.id,
-      researchPool: 0,
+      research: newResearchState(),
       intelPool: 0,
+      knownSystems: {},
     };
   });
 
-  return {
+  const state: GameState = {
     saveVersion: SAVE_VERSION,
     seed: config.seed,
     rng,
@@ -133,5 +135,13 @@ export function createGame(config: GameConfig, content: Content): GameState {
     galaxy: { width: preset.width, height: preset.height },
     systems,
     empires,
+    fleets: {},
+    nextId: 1,
   };
+  for (const id of sortedKeys(empires)) {
+    const home = systems[empires[id].homeSystem];
+    for (const hull of rules.fleets.startingShips) spawnShip(state, id, home.sector, hull, content);
+    updateKnownSystems(state, id, content);
+  }
+  return state;
 }

@@ -66,19 +66,19 @@ describe('colony forecast', () => {
   it('gives cumulative turns for each queued building', () => {
     const { state, content } = newGame();
     colonyOf(state, ALPHA).buildQueue = [
-      { building: B('factory'), progress: 50 },
-      { building: B('lab'), progress: 0 },
+      { kind: 'building', building: B('factory'), progress: 50 },
+      { kind: 'building', building: B('lab'), progress: 0 },
     ];
     // industry 4: 10 left -> 3 turns; then 80 more -> 90 / 4 -> 23 turns
     expect(forecastColony(state, homeOf(state, ALPHA), content).queue).toEqual([
-      { building: 'factory', turnsLeft: 3 },
-      { building: 'lab', turnsLeft: 23 },
+      { name: 'Factory', cost: 60, turnsLeft: 3 },
+      { name: 'Lab', cost: 80, turnsLeft: 23 },
     ]);
   });
 
   it('predicts the turn a building completes', () => {
     const { state, content } = newGame();
-    colonyOf(state, ALPHA).buildQueue = [{ building: B('factory'), progress: 50 }];
+    colonyOf(state, ALPHA).buildQueue = [{ kind: 'building', building: B('factory'), progress: 50 }];
     let s: GameState = state;
     for (let i = 0; i < 2; i++) s = processTurn(s, content).state;
     expect(colonyOf(s, ALPHA).buildQueue).toHaveLength(1);
@@ -90,8 +90,8 @@ describe('colony forecast', () => {
     const { state, content } = newGame();
     const colony = colonyOf(state, ALPHA);
     colony.allocation = { food: 6, industry: 0, energy: 1, intel: 0, research: 3 };
-    colony.buildQueue = [{ building: B('factory'), progress: 0 }];
-    expect(forecastColony(state, homeOf(state, ALPHA), content).queue).toEqual([{ building: 'factory', turnsLeft: null }]);
+    colony.buildQueue = [{ kind: 'building', building: B('factory'), progress: 0 }];
+    expect(forecastColony(state, homeOf(state, ALPHA), content).queue).toEqual([{ name: 'Factory', cost: 60, turnsLeft: null }]);
   });
 
   it('throws for a system with no colony', () => {
