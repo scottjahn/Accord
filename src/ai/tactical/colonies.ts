@@ -100,9 +100,20 @@ export function manageColonies(
       for (const role of ['colony', 'scout', 'transport', 'warship'] as const) {
         const short = want[role] - shipsWithRole(plan.state, empireId, content, role);
         if (short <= 0) continue;
+        // A minimum guard comes before more settlers: an empire with no warships is a gift to a neighbour.
+        const guard = Math.min(want.warship, 1 + Math.floor(coloniesOf(plan.state, empireId).length / 3));
+        if (role === 'warship' && want.warship - short < guard) {
+          options.push({
+            score: 96,
+            build: () => hullsByRole(role).some((hull) => plan.attempt({ type: 'enqueueShip', empire: empireId, system: id, hull })),
+          });
+          continue;
+        }
         options.push({
           // The further behind target, the more urgent, so a shortfall cannot be put off forever.
-          score: Math.min(95, shipScore[role] + (role === 'warship' || role === 'transport' ? 3 : 12) * (short - 1)),
+          // At war the navy and troops are already top priority, so a shortfall adds little;
+          // in peace it adds a lot, or warships would lose to buildings for ever.
+          score: Math.min(95, shipScore[role] + (posture === 'war' && (role === 'warship' || role === 'transport') ? 3 : 12) * (short - 1)),
           build: () => hullsByRole(role).some((hull) => plan.attempt({ type: 'enqueueShip', empire: empireId, system: id, hull })),
         });
       }
