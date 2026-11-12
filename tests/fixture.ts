@@ -15,8 +15,8 @@ import {
  */
 export const rawFixture = {
   factions: [
-    { id: 'alpha', name: 'Alpha', outputModifiers: { research: 10 } },
-    { id: 'beta', name: 'Beta', outputModifiers: { industry: 10 } },
+    { id: 'alpha', name: 'Alpha', color: '#4da3ff', outputModifiers: { research: 10 } },
+    { id: 'beta', name: 'Beta', color: '#e5533d', outputModifiers: { industry: 10 } },
   ],
   buildings: [
     { id: 'farm', name: 'Farm', cost: 40, energyUpkeep: 1, maxPerSystem: 3, effects: [{ output: 'food', kind: 'flat', value: 4 }] },
@@ -42,6 +42,12 @@ export const rawFixture = {
     startingPopulation: 10,
     startingAllocation: { food: 6, industry: 2, energy: 1, intel: 0, research: 1 },
     startingBuildings: { farm: 1, reactor: 1 },
+    governors: {
+      balanced: { food: 0, industry: 50, intel: 20, research: 30 },
+      growth: { food: 50, industry: 30, intel: 0, research: 20 },
+      industry: { food: 0, industry: 80, intel: 10, research: 10 },
+      research: { food: 0, industry: 20, intel: 0, research: 80 },
+    },
     homePlanets: [
       { type: 'terran', maxPopulation: 30 },
       { type: 'barren', maxPopulation: 10 },

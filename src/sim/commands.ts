@@ -1,6 +1,7 @@
 import type { Content } from './content';
 import type { BuildingId, EmpireId, SystemId } from './ids';
-import { OUTPUT_KINDS, type GameState, type Outputs, type Result } from './types';
+import { applyGovernor } from './economy/governor';
+import { GOVERNORS, OUTPUT_KINDS, type GameState, type Governor, type Outputs, type Result } from './types';
 
 /**
  * Everything a player can do. The human UI, the AI and the headless runner all
@@ -8,6 +9,7 @@ import { OUTPUT_KINDS, type GameState, type Outputs, type Result } from './types
  */
 export type Command =
   | { type: 'setAllocation'; empire: EmpireId; system: SystemId; allocation: Outputs }
+  | { type: 'setGovernor'; empire: EmpireId; system: SystemId; governor: Governor }
   | { type: 'enqueueBuild'; empire: EmpireId; system: SystemId; building: BuildingId }
   | { type: 'dequeueBuild'; empire: EmpireId; system: SystemId; index: number }
   | { type: 'moveBuild'; empire: EmpireId; system: SystemId; from: number; to: number };
@@ -17,6 +19,7 @@ export type CommandErrorCode =
   | 'unknownSystem'
   | 'notOwner'
   | 'invalidAllocation'
+  | 'unknownGovernor'
   | 'unknownBuilding'
   | 'buildLimit'
   | 'queueFull'
@@ -56,6 +59,8 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       }
       return null;
     }
+    case 'setGovernor':
+      return GOVERNORS.includes(cmd.governor) ? null : fail('unknownGovernor', `No governor ${String(cmd.governor)}`);
     case 'enqueueBuild': {
       const def = content.buildings[cmd.building];
       if (!def) return fail('unknownBuilding', `No building ${cmd.building}`);
@@ -80,7 +85,9 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
 
 /**
  * Validates a command and applies it, returning the new state. The input state
- * is not modified. Commands take effect immediately; they only ever change the
+ * is not modified. Setting an allocation by hand switches the colony to the
+ * manual governor; after any other command an automated governor reassigns
+ * workers straight away. Commands take effect immediately; they only ever change the
  * issuing empire's own colonies, so empires can act in any order within a turn.
  */
 export function submitCommand(state: GameState, cmd: Command, content: Content): Result<GameState, CommandError> {
@@ -93,6 +100,10 @@ export function submitCommand(state: GameState, cmd: Command, content: Content):
   switch (cmd.type) {
     case 'setAllocation':
       for (const kind of OUTPUT_KINDS) colony.allocation[kind] = cmd.allocation[kind];
+      colony.governor = 'manual';
+      break;
+    case 'setGovernor':
+      colony.governor = cmd.governor;
       break;
     case 'enqueueBuild':
       colony.buildQueue.push({ building: cmd.building, progress: 0 });
@@ -106,5 +117,6 @@ export function submitCommand(state: GameState, cmd: Command, content: Content):
       break;
     }
   }
+  applyGovernor(next, next.systems[cmd.system], content);
   return { ok: true, value: next };
 }

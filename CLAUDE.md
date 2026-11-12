@@ -13,8 +13,13 @@ Read `DESIGN.md` for the game design and milestone list.
 - **Content is data.** Factions, buildings, planet types, presets and rule numbers live in `src/data/*.json`, validated by `validateContent`.
 - **Every number is traceable.** Outputs are returned as `OutputBreakdown` with one line per cause.
 
+- **The UI does no game maths.** Screens show what `getColonyEconomy` and `forecastColony` return and change the game only through `session.dispatch`. If the UI needs a new number, add it to the sim with a test.
+- **PixiJS stays inside `src/ui/map/mapRenderer.ts`.** Pan, zoom and hit-testing live in `camera.ts` as pure functions with tests.
+
 ## Commands
 
+- `npm run dev` — Vite dev server at http://localhost:5173
+- `npm run build` — typecheck and build the static site into `dist/`
 - `npm test` — run all Vitest tests
 - `npm run typecheck` — `tsc --noEmit`
 - `npm run headless -- --seed 1 --turns 500 --preset small` — run an AI-vs-AI game headless
@@ -24,5 +29,7 @@ Read `DESIGN.md` for the game design and milestone list.
 - `src/sim/` — simulation core
 - `src/data/` — content JSON and its loader
 - `src/ai/` — agents; they return `Command[]`
+- `src/game/` — client logic with no React: the session store, turn orchestration, autosave
+- `src/ui/` — React screens, plus the PixiJS galaxy map in `ui/map/`
 - `src/runner/` — headless runner
-- `tests/` — Vitest tests; `golden.test.ts` pins a seeded replay, `soak.test.ts` is the milestone 1 exit test
+- `tests/` — Vitest tests; `golden.test.ts` pins a seeded replay, `soak.test.ts` is the milestone 1 exit test, `ui/humanTurn.test.tsx` is the milestone 2 exit test (UI tests run in jsdom with the map stubbed)

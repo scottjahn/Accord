@@ -1,14 +1,5 @@
-import { baselineAgent } from '../ai/baselineAgent';
-import {
-  checkInvariants,
-  createGame,
-  processTurn,
-  sortedKeys,
-  submitCommand,
-  type Content,
-  type GameState,
-  type TurnEvent,
-} from '../sim';
+import { playTurn } from '../game/turn';
+import { checkInvariants, createGame, type Content, type GameState, type TurnEvent } from '../sim';
 
 export interface RunOptions {
   content: Content;
@@ -22,25 +13,8 @@ export interface RunOptions {
   onTurn?: (state: GameState, events: TurnEvent[]) => void;
 }
 
-/**
- * Plays one turn: every empire's agent issues commands, then the turn resolves.
- * Throws if an agent issues an illegal command, since that is an agent bug.
- */
-export function stepGame(state: GameState, content: Content): { state: GameState; events: TurnEvent[] } {
-  let current = state;
-  for (const empireId of sortedKeys(current.empires)) {
-    for (const command of baselineAgent(current, empireId, content)) {
-      const result = submitCommand(current, command, content);
-      if (!result.ok) {
-        throw new Error(
-          `Turn ${current.turn}: ${empireId} issued an illegal ${command.type}: ${result.error.message}`,
-        );
-      }
-      current = result.value;
-    }
-  }
-  return processTurn(current, content);
-}
+/** Plays one turn of an all-AI game. */
+export const stepGame = playTurn;
 
 /** Runs a full agent-vs-agent game headless and returns the final state. */
 export function runGame(options: RunOptions): GameState {

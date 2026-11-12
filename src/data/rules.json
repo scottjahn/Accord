@@ -10,6 +10,12 @@
   "startingPopulation": 10,
   "startingAllocation": { "food": 6, "industry": 2, "energy": 1, "intel": 0, "research": 1 },
   "startingBuildings": { "farm": 1, "factory": 1, "reactor": 1 },
+  "governors": {
+    "balanced": { "food": 0, "industry": 50, "intel": 20, "research": 30 },
+    "growth": { "food": 50, "industry": 30, "intel": 0, "research": 20 },
+    "industry": { "food": 0, "industry": 80, "intel": 10, "research": 10 },
+    "research": { "food": 0, "industry": 20, "intel": 0, "research": 80 }
+  },
   "homePlanets": [
     { "type": "terran", "maxPopulation": 30 },
     { "type": "arid", "maxPopulation": 18 },

@@ -1,9 +1,24 @@
 import type { BuildingId, FactionId } from './ids';
-import { OUTPUT_KINDS, type OutputKind, type Outputs, type Result } from './types';
+import { GOVERNORS, OUTPUT_KINDS, type AutoGovernor, type OutputKind, type Outputs, type Result } from './types';
+
+/**
+ * How an automated governor splits the workers left over after the colony is
+ * fed and powered. Integer percents that sum to 100.
+ */
+export interface GovernorWeights {
+  food: number;
+  industry: number;
+  intel: number;
+  research: number;
+}
+
+export const GOVERNOR_WEIGHT_KINDS = ['food', 'industry', 'intel', 'research'] as const;
 
 export interface FactionDef {
   id: FactionId;
   name: string;
+  /** Identity colour as #rrggbb, used by every client. */
+  color: string;
   /** Percent modifier per output, e.g. { research: 10 }. */
   outputModifiers: Partial<Outputs>;
 }
@@ -59,6 +74,7 @@ export interface Rules {
   startingBuildings: Record<BuildingId, number>;
   /** Every home system gets exactly these planets, for a fair start. */
   homePlanets: { type: string; maxPopulation: number }[];
+  governors: Record<AutoGovernor, GovernorWeights>;
 }
 
 export interface Content {
@@ -116,6 +132,9 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
 
   const factions = indexById(raw.factions, 'factions', errors);
   for (const [id, f] of Object.entries(factions)) {
+    if (typeof f.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(f.color)) {
+      errors.push(`factions.${id}: color must be #rrggbb`);
+    }
     const mods = f.outputModifiers;
     if (!isObj(mods) || !Object.entries(mods).every(([k, v]) => isKind(k) && isInt(v))) {
       errors.push(`factions.${id}: outputModifiers must map output kinds to integer percents`);
@@ -208,6 +227,21 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
         else if (!isNat(count) || (isPos(def.maxPerSystem) && count > def.maxPerSystem)) {
           errors.push(`rules.startingBuildings.${id}: must be an integer from 0 to maxPerSystem`);
         }
+      }
+    }
+
+    if (!isObj(rules.governors)) {
+      errors.push('rules.governors: must be an object');
+    } else {
+      for (const governor of GOVERNORS) {
+        if (governor === 'manual') continue;
+        const w = rules.governors[governor];
+        const valid =
+          isObj(w) &&
+          Object.keys(w).length === GOVERNOR_WEIGHT_KINDS.length &&
+          GOVERNOR_WEIGHT_KINDS.every((k) => isNat(w[k])) &&
+          GOVERNOR_WEIGHT_KINDS.reduce((sum, k) => sum + (w[k] as number), 0) === 100;
+        if (!valid) errors.push(`rules.governors.${governor}: needs food, industry, intel and research percents summing to 100`);
       }
     }
 

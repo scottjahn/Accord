@@ -1,4 +1,4 @@
 [
-  { "id": "concord", "name": "The Concord", "outputModifiers": { "research": 10 } },
-  { "id": "vashran", "name": "Vashran Dominate", "outputModifiers": { "industry": 10 } }
+  { "id": "concord", "name": "The Concord", "color": "#4da3ff", "outputModifiers": { "research": 10 } },
+  { "id": "vashran", "name": "Vashran Dominate", "color": "#e5533d", "outputModifiers": { "industry": 10 } }
 ]

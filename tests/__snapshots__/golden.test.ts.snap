@@ -11,9 +11,9 @@ exports[`golden replay > matches the recorded final state 1`] = `
         "reactor": 3,
       },
       "faction": "alpha",
-      "intelPool": 214,
+      "intelPool": 210,
       "population": 18,
-      "researchPool": 1264,
+      "researchPool": 1311,
     },
     {
       "buildings": {
@@ -25,10 +25,10 @@ exports[`golden replay > matches the recorded final state 1`] = `
       "faction": "beta",
       "intelPool": 214,
       "population": 18,
-      "researchPool": 1242,
+      "researchPool": 1348,
     },
   ],
-  "hash": "9e184615",
+  "hash": "bf427e4a",
   "turn": 151,
 }
 `;

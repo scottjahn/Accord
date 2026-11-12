@@ -1,5 +1,6 @@
 import type { Content } from '../content';
 import { applyBuild } from '../economy/build';
+import { applyGovernor } from '../economy/governor';
 import { applyGrowth } from '../economy/growth';
 import { computeColonyEconomy } from '../economy/outputs';
 import { sortedKeys } from '../ids';
@@ -14,6 +15,7 @@ import type { GameState, TurnEvent } from '../types';
  *   2. food: stockpile, growth or starvation
  *   3. industry: build queue
  *   4. research and intel: empire pools
+ *   5. automated governors reassign workers for the next turn
  */
 export function processTurn(state: GameState, content: Content): { state: GameState; events: TurnEvent[] } {
   const next = structuredClone(state);
@@ -32,6 +34,8 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
     const empire = next.empires[colony.owner];
     empire.researchPool += economy.outputs.research.total;
     empire.intelPool += economy.outputs.intel.total;
+
+    applyGovernor(next, system, content);
   }
 
   next.turn += 1;

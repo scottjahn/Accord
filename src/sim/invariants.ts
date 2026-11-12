@@ -1,7 +1,7 @@
 import type { Content } from './content';
 import { maxPopulationOf } from './economy/outputs';
 import { sortedKeys } from './ids';
-import { OUTPUT_KINDS, type GameState } from './types';
+import { GOVERNORS, OUTPUT_KINDS, type GameState } from './types';
 
 const isNat = (n: unknown): boolean => Number.isInteger(n) && (n as number) >= 0;
 
@@ -44,6 +44,8 @@ export function checkInvariants(state: GameState, content: Content): string[] {
     if (!isNat(colony.foodStock)) problems.push(`${id}: foodStock is ${colony.foodStock}`);
     if (!isNat(colony.growthProgress)) problems.push(`${id}: growthProgress is ${colony.growthProgress}`);
     if (!Number.isInteger(colony.morale)) problems.push(`${id}: morale is ${colony.morale}`);
+
+    if (!GOVERNORS.includes(colony.governor)) problems.push(`${id}: unknown governor ${String(colony.governor)}`);
 
     let assigned = 0;
     for (const kind of OUTPUT_KINDS) {

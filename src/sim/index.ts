@@ -15,6 +15,8 @@ export * from './commands';
 export { createGame, sectorDistance } from './galaxy/generate';
 export { computeColonyEconomy, maxPopulationOf, totalOf, type ColonyEconomy } from './economy/outputs';
 export { growthCost } from './economy/growth';
+export { governorAllocation } from './economy/governor';
+export { forecastColony, type ColonyForecast } from './economy/forecast';
 export { processTurn } from './turn/processTurn';
 export * from './save';
 export { checkInvariants } from './invariants';

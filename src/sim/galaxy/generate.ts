@@ -110,6 +110,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
       growthProgress: 0,
       foodStock: 0,
       allocation: { ...rules.startingAllocation },
+      governor: 'manual',
       buildings: { ...rules.startingBuildings } as Record<BuildingId, number>,
       buildQueue: [],
       morale: 100,

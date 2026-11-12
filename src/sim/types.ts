@@ -2,7 +2,15 @@ import type { BuildingId, EmpireId, FactionId, SystemId } from './ids';
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+
+/**
+ * Who assigns a colony's workers. 'manual' leaves the allocation alone; the
+ * others reassign workers every turn using the weights in content rules.
+ */
+export const GOVERNORS = ['manual', 'balanced', 'growth', 'industry', 'research'] as const;
+export type Governor = (typeof GOVERNORS)[number];
+export type AutoGovernor = Exclude<Governor, 'manual'>;
 
 export const OUTPUT_KINDS = ['food', 'industry', 'energy', 'intel', 'research'] as const;
 export type OutputKind = (typeof OUTPUT_KINDS)[number];
@@ -37,6 +45,7 @@ export interface Colony {
   foodStock: number;
   /** Workers per output. The sum never exceeds population; the rest are idle. */
   allocation: Outputs;
+  governor: Governor;
   buildings: Record<BuildingId, number>;
   buildQueue: BuildItem[];
   /** 100 is neutral. Fixed until milestone 6, but already part of the output formula. */
