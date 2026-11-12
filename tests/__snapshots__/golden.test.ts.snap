@@ -1,0 +1,34 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden replay > matches the recorded final state 1`] = `
+{
+  "empires": [
+    {
+      "buildings": {
+        "factory": 3,
+        "farm": 3,
+        "lab": 2,
+        "reactor": 3,
+      },
+      "faction": "alpha",
+      "intelPool": 214,
+      "population": 18,
+      "researchPool": 1264,
+    },
+    {
+      "buildings": {
+        "factory": 3,
+        "farm": 3,
+        "lab": 2,
+        "reactor": 3,
+      },
+      "faction": "beta",
+      "intelPool": 214,
+      "population": 18,
+      "researchPool": 1242,
+    },
+  ],
+  "hash": "9e184615",
+  "turn": 151,
+}
+`;

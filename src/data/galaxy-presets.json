@@ -1,0 +1,5 @@
+[
+  { "id": "small", "width": 16, "height": 12, "systems": 80 },
+  { "id": "medium", "width": 22, "height": 16, "systems": 140 },
+  { "id": "large", "width": 28, "height": 20, "systems": 200 }
+]

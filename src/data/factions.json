@@ -1,0 +1,4 @@
+[
+  { "id": "concord", "name": "The Concord", "outputModifiers": { "research": 10 } },
+  { "id": "vashran", "name": "Vashran Dominate", "outputModifiers": { "industry": 10 } }
+]

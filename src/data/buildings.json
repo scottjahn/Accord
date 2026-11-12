@@ -1,0 +1,58 @@
+[
+  {
+    "id": "farm",
+    "name": "Farm",
+    "cost": 40,
+    "energyUpkeep": 1,
+    "maxPerSystem": 5,
+    "effects": [{ "output": "food", "kind": "flat", "value": 4 }]
+  },
+  {
+    "id": "factory",
+    "name": "Factory",
+    "cost": 60,
+    "energyUpkeep": 2,
+    "maxPerSystem": 6,
+    "effects": [{ "output": "industry", "kind": "flat", "value": 3 }]
+  },
+  {
+    "id": "reactor",
+    "name": "Reactor",
+    "cost": 50,
+    "energyUpkeep": 0,
+    "maxPerSystem": 6,
+    "effects": [{ "output": "energy", "kind": "flat", "value": 6 }]
+  },
+  {
+    "id": "lab",
+    "name": "Research Lab",
+    "cost": 80,
+    "energyUpkeep": 2,
+    "maxPerSystem": 5,
+    "effects": [{ "output": "research", "kind": "flat", "value": 3 }]
+  },
+  {
+    "id": "listening_post",
+    "name": "Listening Post",
+    "cost": 80,
+    "energyUpkeep": 2,
+    "maxPerSystem": 4,
+    "effects": [{ "output": "intel", "kind": "flat", "value": 3 }]
+  },
+  {
+    "id": "foundry",
+    "name": "Orbital Foundry",
+    "cost": 150,
+    "energyUpkeep": 3,
+    "maxPerSystem": 2,
+    "effects": [{ "output": "industry", "kind": "percent", "value": 10 }]
+  },
+  {
+    "id": "university",
+    "name": "University",
+    "cost": 180,
+    "energyUpkeep": 3,
+    "maxPerSystem": 1,
+    "effects": [{ "output": "research", "kind": "percent", "value": 15 }]
+  }
+]

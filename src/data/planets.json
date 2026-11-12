@@ -1,0 +1,9 @@
+[
+  { "id": "terran", "name": "Terran", "weight": 2, "maxPopulation": [14, 30], "foodBonus": 10, "energyBonus": 0 },
+  { "id": "oceanic", "name": "Oceanic", "weight": 2, "maxPopulation": [10, 24], "foodBonus": 10, "energyBonus": -5 },
+  { "id": "arid", "name": "Arid", "weight": 3, "maxPopulation": [6, 18], "foodBonus": -5, "energyBonus": 5 },
+  { "id": "arctic", "name": "Arctic", "weight": 3, "maxPopulation": [4, 12], "foodBonus": -5, "energyBonus": 0 },
+  { "id": "barren", "name": "Barren", "weight": 4, "maxPopulation": [2, 10], "foodBonus": -5, "energyBonus": 5 },
+  { "id": "volcanic", "name": "Volcanic", "weight": 2, "maxPopulation": [2, 8], "foodBonus": -10, "energyBonus": 10 },
+  { "id": "gas_giant", "name": "Gas Giant", "weight": 3, "maxPopulation": [0, 4], "foodBonus": 0, "energyBonus": 10 }
+]

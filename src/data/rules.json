@@ -1,0 +1,18 @@
+{
+  "baseYieldPerWorker": { "food": 4, "industry": 2, "energy": 2, "intel": 1, "research": 1 },
+  "foodPerPop": 2,
+  "foodStockCapPerPop": 10,
+  "growthCostBase": 20,
+  "growthCostPerPop": 4,
+  "starvationLossPercent": 10,
+  "maxQueueLength": 8,
+  "planetsPerSystem": [1, 5],
+  "startingPopulation": 10,
+  "startingAllocation": { "food": 6, "industry": 2, "energy": 1, "intel": 0, "research": 1 },
+  "startingBuildings": { "farm": 1, "factory": 1, "reactor": 1 },
+  "homePlanets": [
+    { "type": "terran", "maxPopulation": 30 },
+    { "type": "arid", "maxPopulation": 18 },
+    { "type": "barren", "maxPopulation": 10 }
+  ]
+}
