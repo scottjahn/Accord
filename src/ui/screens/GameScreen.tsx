@@ -22,6 +22,7 @@ import { ResearchScreen } from '../research/ResearchScreen';
 import { SystemPanel } from '../system/SystemPanel';
 import { useSession } from '../useSession';
 import { EmpiresScreen } from '../war/EmpiresScreen';
+import { IntelScreen } from '../war/IntelScreen';
 import { ReportScreen } from '../war/ReportScreen';
 
 interface Props {
@@ -47,6 +48,8 @@ export function GameScreen({ session, onQuit }: Props) {
   const [moveMode, setMoveMode] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
   const [showEmpires, setShowEmpires] = useState(false);
+  const [showIntel, setShowIntel] = useState(false);
+  const offers = state.offers.filter((o) => o.to === player).length;
   const [report, setReport] = useState<Extract<TurnEvent, { type: 'battle' | 'invasion' }> | null>(null);
   const [resultSeen, setResultSeen] = useState(false);
   const over = state.winner !== null;
@@ -111,6 +114,8 @@ export function GameScreen({ session, onQuit }: Props) {
         onEndTurn={() => session.endTurn()}
         onResearch={() => setShowResearch(true)}
         onEmpires={() => setShowEmpires(true)}
+        onIntel={() => setShowIntel(true)}
+        offers={offers}
         wars={wars}
         over={over}
         onSave={() => downloadText(saveFileName(state), session.exportSave())}
@@ -166,6 +171,7 @@ export function GameScreen({ session, onQuit }: Props) {
       {showEmpires && (
         <EmpiresScreen state={state} content={content} player={player} view={view} dispatch={session.dispatch} onClose={() => setShowEmpires(false)} />
       )}
+      {showIntel && <IntelScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setShowIntel(false)} />}
       {report && <ReportScreen state={state} content={content} player={player} event={report} onClose={() => setReport(null)} />}
       {over && !resultSeen && (
         <div className="modal-backdrop">
@@ -173,7 +179,11 @@ export function GameScreen({ session, onQuit }: Props) {
             <h2>{state.winner === player ? 'Victory' : 'Defeat'}</h2>
             <p>
               {state.winner === player
-                ? 'Your rivals are beaten. The galaxy is yours.'
+                ? state.victory === 'accord'
+                  ? 'The powers have joined the Accord under your leadership, without conquest.'
+                  : 'Your rivals are beaten. The galaxy is yours.'
+                : state.victory === 'accord'
+                  ? `${content.factions[state.empires[state.winner!].faction].name} leads the Accord. The game is theirs.`
                 : `${content.factions[state.empires[state.winner!].faction].name} has won the game.`}
             </p>
             <p className="muted">The game ended on turn {state.turn - 1}.</p>

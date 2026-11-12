@@ -115,7 +115,7 @@ describe('war through the UI', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Declare war' }));
     expect(atWar(autosave(), HUMAN, RIVAL)).toBe(false); // not until confirmed
-    expect(within(dialog).getByText(/no way back to peace/)).toBeTruthy();
+    expect(within(dialog).getByText(/Fleets will fight on sight/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(atWar(autosave(), HUMAN, RIVAL)).toBe(false);
 

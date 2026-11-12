@@ -10,7 +10,18 @@ interface Props {
   onOpenReport: (event: Extract<TurnEvent, { type: 'battle' | 'invasion' }>) => void;
 }
 
-const BAD: TurnEvent['type'][] = ['starvation', 'coloniseFailed', 'fleetBlocked', 'warDeclared', 'empireEliminated'];
+const BAD: TurnEvent['type'][] = [
+  'starvation',
+  'coloniseFailed',
+  'fleetBlocked',
+  'warDeclared',
+  'empireEliminated',
+  'treatyBroken',
+  'offerRefused',
+  'covertAction',
+  'spyCaught',
+  'revolt',
+];
 
 /** What happened to the player's own empire during the turn that just resolved. */
 export function EventLog({ state, content, player, events, onOpenReport }: Props) {

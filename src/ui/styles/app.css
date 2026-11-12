@@ -704,3 +704,21 @@ h3.spaced {
 .hint.bad {
   color: var(--bad);
 }
+
+/* Milestone 7: diplomacy and intel */
+.offer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+}
+.btn.small.danger {
+  border-color: var(--bad);
+}
+.planet-list .fleet-actions {
+  margin-top: 0;
+}

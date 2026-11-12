@@ -19,6 +19,8 @@ Read `DESIGN.md` for the game design and milestone list.
 - **AI tuning is data.** Personality weights live in `src/data/ai.json`; measure a change with `npm run batch` before and after.
 - **Morale is a list of causes, not a number to set.** Change it with `addColonyMorale` / `addEmpireMorale` and an event kind from `rules.morale.events`; `colony.morale` is recomputed from `moraleBreakdown`. The fixture runs morale at full strength with no guard bonus so older expectations hold.
 - **Minor races live in `system.minor` until they join or fall.** A member's bonus comes from `empire.members`, kept in step on joining and on capture. The fixture's `tiny` preset has no minors; use `newGame(seed, 'peopled')` or place one by hand.
+- **Diplomacy is judged on what an empire knows.** Treaties are public; offers, opinions of third parties, orders and counter-intel are not, and `redactFor` strips them. Commands that the turn report should mention push onto `state.pendingEvents`.
+- **Espionage resolves with the turn, not in the command.** `runOperation` only pays and queues; the seeded roll happens in `resolveOperations`, so the AI planning on a redacted copy cannot learn the outcome. Tests force an outcome by setting `rules.intel.baseChance` and `catchBase`.
 - **Combat is exact in rule tests.** The fixture sets `minRollPercent` to 100 so every shot does full damage; tests that are about randomness lower it themselves.
 - **Long AI runs are opt-in.** `npm test` plays 4 full AI games for the conquest exit test; `npm run test:long` plays 20. Use `npm run batch` when tuning.
 - **Agents return only legal commands.** `playTurn` throws on an illegal one. Check with `validateCommand` against a working copy, as `baselineAgent` does.

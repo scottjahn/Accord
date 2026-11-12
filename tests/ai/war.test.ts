@@ -218,12 +218,12 @@ describe('waging war', () => {
  * A full game takes several seconds, so the everyday suite plays 4 and
  * `npm run test:long` (ACCORD_LONG=1) plays 20.
  */
-describe('full games end by conquest', () => {
+describe('full games end', () => {
   const long = process.env.ACCORD_LONG === '1';
   const count = long ? 20 : 4;
-  // Measured at 15 of 20 with morale and minor races in play (9 of 20 before them).
-  // The bar sits a little under that; raise it as the AI gets better at finishing wars.
-  const needed = long ? 13 : 2;
+  // Measured at 18 of 20 with diplomacy in play: 12 by the Accord and 6 by domination.
+  // The bar sits a little under that. The first four seeds give 2 of 4.
+  const needed = long ? 15 : 2;
   it(`at least ${needed} of ${count} AI games have a winner by turn 400, and the winner dominates`, () => {
     const games = runBatch({
       content: loadContent(),
@@ -235,6 +235,10 @@ describe('full games end by conquest', () => {
     });
     const decided = games.filter((g) => g.winner !== null);
     expect(decided.length).toBeGreaterThanOrEqual(needed);
+    // Milestone 7 exit test: a game can be won without a major war. At least one of these games
+    // ends by the Accord with no war ever declared, and at least one is still won by force.
+    expect(games.some((g) => g.victory === 'accord' && !g.war)).toBe(true);
+    expect(games.some((g) => g.victory === 'domination' || g.victory === 'conquest')).toBe(true);
     for (const game of decided) {
       const [winner, loser] = game.winner === 0 ? game.results : [game.results[1], game.results[0]];
       expect(winner.colonies).toBeGreaterThan(loser.colonies);

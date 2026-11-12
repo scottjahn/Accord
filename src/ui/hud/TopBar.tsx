@@ -7,6 +7,9 @@ interface Props {
   onEndTurn: () => void;
   onResearch: () => void;
   onEmpires: () => void;
+  onIntel: () => void;
+  /** Treaty offers waiting for the player's answer. */
+  offers: number;
   /** How many empires the player is at war with. */
   wars: number;
   /** True once the game has a winner. */
@@ -15,7 +18,7 @@ interface Props {
   onQuit: () => void;
 }
 
-export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpires, wars, over, onSave, onQuit }: Props) {
+export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpires, onIntel, offers, wars, over, onSave, onQuit }: Props) {
   const empire = state.empires[player];
   const faction = content.factions[empire.faction];
   const support = empireSupport(state, player, content);
@@ -61,8 +64,11 @@ export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpire
         <button type="button" className="btn" onClick={onResearch}>
           Research
         </button>
-        <button type="button" className={`btn${wars > 0 ? ' danger' : ''}`} onClick={onEmpires}>
-          {wars > 0 ? 'Empires (at war)' : 'Empires'}
+        <button type="button" className="btn" onClick={onIntel}>
+          Intel
+        </button>
+        <button type="button" className={`btn${wars > 0 ? ' danger' : offers > 0 ? ' primary' : ''}`} onClick={onEmpires}>
+          {wars > 0 ? 'Empires (at war)' : offers > 0 ? `Empires (${offers} ${offers === 1 ? 'offer' : 'offers'})` : 'Empires'}
         </button>
         <button type="button" className="btn primary" onClick={onEndTurn} disabled={over} title={over ? 'The game is over' : undefined}>
           End turn
