@@ -21,7 +21,7 @@ export interface RunOptions {
 /** Plays one turn of an all-AI game with the standard AI. */
 export const stepGame = (state: GameState, content: Content) => playTurn(state, content);
 
-/** Runs a full AI-vs-AI game headless and returns the final state. */
+/** Runs an AI-vs-AI game headless until the turn limit or a winner, and returns the final state. */
 export function runGame(options: RunOptions): GameState {
   const { content, verify = true } = options;
   let state = createGame(
@@ -36,7 +36,7 @@ export function runGame(options: RunOptions): GameState {
   const seats = sortedKeys(state.empires);
   const pick = (_state: GameState, empireId: (typeof seats)[number]) => options.agents?.[seats.indexOf(empireId)] ?? standardAgent;
 
-  for (let i = 0; i < options.turns; i++) {
+  for (let i = 0; i < options.turns && state.winner === null; i++) {
     const step = playTurn(state, content, pick);
     state = step.state;
     if (verify) {

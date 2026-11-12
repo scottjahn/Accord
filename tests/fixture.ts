@@ -50,13 +50,13 @@ export const rawFixture = {
   ai: {
     personalities: {
       alpha: {
-        posture: { expand: 100, develop: 100, fortify: 100 },
+        posture: { expand: 100, develop: 100, fortify: 100, war: 100 },
         research: { biology: 1, construction: 1, energy: 1, propulsion: 1, computing: 1, weapons: 1 },
         warshipsPerColony: 100,
         scouts: 1,
       },
       beta: {
-        posture: { expand: 100, develop: 100, fortify: 100 },
+        posture: { expand: 100, develop: 100, fortify: 100, war: 100 },
         research: { biology: 1, construction: 1, energy: 1, propulsion: 1, computing: 1, weapons: 3 },
         warshipsPerColony: 100,
         scouts: 1,

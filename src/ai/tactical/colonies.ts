@@ -70,12 +70,12 @@ export function manageColonies(
   targets: Targets,
 ): void {
   const yard = content.rules.fleets.shipyardBuilding;
-  const want: Record<HullRole, number> = { colony: targets.settlers, scout: targets.scouts, warship: targets.warships, transport: 0 };
+  const want: Record<HullRole, number> = { colony: targets.settlers, scout: targets.scouts, warship: targets.warships, transport: targets.transports };
   const shipScore: Record<HullRole, number> = {
     colony: posture === 'expand' ? 90 : 65,
     scout: plan.state.turn < 40 ? 70 : 45,
-    warship: posture === 'fortify' ? 85 : 50,
-    transport: 0,
+    warship: posture === 'war' ? 84 : posture === 'fortify' ? 85 : 50,
+    transport: 90,
   };
   const hullsByRole = (role: HullRole) =>
     sortedKeys(content.hulls)
@@ -96,12 +96,13 @@ export function manageColonies(
     const options: { score: number; build: () => boolean }[] = [];
 
     if (hasYard) {
-      for (const role of ['colony', 'scout', 'warship'] as const) {
+      // Order matters only for equal scores: transports are listed before warships so they win ties.
+      for (const role of ['colony', 'scout', 'transport', 'warship'] as const) {
         const short = want[role] - shipsWithRole(plan.state, empireId, content, role);
         if (short <= 0) continue;
         options.push({
           // The further behind target, the more urgent, so a shortfall cannot be put off forever.
-          score: Math.min(95, shipScore[role] + 12 * (short - 1)),
+          score: Math.min(95, shipScore[role] + (role === 'warship' || role === 'transport' ? 3 : 12) * (short - 1)),
           build: () => hullsByRole(role).some((hull) => plan.attempt({ type: 'enqueueShip', empire: empireId, system: id, hull })),
         });
       }

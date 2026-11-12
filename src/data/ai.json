@@ -4,7 +4,8 @@
       "posture": {
         "expand": 100,
         "develop": 115,
-        "fortify": 80
+        "fortify": 80,
+        "war": 70
       },
       "research": {
         "biology": 20,
@@ -21,7 +22,8 @@
       "posture": {
         "expand": 110,
         "develop": 90,
-        "fortify": 115
+        "fortify": 115,
+        "war": 130
       },
       "research": {
         "biology": 15,

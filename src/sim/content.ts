@@ -54,7 +54,7 @@ export interface HullDef {
   requires: Requirements;
 }
 
-export const POSTURES = ['expand', 'develop', 'fortify'] as const;
+export const POSTURES = ['expand', 'develop', 'fortify', 'war'] as const;
 /** An AI empire's broad aim, re-chosen every few turns. */
 export type Posture = (typeof POSTURES)[number];
 

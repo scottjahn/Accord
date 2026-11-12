@@ -1,10 +1,11 @@
-import { FIELDS, POSTURES, type Json, type Posture } from '../sim';
+import { FIELDS, POSTURES, sortedKeys, type Json, type Posture } from '../sim';
 import { createPlanner, type Agent } from './agent';
 import { survey } from './maps';
 import { setTargets } from './operational';
 import { POSTURE_REVIEW_TURNS, choosePosture, scorePostures } from './strategic';
 import { manageColonies } from './tactical/colonies';
 import { directFleets } from './tactical/fleets';
+import { enemiesOf, knownColoniesOf, wageWar } from './tactical/war';
 
 /** What the standard AI carries from turn to turn. */
 export interface StandardMemory {
@@ -22,7 +23,7 @@ export function readMemory(memory: Json | null): StandardMemory | null {
 
 /**
  * The game's AI player, in three layers:
- * 1. strategic: every few turns, pick a posture (expand, develop or fortify);
+ * 1. strategic: every few turns, pick a posture (expand, develop, fortify or war);
  * 2. operational: every turn, turn the posture into targets (settlers, scouts,
  *    warships, research split);
  * 3. tactical: per colony choose what to build and who governs; per fleet
@@ -48,8 +49,17 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
     plan.attempt({ type: 'setResearchAllocation', empire: empireId, allocation: targets.research });
   }
 
+  // Going to war means declaring it on whoever owns the nearest rival colony.
+  if (next.posture === 'war' && enemiesOf(plan.state, empireId).length === 0) {
+    const rivals = sortedKeys(plan.state.empires).filter((id) => id !== empireId && !plan.state.empires[id].eliminated);
+    const nearest = knownColoniesOf(plan.state, empireId, rivals)[0];
+    const owner = nearest ? plan.state.empires[empireId].knownSystems[nearest.id] : null;
+    if (owner) plan.attempt({ type: 'declareWar', empire: empireId, on: owner });
+  }
+
   manageColonies(plan, empireId, content, next.posture, targets);
   directFleets(plan, empireId, content, next.posture, picture);
+  if (next.posture === 'war') wageWar(plan, empireId, content, targets.strikeSize);
 
   return { commands: plan.issued, memory: { posture: next.posture, postureTurn: next.postureTurn } };
 };

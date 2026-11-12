@@ -9,9 +9,13 @@ import planetTypes from './planets.json';
 import rules from './rules.json';
 import techs from './techs.json';
 
-/** Loads and validates the shipped game content. Throws listing every problem if it is invalid. */
+/**
+ * Loads and validates the shipped game content. Throws listing every problem if
+ * it is invalid. Each call returns its own copy, so a caller that changes a
+ * value (a balance experiment, say) cannot affect anyone else.
+ */
 export function loadContent(): Content {
-  const result = validateContent({
+  const result = validateContent(structuredClone({
     factions,
     ai,
     buildings,
@@ -22,7 +26,7 @@ export function loadContent(): Content {
     galaxyPresets,
     names,
     rules,
-  });
+  }));
   if (!result.ok) throw new Error(`Invalid content:\n  ${result.error.join('\n  ')}`);
   return result.value;
 }

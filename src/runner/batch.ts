@@ -38,6 +38,10 @@ export interface BatchGame {
   seed: number;
   /** Metrics at the final turn, indexed like `agents` (not by seat). */
   results: [Metrics, Metrics];
+  /** Which agent won by conquest (index into `agents`), or null if nobody had by the turn limit. */
+  winner: 0 | 1 | null;
+  /** Turns played. */
+  turns: number;
 }
 
 /** Plays many two-player games headless and reports how each agent did. */
@@ -48,8 +52,15 @@ export function runBatch(options: BatchOptions): BatchGame[] {
     const swapped = i % 2 === 1;
     const agents = swapped ? [options.agents[1], options.agents[0]] : options.agents;
     const state = runGame({ ...options, seed, agents, verify: false });
-    const [first, second] = sortedKeys(state.empires).map((id) => measure(state, id));
-    games.push({ seed, results: swapped ? [second, first] : [first, second] });
+    const seats = sortedKeys(state.empires);
+    const [first, second] = seats.map((id) => measure(state, id));
+    const seat = state.winner === null ? null : seats.indexOf(state.winner);
+    games.push({
+      seed,
+      results: swapped ? [second, first] : [first, second],
+      winner: seat === null ? null : ((swapped ? 1 - seat : seat) as 0 | 1),
+      turns: state.turn - 1,
+    });
   }
   return games;
 }
@@ -88,6 +99,15 @@ function main(): void {
       `${metric.padEnd(12)} ${average(0, metric).padStart(6)}    ${average(1, metric).padStart(6)}    ${aheadCount(results, metric)} of ${games}`,
     );
   }
+  const decided = results.filter((g) => g.winner !== null);
+  const lengths = decided.map((g) => g.turns).sort((a, b) => a - b);
+  console.log(
+    `ended by conquest: ${decided.length} of ${games}` +
+      (decided.length > 0
+        ? ` (A won ${decided.filter((g) => g.winner === 0).length}, B won ${decided.filter((g) => g.winner === 1).length}; ` +
+          `turns ${lengths[0]} to ${lengths[lengths.length - 1]}, median ${lengths[Math.floor(lengths.length / 2)]})`
+        : ''),
+  );
 }
 
 // Run only as a script, not when imported by tests.

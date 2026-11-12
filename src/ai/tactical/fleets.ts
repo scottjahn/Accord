@@ -21,6 +21,8 @@ import { threatDistance, type Picture } from '../maps';
  * - warships spread out so every colony has a guard, the most threatened first.
  */
 export function directFleets(plan: Planner, empireId: EmpireId, content: Content, posture: Posture, picture: Picture): void {
+  // At war the navy is run by wageWar instead of being spread out as guards.
+  const guard = posture !== 'war';
   const rolesOf = (fleet: Fleet) => new Set<HullRole | undefined>(fleet.ships.map((s) => content.hulls[s.hull]?.role));
   const idle = (fleet: Fleet) => !fleet.destination && fleet.order === 'none';
   const heading = (fleet: Fleet) => sectorKey(fleet.destination ?? fleet.sector);
@@ -71,7 +73,7 @@ export function directFleets(plan: Planner, empireId: EmpireId, content: Content
   );
   const needAt = (sector: { x: number; y: number }) => (posture === 'fortify' && threatDistance(picture, sector) <= 4 ? 2 : 1);
 
-  for (const { id } of warFleets) {
+  for (const { id } of guard ? warFleets : []) {
     const fleet = plan.state.fleets[id];
     if (!idle(fleet)) continue;
     const here = posts.find((c) => sameSector(c.sector, fleet.sector));

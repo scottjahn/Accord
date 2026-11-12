@@ -6,6 +6,9 @@ export interface Targets {
   settlers: number;
   scouts: number;
   warships: number;
+  transports: number;
+  /** Warships that must gather before a strike is launched. */
+  strikeSize: number;
   research: Record<FieldId, number>;
 }
 
@@ -14,6 +17,7 @@ const RESEARCH_FOCUS: Record<Posture, Partial<Record<FieldId, number>>> = {
   expand: { propulsion: 200, biology: 150 },
   develop: { computing: 200, construction: 150, energy: 120 },
   fortify: { weapons: 200, construction: 150 },
+  war: { weapons: 200, energy: 150, propulsion: 150 },
 };
 
 /** Scales weights to whole percents that sum to exactly 100. */
@@ -38,10 +42,14 @@ export function setTargets(posture: Posture, picture: Picture, personality: Pers
   const settlers = posture === 'expand' ? Math.min(free, 2 + Math.floor(colonies / 2)) : Math.min(free, 1);
   const scouts = picture.unexplored.length > 0 ? personality.scouts : 0;
   const navy = posture === 'fortify' ? 150 : posture === 'expand' ? 60 : 100;
-  const warships = colonies < 2 ? 0 : Math.max(1, Math.ceil((colonies * personality.warshipsPerColony * navy) / 10000));
+  const garrison = colonies < 2 ? 0 : Math.max(1, Math.ceil((colonies * personality.warshipsPerColony * navy) / 10000));
+  // At war the navy is at least a strike force, and troops come first: ships win battles, transports win colonies.
+  const warships = posture === 'war' ? Math.max(6, garrison) : garrison;
+  const transports = posture === 'war' ? Math.min(10, 3 + Math.floor(colonies / 4)) : 0;
+  const strikeSize = Math.max(3, Math.floor(warships / 2));
 
   const weights = {} as Record<FieldId, number>;
   for (const field of FIELDS) weights[field] = personality.research[field] * (RESEARCH_FOCUS[posture][field] ?? 100);
 
-  return { settlers, scouts, warships, research: toPercents(weights) };
+  return { settlers, scouts, warships, transports, strikeSize, research: toPercents(weights) };
 }

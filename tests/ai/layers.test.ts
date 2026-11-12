@@ -99,7 +99,7 @@ describe('strategic layer', () => {
     placeFree(state, a, 12);
     placeFree(state, b, 12);
     const scores = scorePostures(state, ALPHA, content, look(), personality);
-    expect(scores).toEqual({ expand: 90, develop: 70, fortify: 10 });
+    expect(scores).toEqual({ expand: 90, develop: 70, fortify: 10, war: 0 });
     expect(choosePosture(scores)).toBe('expand');
   });
 
@@ -119,20 +119,20 @@ describe('strategic layer', () => {
 
     colonyOf(state, ALPHA).population = 30; // colonies mostly full: developing is less urgent
     expect(choosePosture(scorePostures(state, ALPHA, content, look(), personality))).toBe('develop');
-    expect(scorePostures(state, ALPHA, content, look(), { ...personality, posture: { expand: 100, develop: 50, fortify: 100 } }).fortify).toBe(85);
-    expect(choosePosture(scorePostures(state, ALPHA, content, look(), { ...personality, posture: { expand: 100, develop: 50, fortify: 100 } }))).toBe('fortify');
+    expect(scorePostures(state, ALPHA, content, look(), { ...personality, posture: { expand: 100, develop: 50, fortify: 100, war: 100 } }).fortify).toBe(85);
+    expect(choosePosture(scorePostures(state, ALPHA, content, look(), { ...personality, posture: { expand: 100, develop: 50, fortify: 100, war: 100 } }))).toBe('fortify');
   });
 
   it('applies personality multipliers', () => {
     const { state, content, personality, look } = setup();
-    const scores = scorePostures(state, ALPHA, content, look(), { ...personality, posture: { expand: 100, develop: 150, fortify: 200 } });
+    const scores = scorePostures(state, ALPHA, content, look(), { ...personality, posture: { expand: 100, develop: 150, fortify: 200, war: 100 } });
     expect(scores.develop).toBe(165);
     expect(scores.fortify).toBe(20);
   });
 
   it('breaks ties toward the earlier posture', () => {
-    expect(choosePosture({ expand: 50, develop: 50, fortify: 50 })).toBe('expand');
-    expect(choosePosture({ expand: 10, develop: 50, fortify: 50 })).toBe('develop');
+    expect(choosePosture({ expand: 50, develop: 50, fortify: 50, war: 50 })).toBe('expand');
+    expect(choosePosture({ expand: 10, develop: 50, fortify: 50, war: 0 })).toBe('develop');
   });
 
   it('reviews the posture every ten turns and remembers it in between', () => {
@@ -266,7 +266,7 @@ describe('tactical layer: colonies', () => {
   it('queues the most urgent ship first and a building otherwise', () => {
     const { state, content } = setup();
     colonyOf(state, ALPHA).buildings['shipyard' as BuildingId] = 1;
-    const targets = { settlers: 1, scouts: 0, warships: 0, research: state.empires[ALPHA].research.allocation };
+    const targets = { settlers: 1, scouts: 0, warships: 0, transports: 0, strikeSize: 3, research: state.empires[ALPHA].research.allocation };
 
     const withSettler = createPlanner(state, content);
     manageColonies(withSettler, ALPHA, content, 'expand', targets);
@@ -283,7 +283,7 @@ describe('tactical layer: colonies', () => {
     const { state, content } = setup();
     colonyOf(state, ALPHA).buildQueue = [{ kind: 'building', building: 'lab' as BuildingId, progress: 3 }];
     const plan = createPlanner(state, content);
-    manageColonies(plan, ALPHA, content, 'expand', { settlers: 0, scouts: 0, warships: 0, research: state.empires[ALPHA].research.allocation });
+    manageColonies(plan, ALPHA, content, 'expand', { settlers: 0, scouts: 0, warships: 0, transports: 0, strikeSize: 3, research: state.empires[ALPHA].research.allocation });
     expect(plan.issued.every((c) => c.type === 'setGovernor')).toBe(true);
   });
 });
