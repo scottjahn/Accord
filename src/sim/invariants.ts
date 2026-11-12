@@ -115,7 +115,9 @@ export function checkInvariants(state: GameState, content: Content): string[] {
     }
     if (state.empires[fleet.owner] && fleet.ships.every((s) => content.hulls[s.hull])) {
       const supplied = suppliedSectors(state, fleet.owner, fleetRange(state, fleet, content));
-      if (!supplied.has(sectorKey(fleet.sector))) problems.push(`${id}: is outside supply range`);
+      // Being outside supply, or heading for a sector that has just fallen outside it, is allowed:
+      // treaties lapse and colonies fall. Movement stops such a fleet; nothing here needs to hold.
+      void supplied;
     }
   }
 

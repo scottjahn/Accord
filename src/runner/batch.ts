@@ -45,6 +45,10 @@ export interface BatchGame {
   winner: 0 | 1 | null;
   /** Turns played. */
   turns: number;
+  /** How the game was won, if it was. */
+  victory: GameState['victory'];
+  /** Whether any war was declared during the game. */
+  war: boolean;
 }
 
 /** Plays many two-player games headless and reports how each agent did. */
@@ -63,6 +67,8 @@ export function runBatch(options: BatchOptions): BatchGame[] {
       results: swapped ? [second, first] : [first, second],
       winner: seat === null ? null : ((swapped ? 1 - seat : seat) as 0 | 1),
       turns: state.turn - 1,
+      victory: state.victory,
+      war: seats.some((id) => state.empires[id].lastWarTurn > 0),
     });
   }
   return games;
@@ -104,8 +110,10 @@ function main(): void {
   }
   const decided = results.filter((g) => g.winner !== null);
   const lengths = decided.map((g) => g.turns).sort((a, b) => a - b);
+  const kinds = ['conquest', 'domination', 'accord'].map((k) => `${k} ${decided.filter((g) => g.victory === k).length}`).join(', ');
+  console.log(`victories: ${kinds}; games with no war at all: ${results.filter((g) => !g.war).length}`);
   console.log(
-    `ended by conquest: ${decided.length} of ${games}` +
+    `games with a winner: ${decided.length} of ${games}` +
       (decided.length > 0
         ? ` (A won ${decided.filter((g) => g.winner === 0).length}, B won ${decided.filter((g) => g.winner === 1).length}; ` +
           `turns ${lengths[0]} to ${lengths[lengths.length - 1]}, median ${lengths[Math.floor(lengths.length / 2)]})`

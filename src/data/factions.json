@@ -13,7 +13,8 @@
         "minorJoined": 12
       },
       "peacePerTenTurns": 0
-    }
+    },
+    "grudgePercent": 100
   },
   {
     "id": "vashran",
@@ -30,6 +31,7 @@
         "battleWon": 6
       },
       "peacePerTenTurns": -2
-    }
+    },
+    "grudgePercent": 200
   }
 ]

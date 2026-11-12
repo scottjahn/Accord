@@ -95,6 +95,7 @@ export function eventIsMine(event: TurnEvent, state: GameState, player: EmpireId
 }
 
 export function eventText(event: TurnEvent, state: GameState, content: Content): string {
+  const treatyLabel = (type: keyof typeof content.rules.diplomacy.treaties) => content.rules.diplomacy.treaties[type].label;
   const factionName = (id: EmpireId) => content.factions[state.empires[id]?.faction]?.name ?? id;
   const systemName = (id: string | null) => (id && state.systems[id as keyof typeof state.systems]?.name) || 'a system';
   switch (event.type) {
@@ -138,6 +139,30 @@ export function eventText(event: TurnEvent, state: GameState, content: Content):
       return `${factionName(event.empire)} has been eliminated`;
     case 'gameWon':
       return `${factionName(event.empire)} has won the game`;
+    case 'treatySigned':
+      return `${treatyLabel(event.treaty.type)} signed between ${factionName(event.treaty.parties[0])} and ${factionName(event.treaty.parties[1])}`;
+    case 'treatyBroken': {
+      const other = event.treaty.parties[0] === event.by ? event.treaty.parties[1] : event.treaty.parties[0];
+      return `${factionName(event.by)} broke the ${treatyLabel(event.treaty.type).toLowerCase()} with ${factionName(other)}`;
+    }
+    case 'treatyExpired':
+      return `The ${treatyLabel(event.treaty.type).toLowerCase()} between ${factionName(event.treaty.parties[0])} and ${factionName(event.treaty.parties[1])} has lapsed`;
+    case 'offerMade':
+      return `${factionName(event.offer.from)} proposes a ${treatyLabel(event.offer.type).toLowerCase()} to ${factionName(event.offer.to)}`;
+    case 'offerRefused':
+      return `${factionName(event.offer.to)} refused the ${treatyLabel(event.offer.type).toLowerCase()}${event.note ? `: ${event.note}` : ''}`;
+    case 'operation': {
+      const r = event.report;
+      const label = content.rules.intel.operations[r.kind].label;
+      const result = r.outcome === 'success' ? `succeeded${r.effect ? `: ${r.effect}` : ''}` : r.outcome === 'caught' ? 'failed and our agents were caught' : 'failed';
+      return `${label} against ${factionName(r.target)} ${result} (rolled ${r.roll}, needed ${r.chance} or less)`;
+    }
+    case 'covertAction':
+      return `Enemy agents: ${content.rules.intel.operations[event.kind].label.toLowerCase()}${event.system ? ` at ${systemName(event.system)}` : ''}`;
+    case 'spyCaught':
+      return `We caught agents of ${factionName(event.by)} attempting to ${content.rules.intel.operations[event.kind].label.toLowerCase()}`;
+    case 'revolt':
+      return `${systemName(event.system)} has declared independence`;
     case 'minorJoined':
       return `The ${content.minors[event.race]?.name ?? event.race} of ${systemName(event.system)} have joined ${factionName(event.empire)}`;
     case 'minorConquered':

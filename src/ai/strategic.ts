@@ -22,6 +22,8 @@ export function scorePostures(
   content: Content,
   picture: Picture,
   personality: Personality,
+  /** Rivals this empire is free to attack; treaty partners are normally left out. Defaults to everyone. */
+  targets?: EmpireId[],
 ): Record<Posture, number> {
   const free = picture.opportunities.length;
   const capacity = picture.colonies.reduce((sum, s) => sum + s.planets.reduce((n, p) => n + p.maxPopulation, 0), 0);
@@ -32,7 +34,7 @@ export function scorePostures(
   const warships = shipsWithRole(known, empireId, content, 'warship');
 
   const fighting = enemiesOf(known, empireId).length > 0;
-  const rivals = sortedRivals(known, empireId);
+  const rivals = sortedRivals(known, empireId).filter((id) => !targets || targets.includes(id));
   const rivalColonies = knownColoniesOf(known, empireId, rivals).length;
   const myPower = fleetPower(fleetsOf(known, empireId), content);
   const theirPower = fleetPower(rivals.flatMap((id) => fleetsOf(known, id)), content);

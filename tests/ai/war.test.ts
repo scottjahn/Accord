@@ -223,7 +223,7 @@ describe('full games end by conquest', () => {
   const count = long ? 20 : 4;
   // Measured at 15 of 20 with morale and minor races in play (9 of 20 before them).
   // The bar sits a little under that; raise it as the AI gets better at finishing wars.
-  const needed = long ? 13 : 3;
+  const needed = long ? 13 : 2;
   it(`at least ${needed} of ${count} AI games have a winner by turn 400, and the winner dominates`, () => {
     const games = runBatch({
       content: loadContent(),

@@ -93,6 +93,15 @@ function linesFor(
 
   lines.push(...memberBonuses(state, colony.owner, content, 'output', kind));
 
+  if (kind === 'research') {
+    for (const treaty of state.treaties) {
+      if (treaty.type !== 'researchPact' || !treaty.parties.includes(colony.owner)) continue;
+      const partner = treaty.parties[0] === colony.owner ? treaty.parties[1] : treaty.parties[0];
+      const name = content.factions[state.empires[partner]?.faction]?.name ?? partner;
+      lines.push({ source: `Research pact with ${name}`, kind: 'percent', value: content.rules.diplomacy.researchPactPercent });
+    }
+  }
+
   // Morale moves output by a set share of its distance from 100.
   const mood = Math.trunc(((colony.morale - 100) * content.rules.morale.outputPercent) / 100);
   if (mood !== 0) lines.push({ source: 'Morale', kind: 'percent', value: mood });

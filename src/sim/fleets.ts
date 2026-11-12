@@ -1,6 +1,7 @@
 import type { Content, HullDef } from './content';
 import { applyGovernor } from './economy/governor';
 import { maxPopulationOf } from './economy/outputs';
+import { borderPartners } from './diplomacy';
 import { memberBonuses } from './members';
 import { addEmpireMorale } from './morale';
 import { inBounds, sameSector, sectorDistance, sectorKey, sectorsAround } from './geometry';
@@ -54,7 +55,10 @@ export function fleetRange(state: GameState, fleet: Fleet, content: Content): nu
 /** Keys of every sector within `range` of one of the empire's colonies. */
 export function suppliedSectors(state: GameState, empireId: EmpireId, range: number): Set<string> {
   const supplied = new Set<string>();
-  for (const system of coloniesOf(state, empireId)) sectorsAround(state.galaxy, system.sector, range, supplied);
+  // Open borders and alliances let an empire draw supply from its partner's colonies too.
+  for (const owner of [empireId, ...borderPartners(state, empireId)]) {
+    for (const system of coloniesOf(state, owner)) sectorsAround(state.galaxy, system.sector, range, supplied);
+  }
   return supplied;
 }
 
@@ -80,6 +84,8 @@ export function findPath(state: GameState, fleet: Fleet, to: Sector, content: Co
   if (sameSector(fleet.sector, to)) return [];
   const supplied = suppliedSectors(state, fleet.owner, fleetRange(state, fleet, content));
   if (!supplied.has(sectorKey(to))) return null;
+  // A fleet left outside supply (a treaty lapsed, a colony fell) may cross open space to get back.
+  const stranded = !supplied.has(sectorKey(fleet.sector));
 
   const cameFrom = new Map<string, Sector | null>([[sectorKey(fleet.sector), null]]);
   let frontier: Sector[] = [fleet.sector];
@@ -87,7 +93,7 @@ export function findPath(state: GameState, fleet: Fleet, to: Sector, content: Co
     const next: Sector[] = [];
     for (const current of frontier) {
       const steps = NEIGHBOURS.map((d) => ({ x: current.x + d.x, y: current.y + d.y }))
-        .filter((s) => supplied.has(sectorKey(s)) && !cameFrom.has(sectorKey(s)))
+        .filter((s) => (stranded ? inBounds(state.galaxy, s) : supplied.has(sectorKey(s))) && !cameFrom.has(sectorKey(s)))
         // Head toward the goal first so routes look direct.
         .sort(
           (a, b) =>
@@ -206,6 +212,15 @@ export function coloniseBlocker(
   return null;
 }
 
+/**
+ * True if the fleet is outside its supply range, as happens when a treaty
+ * lapses or a colony is lost. It may stay where it is, and may cross open
+ * space to get back into range, but can go nowhere else.
+ */
+export function isStranded(state: GameState, fleet: Fleet, content: Content): boolean {
+  return !suppliedSectors(state, fleet.owner, fleetRange(state, fleet, content)).has(sectorKey(fleet.sector));
+}
+
 /** Moves every fleet with a destination. Mutates the state. */
 export function moveFleets(state: GameState, content: Content, events: TurnEvent[]): void {
   for (const id of sortedKeys(state.fleets)) {
@@ -273,6 +288,7 @@ export function resolveColonisation(state: GameState, content: Content, events: 
       buildQueue: [],
       morale: 100,
       moraleEffects: [],
+      unrestTurns: 0,
       minorRace: null,
     };
     applyGovernor(state, system, content);

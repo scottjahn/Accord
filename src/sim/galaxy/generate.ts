@@ -121,6 +121,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
       buildQueue: [],
       morale: 100,
       moraleEffects: [],
+      unrestTurns: 0,
       minorRace: null,
     };
     empires[id] = {
@@ -131,19 +132,24 @@ export function createGame(config: GameConfig, content: Content): GameState {
       research: newResearchState(),
       intelPool: 0,
       eliminated: false,
+      counterIntel: 0,
+      intelSplit: rules.intel.defaultSplit,
+      revealedUntil: {},
       lastWarTurn: 0,
       members: [],
       knownSystems: {},
     };
   });
 
+  let minorsPlaced = 0;
   // Minor races take the roomiest unclaimed systems. With none asked for, no rolls are used.
   if (preset.minors > 0) {
     const sites = ids.filter((id) => !systems[id].colony && maxPopulationOf(systems[id]) >= rules.minors.minPopulation);
     shuffle(rng, sites);
-    const races = sortedKeys(content.minors);
+    const races = sortedKeys(content.minors).filter((id) => id !== rules.morale.rebelRace);
     shuffle(rng, races);
     for (let i = 0; i < Math.min(preset.minors, sites.length, races.length); i++) {
+      minorsPlaced += 1;
       const system = systems[sites[i]];
       system.minor = {
         race: races[i],
@@ -168,6 +174,14 @@ export function createGame(config: GameConfig, content: Content): GameState {
     difficulty: config.difficulty ?? 'normal',
     wars: {},
     winner: null,
+    victory: null,
+    treaties: [],
+    treatyHistory: {},
+    offers: [],
+    opinions: {},
+    operations: [],
+    pendingEvents: [],
+    minorsPlaced,
     agentMemory: {},
   };
   for (const id of sortedKeys(empires)) {

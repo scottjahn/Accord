@@ -243,5 +243,22 @@
       "kind": "range",
       "value": 1
     }
+  },
+  {
+    "id": "free_colonists",
+    "name": "Free Colonists",
+    "description": "Colonists who threw off a government that had lost their trust.",
+    "population": 6,
+    "garrison": 4,
+    "wants": [
+      "neighbours",
+      "protection"
+    ],
+    "favouredField": "biology",
+    "techLevel": 1,
+    "bonus": {
+      "kind": "morale",
+      "value": 2
+    }
   }
 ]

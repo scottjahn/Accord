@@ -1,6 +1,7 @@
 import type { Content } from './content';
 import { applyGovernor } from './economy/governor';
 import { atWar, invadeBlocker, warKey } from './combat';
+import { addOpinion, boundToPeace, breakTreaty, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
 import { coloniseBlocker, empireSupport, findPath, fleetOfShip } from './fleets';
 import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
@@ -12,6 +13,7 @@ import {
   GOVERNORS,
   OUTPUT_KINDS,
   STANCES,
+  TREATY_TYPES,
   type Colony,
   type FieldId,
   type Fleet,
@@ -22,6 +24,7 @@ import {
   type Sector,
   type Stance,
   type StarSystem,
+  type TreatyType,
 } from './types';
 import { visibleSectors } from './view';
 
@@ -44,6 +47,9 @@ export type Command =
   | { type: 'invadeSystem'; empire: EmpireId; fleet: FleetId; system: SystemId }
   | { type: 'setStance'; empire: EmpireId; fleet: FleetId; stance: Stance }
   | { type: 'declareWar'; empire: EmpireId; on: EmpireId }
+  | { type: 'proposeTreaty'; empire: EmpireId; to: EmpireId; treaty: TreatyType }
+  | { type: 'answerOffer'; empire: EmpireId; offer: string; accept: boolean; note?: string }
+  | { type: 'breakTreaty'; empire: EmpireId; with: EmpireId; treaty: TreatyType }
   | { type: 'courtMinor'; empire: EmpireId; system: SystemId; points: number }
   | { type: 'mergeFleets'; empire: EmpireId; from: FleetId; into: FleetId }
   | { type: 'splitFleet'; empire: EmpireId; fleet: FleetId; ships: ShipId[] };
@@ -71,6 +77,8 @@ export type CommandErrorCode =
   | 'badStance'
   | 'badWar'
   | 'cannotCourt'
+  | 'badTreaty'
+  | 'badOffer'
   | 'gameOver'
   | 'badFleets';
 
@@ -260,8 +268,31 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const other = state.empires[cmd.on];
       if (!other || cmd.on === cmd.empire) return fail('badWar', 'Choose another empire to declare war on');
       if (other.eliminated) return fail('badWar', 'That empire has been eliminated');
-      return atWar(state, cmd.empire, cmd.on) ? fail('badWar', 'You are already at war with that empire') : null;
+      if (atWar(state, cmd.empire, cmd.on)) return fail('badWar', 'You are already at war with that empire');
+      return boundToPeace(state, cmd.empire, cmd.on) ? fail('badWar', 'A treaty forbids it; break the treaty first') : null;
     }
+    case 'proposeTreaty': {
+      if (!TREATY_TYPES.includes(cmd.treaty)) return fail('badTreaty', `No treaty ${String(cmd.treaty)}`);
+      const blocker = treatyBlocker(state, cmd.empire, cmd.to, cmd.treaty, content);
+      if (blocker) return fail('badTreaty', blocker);
+      if (state.offers.some((o) => o.type === cmd.treaty && ((o.from === cmd.empire && o.to === cmd.to) || (o.from === cmd.to && o.to === cmd.empire)))) {
+        return fail('badTreaty', 'That treaty has already been proposed');
+      }
+      return null;
+    }
+    case 'answerOffer': {
+      const offer = state.offers.find((o) => o.id === cmd.offer);
+      if (!offer || offer.to !== cmd.empire) return fail('badOffer', 'There is no such offer to answer');
+      if (cmd.accept) {
+        const blocker = treatyBlocker(state, offer.from, offer.to, offer.type, content);
+        if (blocker) return fail('badOffer', blocker);
+      }
+      return null;
+    }
+    case 'breakTreaty':
+      return state.empires[cmd.with] && hasTreaty(state, cmd.empire, cmd.with, cmd.treaty)
+        ? null
+        : fail('badTreaty', 'There is no such treaty to break');
     case 'courtMinor': {
       const system = state.systems[cmd.system];
       if (!system || !(cmd.system in empire.knownSystems)) return fail('unknownSystem', `No known system ${cmd.system}`);
@@ -334,7 +365,7 @@ export function submitCommands(
  * copy) and have just checked the command with validateCommand.
  */
 export function applyValidated(next: GameState, cmd: Command, content: Content): void {
-  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' && cmd.type !== 'invadeSystem' && cmd.type !== 'courtMinor' ? next.systems[cmd.system].colony! : null;
+  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' && cmd.type !== 'invadeSystem' && cmd.type !== 'courtMinor' && 'system' in cmd ? next.systems[cmd.system].colony! : null;
 
   switch (cmd.type) {
     case 'setAllocation':
@@ -394,6 +425,24 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
     case 'declareWar':
       next.wars[warKey(cmd.empire, cmd.on)] = next.turn;
       addEmpireMorale(next, cmd.empire, 'warDeclared', content);
+      addOpinion(next, cmd.on, cmd.empire, 'warDeclared');
+      next.pendingEvents.push({ type: 'warDeclared', by: cmd.empire, on: cmd.on });
+      break;
+    case 'proposeTreaty': {
+      const offer = { id: `off-${String(next.nextId++).padStart(5, '0')}`, from: cmd.empire, to: cmd.to, type: cmd.treaty, turn: next.turn };
+      next.offers.push(offer);
+      next.pendingEvents.push({ type: 'offerMade', empires: [cmd.empire, cmd.to], offer });
+      break;
+    }
+    case 'answerOffer': {
+      const offer = next.offers.find((o) => o.id === cmd.offer)!;
+      next.offers = next.offers.filter((o) => o.id !== cmd.offer);
+      if (cmd.accept) signTreaty(next, offer.from, offer.to, offer.type, content);
+      else next.pendingEvents.push({ type: 'offerRefused', empires: [offer.from, offer.to], offer, note: (cmd.note ?? '').slice(0, 200) });
+      break;
+    }
+    case 'breakTreaty':
+      breakTreaty(next, cmd.empire, cmd.with, cmd.treaty, content);
       break;
     case 'courtMinor': {
       const system = next.systems[cmd.system];

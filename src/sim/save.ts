@@ -44,6 +44,7 @@ export function deserialize(json: string): Result<GameState, SaveError> {
   if (!DIFFICULTIES.includes(raw.difficulty as Difficulty)) return bad('Save has no difficulty');
   if (!isObj(raw.agentMemory)) return bad('Save has no agent memory');
   if (!isObj(raw.wars) || !('winner' in raw)) return bad('Save has no war record');
+  if (!Array.isArray(raw.treaties) || !Array.isArray(raw.offers) || !isObj(raw.opinions)) return bad('Save has no diplomatic record');
 
   return { ok: true, value: raw as unknown as GameState };
 }

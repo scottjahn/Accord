@@ -155,8 +155,20 @@
         "value": -10,
         "turns": 15,
         "label": "We conquered a free people"
+      },
+      "treatyBroken": {
+        "value": -12,
+        "turns": 15,
+        "label": "We broke a treaty"
+      },
+      "incited": {
+        "value": -25,
+        "turns": 10,
+        "label": "Agitators at work"
       }
-    }
+    },
+    "revoltTurns": 8,
+    "rebelRace": "free_colonists"
   },
   "minors": {
     "minPopulation": 8,
@@ -169,5 +181,100 @@
     "neighbourRange": 2,
     "influenceCost": 5,
     "conquestPenalty": 15
+  },
+  "diplomacy": {
+    "causes": {
+      "warDeclared": {
+        "value": -40,
+        "fadePerTenTurns": 4,
+        "label": "They declared war on us"
+      },
+      "colonyCaptured": {
+        "value": -15,
+        "fadePerTenTurns": 3,
+        "label": "They took one of our colonies"
+      },
+      "treatyBroken": {
+        "value": -50,
+        "fadePerTenTurns": 2,
+        "label": "They broke a treaty with us"
+      },
+      "treatyBrokenWitness": {
+        "value": -15,
+        "fadePerTenTurns": 3,
+        "label": "They broke their word to another"
+      },
+      "minorConquered": {
+        "value": -10,
+        "fadePerTenTurns": 3,
+        "label": "They conquered a free people"
+      },
+      "spyCaught": {
+        "value": -20,
+        "fadePerTenTurns": 4,
+        "label": "We caught their spies"
+      }
+    },
+    "treaties": {
+      "peace": {
+        "label": "Peace treaty",
+        "opinion": 5,
+        "duration": 20
+      },
+      "nonAggression": {
+        "label": "Non-aggression pact",
+        "opinion": 10,
+        "duration": 40
+      },
+      "openBorders": {
+        "label": "Open borders",
+        "opinion": 5,
+        "duration": 40
+      },
+      "researchPact": {
+        "label": "Research pact",
+        "opinion": 10,
+        "duration": 40
+      },
+      "alliance": {
+        "label": "Alliance",
+        "opinion": 25,
+        "duration": null
+      }
+    },
+    "warOpinion": -30,
+    "friendshipPerTenTurns": 3,
+    "maxFriendship": 15,
+    "breakMinorPenalty": 10,
+    "offerTurns": 3,
+    "researchPactPercent": 5,
+    "accordMemberPercent": 50
+  },
+  "intel": {
+    "decayPercent": 5,
+    "defaultSplit": 30,
+    "baseChance": 70,
+    "defencePerPercent": 4,
+    "catchBase": 15,
+    "stealPoints": 40,
+    "revealTurns": 10,
+    "operations": {
+      "stealResearch": {
+        "cost": 40,
+        "label": "Steal research"
+      },
+      "sabotage": {
+        "cost": 30,
+        "label": "Sabotage"
+      },
+      "inciteUnrest": {
+        "cost": 50,
+        "label": "Incite unrest"
+      },
+      "gatherIntel": {
+        "cost": 20,
+        "label": "Gather intel"
+      }
+    }
   }
 }

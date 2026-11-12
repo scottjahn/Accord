@@ -1,5 +1,6 @@
 import { atWar, checkVictory, repairShips, resolveBattles, resolveInvasions } from '../combat';
 import type { Content } from '../content';
+import { expireDiplomacy, pruneOpinions } from '../diplomacy';
 import { applyBuild } from '../economy/build';
 import { applyGovernor } from '../economy/governor';
 import { applyGrowth } from '../economy/growth';
@@ -16,7 +17,7 @@ import { updateKnownSystems } from '../view';
  * Resolves one turn for every empire at once and returns the next state.
  * The input state is not modified. Once the game has a winner, nothing happens.
  *
- * 1. Wars declared this turn are announced, and morale is brought up to date.
+ * 1. What commands did this turn is announced, and morale is brought up to date.
  * 2. Colonies, in system-id order, each from its outputs at the start of the turn:
  *    food (stockpile, growth or starvation; no growth in unrest), industry (build
  *    queue, which may launch ships), intel into the empire pool, then the
@@ -26,7 +27,8 @@ import { updateKnownSystems } from '../view';
  * 5. Battles are fought wherever empires at war share a sector.
  * 6. Invade orders, then colonise orders, resolve for fleets that have arrived.
  * 7. Minor races update their attitudes and may join an empire.
- * 8. Empires with nothing left are eliminated; a dominant or last empire wins.
+ * 8. Treaties and offers that have run out lapse. Empires with nothing left are
+ *    eliminated; a last, dominant or Accord-leading empire wins.
  * 9. Timed morale effects age, and each empire records what it can now see.
  */
 export function processTurn(state: GameState, content: Content): { state: GameState; events: TurnEvent[] } {
@@ -34,12 +36,9 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
   const events: TurnEvent[] = [];
   if (next.winner !== null) return { state: next, events };
 
-  for (const key of Object.keys(next.wars).sort()) {
-    if (next.wars[key] !== next.turn) continue;
-    const [a, b] = key.split('|') as EmpireId[];
-    // The declaring side is not recorded in the pair; report it in id order.
-    events.push({ type: 'warDeclared', by: a, on: b });
-  }
+  // What commands did this turn (wars declared, treaties proposed, signed or broken) goes in the report.
+  events.push(...next.pendingEvents);
+  next.pendingEvents = [];
   const empireIds = sortedKeys(next.empires);
   for (const id of empireIds) {
     if (empireIds.some((other) => atWar(next, id, other) && !next.empires[other].eliminated)) next.empires[id].lastWarTurn = next.turn;
@@ -73,6 +72,8 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
   resolveInvasions(next, content, silenced, events);
   resolveColonisation(next, content, events);
   stepMinors(next, content, events);
+  expireDiplomacy(next, content, events);
+  pruneOpinions(next, content);
   checkVictory(next, content, events);
 
   decayMorale(next);

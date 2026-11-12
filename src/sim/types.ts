@@ -2,7 +2,61 @@ import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, ShipId,
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
+
+export const TREATY_TYPES = ['peace', 'nonAggression', 'openBorders', 'researchPact', 'alliance'] as const;
+export type TreatyType = (typeof TREATY_TYPES)[number];
+
+/** A contract between two empires. */
+export interface Treaty {
+  type: TreatyType;
+  /** The two parties, lower id first. */
+  parties: [EmpireId, EmpireId];
+  startTurn: number;
+  /** When this relationship began: the first signing, if the treaty has been renewed without a gap. */
+  since: number;
+  /** The turn it lapses, or null if it lasts until broken. */
+  endTurn: number | null;
+}
+
+/** A treaty one empire has proposed to another and is waiting to hear about. */
+export interface Offer {
+  id: string;
+  from: EmpireId;
+  to: EmpireId;
+  type: TreatyType;
+  turn: number;
+}
+
+/** Things an empire remembers another doing. Values, labels and fading are in content rules. */
+export const OPINION_CAUSES = ['warDeclared', 'colonyCaptured', 'treatyBroken', 'treatyBrokenWitness', 'minorConquered', 'spyCaught'] as const;
+export type OpinionCause = (typeof OPINION_CAUSES)[number];
+
+export interface OpinionEntry {
+  cause: OpinionCause;
+  turn: number;
+}
+
+export const OPERATION_KINDS = ['stealResearch', 'sabotage', 'inciteUnrest', 'gatherIntel'] as const;
+export type OperationKind = (typeof OPERATION_KINDS)[number];
+
+/** A covert operation ordered this turn; it is paid for when ordered and resolves with the turn. */
+export interface Operation {
+  by: EmpireId;
+  target: EmpireId;
+  kind: OperationKind;
+  /** The colony it is aimed at, for sabotage and inciting unrest. */
+  system: SystemId | null;
+}
+
+export interface OperationReport extends Operation {
+  /** Percent chance of success, from the attacker's intel against the target's counter-intel. */
+  chance: number;
+  roll: number;
+  outcome: 'success' | 'failed' | 'caught';
+  /** What it achieved, in words, if it succeeded. */
+  effect: string;
+}
 
 /** Things that move morale. Each has a value, a duration and a label in content rules. */
 export const MORALE_EVENTS = [
@@ -16,6 +70,8 @@ export const MORALE_EVENTS = [
   'colonyFounded',
   'minorJoined',
   'minorConquered',
+  'treatyBroken',
+  'incited',
 ] as const;
 export type MoraleEventKind = (typeof MORALE_EVENTS)[number];
 
@@ -109,6 +165,8 @@ export interface Colony {
   /** 100 is neutral. Kept in step with its causes by the sim; see moraleBreakdown. */
   morale: number;
   moraleEffects: MoraleEffect[];
+  /** Turns in a row the colony has been in unrest; long enough and it revolts. */
+  unrestTurns: number;
   /** Set when this colony is a minor race that joined its owner; it then grants that race's bonus. */
   minorRace: MinorId | null;
 }
@@ -163,6 +221,12 @@ export interface Empire {
   intelPool: number;
   /** True once the empire has lost its last colony and colony ship. */
   eliminated: boolean;
+  /** Defence against rival operations. Fed by a share of intel each turn; decays if not kept up. */
+  counterIntel: number;
+  /** Percent of each turn's intel that goes to counter-intel; the rest goes to the pool. */
+  intelSplit: number;
+  /** Rivals this empire has under surveillance, with the turn that ends. */
+  revealedUntil: Record<EmpireId, number>;
   /** The last turn this empire was at war with anyone; 0 if never. */
   lastWarTurn: number;
   /** Minor races that have joined and whose home this empire still holds, sorted. */
@@ -191,6 +255,22 @@ export interface GameState {
   wars: Record<string, number>;
   /** Set when only one empire is left; the game is then over. */
   winner: EmpireId | null;
+  /** How the game was won, once it has been. */
+  victory: 'conquest' | 'domination' | 'accord' | null;
+  /** Treaties in force. */
+  treaties: Treaty[];
+  /** Treaties that lapsed, by pair and type, so a prompt renewal keeps the years of friendship. */
+  treatyHistory: Record<string, { since: number; ended: number }>;
+  /** Proposals waiting for an answer. */
+  offers: Offer[];
+  /** opinions[a][b]: what a remembers b doing. See opinionBreakdown for the full picture. */
+  opinions: Record<EmpireId, Record<EmpireId, OpinionEntry[]>>;
+  /** Covert operations ordered this turn. */
+  operations: Operation[];
+  /** Things commands did this turn that the turn report should mention. */
+  pendingEvents: TurnEvent[];
+  /** How many minor races the galaxy began with. */
+  minorsPlaced: number;
   /**
    * What each AI player remembers between turns. The sim never reads it; it is
    * here so a saved game resumes with the same AI plans.
@@ -279,4 +359,13 @@ export type TurnEvent =
   | { type: 'empireEliminated'; empire: EmpireId }
   | { type: 'gameWon'; empire: EmpireId }
   | { type: 'minorJoined'; empire: EmpireId; system: SystemId; race: MinorId }
-  | { type: 'minorConquered'; empire: EmpireId; system: SystemId; race: MinorId };
+  | { type: 'minorConquered'; empire: EmpireId; system: SystemId; race: MinorId }
+  | { type: 'treatySigned'; empires: EmpireId[]; treaty: Treaty }
+  | { type: 'treatyBroken'; empires: EmpireId[]; by: EmpireId; treaty: Treaty }
+  | { type: 'treatyExpired'; empires: EmpireId[]; treaty: Treaty }
+  | { type: 'offerMade'; empires: EmpireId[]; offer: Offer }
+  | { type: 'offerRefused'; empires: EmpireId[]; offer: Offer; note: string }
+  | { type: 'operation'; empires: EmpireId[]; report: OperationReport }
+  | { type: 'covertAction'; empire: EmpireId; kind: OperationKind; system: SystemId | null }
+  | { type: 'spyCaught'; empire: EmpireId; by: EmpireId; kind: OperationKind }
+  | { type: 'revolt'; empire: EmpireId; system: SystemId };

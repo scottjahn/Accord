@@ -67,6 +67,7 @@ describe('galaxy generation', () => {
         buildQueue: [],
         morale: 100,
         moraleEffects: [],
+        unrestTurns: 0,
         minorRace: null,
       });
     }

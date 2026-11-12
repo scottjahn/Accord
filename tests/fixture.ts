@@ -57,6 +57,9 @@ export const rawFixture = {
         scouts: 1,
         minorInfluence: 100,
         conquersMinors: 0,
+        honour: 90,
+        counterIntel: 0,
+        espionage: 0,
       },
       beta: {
         posture: { expand: 100, develop: 100, fortify: 100, war: 100 },
@@ -65,6 +68,9 @@ export const rawFixture = {
         scouts: 1,
         minorInfluence: 50,
         conquersMinors: 1,
+        honour: 40,
+        counterIntel: 0,
+        espionage: 0,
       },
     },
   },
@@ -85,6 +91,7 @@ export const rawFixture = {
     { id: 'wardens', name: 'Wardens', description: 'Soldiers.', population: 6, garrison: 10, wants: ['protection', 'neighbours'], favouredField: 'weapons', techLevel: 1, bonus: { kind: 'garrison', value: 50 } },
     { id: 'pilots', name: 'Pilots', description: 'Navigators.', population: 6, garrison: 2, wants: ['influence', 'protection'], favouredField: 'propulsion', techLevel: 1, bonus: { kind: 'range', value: 1 } },
     { id: 'bards', name: 'Bards', description: 'Singers.', population: 6, garrison: 2, wants: ['neighbours', 'influence'], favouredField: 'biology', techLevel: 1, bonus: { kind: 'morale', value: 6 } },
+    { id: 'rebels', name: 'Rebels', description: 'Former colonists.', population: 4, garrison: 2, wants: ['neighbours', 'protection'], favouredField: 'biology', techLevel: 1, bonus: { kind: 'morale', value: 2 } },
     { id: 'blades', name: 'Blades', description: 'Duellists.', population: 6, garrison: 8, wants: ['protection', 'technology'], favouredField: 'weapons', techLevel: 1, bonus: { kind: 'attack', value: 20 } },
   ],
   names: { prefixes: ['Al', 'Be', 'Ca', 'De'], suffixes: ['ra', 'ton', 'mir', 'dus'] },
@@ -128,8 +135,14 @@ export const rawFixture = {
         colonyFounded: { value: 2, turns: 5, label: 'A new colony founded' },
         minorJoined: { value: 8, turns: 15, label: 'A people joined us' },
         minorConquered: { value: -10, turns: 15, label: 'We conquered a free people' },
+        treatyBroken: { value: -12, turns: 15, label: 'We broke a treaty' },
+        incited: { value: -25, turns: 10, label: 'Agitators at work' },
       },
+      revoltTurns: 3,
+      rebelRace: 'rebels',
     },
+    diplomacy: {"causes":{"warDeclared":{"value":-40,"fadePerTenTurns":4,"label":"They declared war on us"},"colonyCaptured":{"value":-15,"fadePerTenTurns":3,"label":"They took one of our colonies"},"treatyBroken":{"value":-50,"fadePerTenTurns":2,"label":"They broke a treaty with us"},"treatyBrokenWitness":{"value":-15,"fadePerTenTurns":3,"label":"They broke their word to another"},"minorConquered":{"value":-10,"fadePerTenTurns":3,"label":"They conquered a free people"},"spyCaught":{"value":-20,"fadePerTenTurns":4,"label":"We caught their spies"}},"treaties":{"peace":{"label":"Peace treaty","opinion":5,"duration":20},"nonAggression":{"label":"Non-aggression pact","opinion":10,"duration":40},"openBorders":{"label":"Open borders","opinion":5,"duration":40},"researchPact":{"label":"Research pact","opinion":10,"duration":40},"alliance":{"label":"Alliance","opinion":25,"duration":null}},"warOpinion":-30,"friendshipPerTenTurns":3,"maxFriendship":15,"breakMinorPenalty":10,"offerTurns":3,"researchPactPercent":5,"accordMemberPercent":50},
+    intel: {"decayPercent":5,"defaultSplit":0,"baseChance":70,"defencePerPercent":4,"catchBase":15,"stealPoints":40,"revealTurns":10,"operations":{"stealResearch":{"cost":40,"label":"Steal research"},"sabotage":{"cost":30,"label":"Sabotage"},"inciteUnrest":{"cost":50,"label":"Incite unrest"},"gatherIntel":{"cost":20,"label":"Gather intel"}}},
     minors: { minPopulation: 6, startAttitude: 30, joinAt: 80, joinTurns: 3, protection: 4, technology: 3, neighbours: 2, neighbourRange: 2, influenceCost: 5, conquestPenalty: 15 },
     combat: { maxRounds: 4, minRollPercent: 100, evadeFirePercent: 50, repairPercent: 25, garrisonPerPopulation: 1, captureLossPercent: 25, captureBuildingLossPercent: 50, dominationPercent: 67 },
     fleets: {
@@ -191,6 +204,12 @@ export function addFleet(state: GameState, content: Content, owner: EmpireId, se
   if (!fleet) throw new Error('addFleet: no hulls');
   state.fleets[fleet.id] = fleet;
   return fleet;
+}
+
+/** Marks two empires as having found each other's home, so they can negotiate. */
+export function introduce(state: GameState, a: EmpireId, b: EmpireId): void {
+  state.empires[a].knownSystems[state.empires[b].homeSystem] = b;
+  state.empires[b].knownSystems[state.empires[a].homeSystem] = a;
 }
 
 export function colonyOf(state: GameState, empire: EmpireId): Colony {

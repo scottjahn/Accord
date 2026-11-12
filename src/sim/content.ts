@@ -4,6 +4,9 @@ import {
   FIELDS,
   MINOR_WANTS,
   MORALE_EVENTS,
+  OPERATION_KINDS,
+  OPINION_CAUSES,
+  TREATY_TYPES,
   GOVERNORS,
   MAX_RESEARCH_LEVEL,
   OUTPUT_KINDS,
@@ -12,7 +15,10 @@ import {
   type FieldId,
   type MinorWant,
   type MoraleEventKind,
+  type OperationKind,
+  type OpinionCause,
   type OutputKind,
+  type TreatyType,
   type Outputs,
   type Result,
 } from './types';
@@ -76,6 +82,12 @@ export interface Personality {
   minorInfluence: number;
   /** 1 if this power invades minor races that do not warm to it, 0 if it only courts them. */
   conquersMinors: number;
+  /** 0-100: how much better war must look than peace before it breaks a treaty to attack. */
+  honour: number;
+  /** Percent of intel it puts into counter-intel. */
+  counterIntel: number;
+  /** Percent of the intel pool it spends each turn on operations against rivals. */
+  espionage: number;
 }
 
 export interface AiContent {
@@ -122,6 +134,42 @@ export interface MoraleRules {
   /** Cap on the long-peace effect, in either direction. */
   maxPeacePenalty: number;
   events: Record<MoraleEventKind, { value: number; turns: number; label: string }>;
+  /** Turns of unbroken unrest before a colony declares independence; 0 means never. */
+  revoltTurns: number;
+  /** The minor race a revolting colony becomes. It is never placed at the start of a game. */
+  rebelRace: MinorId;
+}
+
+export interface DiplomacyRules {
+  causes: Record<OpinionCause, { value: number; fadePerTenTurns: number; label: string }>;
+  /** For each treaty: its name, what being in it does to opinion, and how many turns it lasts (null = until broken). */
+  treaties: Record<TreatyType, { label: string; opinion: number; duration: number | null }>;
+  /** Opinion of an empire one is at war with. */
+  warOpinion: number;
+  friendshipPerTenTurns: number;
+  maxFriendship: number;
+  /** Attitude every minor race loses toward an empire that breaks a treaty. */
+  breakMinorPenalty: number;
+  /** Turns an unanswered offer stays open. */
+  offerTurns: number;
+  researchPactPercent: number;
+  /** Share of the galaxy's minor races an empire must hold as members for the Accord victory; 0 turns it off. */
+  accordMemberPercent: number;
+}
+
+export interface IntelRules {
+  /** Percent of counter-intel lost each turn. */
+  decayPercent: number;
+  /** The split a new empire starts with. */
+  defaultSplit: number;
+  operations: Record<OperationKind, { cost: number; label: string }>;
+  /** Chance of success against no counter-intel, and how many points of counter-intel take one percent off it. */
+  baseChance: number;
+  defencePerPercent: number;
+  /** Chance of being caught against no counter-intel; it rises as success falls. */
+  catchBase: number;
+  stealPoints: number;
+  revealTurns: number;
 }
 
 export interface MinorRules {
@@ -206,6 +254,8 @@ export interface FactionDef {
   outputModifiers: Partial<Outputs>;
   /** How this power's people react: overrides for event values, and morale gained or lost per ten turns of peace. */
   morale: { events: Partial<Record<MoraleEventKind, number>>; peacePerTenTurns: number };
+  /** How long this power holds a grudge: 100 is normal, 200 means memories fade half as fast. */
+  grudgePercent: number;
 }
 
 export interface BuildingEffect {
@@ -273,6 +323,8 @@ export interface Rules {
   combat: CombatRules;
   morale: MoraleRules;
   minors: MinorRules;
+  diplomacy: DiplomacyRules;
+  intel: IntelRules;
 }
 
 export interface Content {
@@ -347,6 +399,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (typeof f.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(f.color)) {
       errors.push(`factions.${id}: color must be #rrggbb`);
     }
+    if (f.grudgePercent === undefined) f.grudgePercent = 100;
+    if (!isPos(f.grudgePercent)) errors.push(`factions.${id}: grudgePercent must be a positive integer`);
     if (f.morale === undefined) f.morale = { events: {}, peacePerTenTurns: 0 };
     const fm = f.morale;
     if (!isObj(fm) || !isObj(fm.events) || !isInt(fm.peacePerTenTurns) || !Object.entries(fm.events).every(([k, v]) => MORALE_EVENTS.includes(k as MoraleEventKind) && isInt(v))) {
@@ -602,6 +656,53 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
   }
 
+  if (isObj(moraleRules)) {
+    if (!isNat(moraleRules.revoltTurns)) errors.push('rules.morale.revoltTurns: must be an integer >= 0');
+    if (typeof moraleRules.rebelRace !== 'string' || !minors[moraleRules.rebelRace]) errors.push('rules.morale.rebelRace: must be a known minor race');
+    for (const [id, g] of Object.entries(presets)) {
+      if (isNat(g.minors) && (g.minors as number) > Object.keys(minors).length - 1) errors.push(`galaxyPresets.${id}: asks for more minors than can be placed`);
+    }
+  }
+
+  const diplomacy = isObj(rules) ? rules.diplomacy : undefined;
+  if (!isObj(diplomacy) || !isObj(diplomacy.causes) || !isObj(diplomacy.treaties)) {
+    errors.push('rules.diplomacy: must be an object with causes and treaties');
+  } else {
+    for (const cause of OPINION_CAUSES) {
+      const c = (diplomacy.causes as Obj)[cause];
+      if (!isObj(c) || !isInt(c.value) || !isNat(c.fadePerTenTurns) || typeof c.label !== 'string') {
+        errors.push(`rules.diplomacy.causes.${cause}: needs an integer value, fadePerTenTurns >= 0 and a label`);
+      }
+    }
+    for (const type of TREATY_TYPES) {
+      const t = (diplomacy.treaties as Obj)[type];
+      if (!isObj(t) || typeof t.label !== 'string' || !isInt(t.opinion) || !(t.duration === null || isPos(t.duration))) {
+        errors.push(`rules.diplomacy.treaties.${type}: needs a label, an integer opinion and a duration (or null)`);
+      }
+    }
+    if (!isInt(diplomacy.warOpinion)) errors.push('rules.diplomacy.warOpinion: must be an integer');
+    for (const key of ['friendshipPerTenTurns', 'maxFriendship', 'breakMinorPenalty', 'researchPactPercent', 'accordMemberPercent'] as const) {
+      if (!isNat(diplomacy[key])) errors.push(`rules.diplomacy.${key}: must be an integer >= 0`);
+    }
+    if (!isPos(diplomacy.offerTurns)) errors.push('rules.diplomacy.offerTurns: must be a positive integer');
+  }
+
+  const intel = isObj(rules) ? rules.intel : undefined;
+  if (!isObj(intel) || !isObj(intel.operations)) {
+    errors.push('rules.intel: must be an object with operations');
+  } else {
+    for (const kind of OPERATION_KINDS) {
+      const o = (intel.operations as Obj)[kind];
+      if (!isObj(o) || !isPos(o.cost) || typeof o.label !== 'string') errors.push(`rules.intel.operations.${kind}: needs a positive cost and a label`);
+    }
+    for (const key of ['decayPercent', 'defaultSplit', 'baseChance', 'catchBase'] as const) {
+      if (!isNat(intel[key]) || (intel[key] as number) > 100) errors.push(`rules.intel.${key}: must be an integer from 0 to 100`);
+    }
+    for (const key of ['defencePerPercent', 'stealPoints', 'revealTurns'] as const) {
+      if (!isPos(intel[key])) errors.push(`rules.intel.${key}: must be a positive integer`);
+    }
+  }
+
   const combat = isObj(rules) ? rules.combat : undefined;
   if (!isObj(combat)) {
     errors.push('rules.combat: must be an object');
@@ -636,8 +737,11 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
         isNat(p.warshipsPerColony) &&
         isNat(p.scouts) &&
         isNat(p.minorInfluence) &&
-        isNat(p.conquersMinors);
-      if (!valid) errors.push(`ai.personalities.${id}: needs posture, research, warshipsPerColony, scouts, minorInfluence and conquersMinors`);
+        isNat(p.conquersMinors) &&
+        isNat(p.honour) &&
+        isNat(p.counterIntel) &&
+        isNat(p.espionage);
+      if (!valid) errors.push(`ai.personalities.${id}: needs posture, research, warshipsPerColony, scouts, minorInfluence, conquersMinors, honour, counterIntel and espionage`);
     }
   }
 

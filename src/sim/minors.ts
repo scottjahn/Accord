@@ -91,6 +91,7 @@ export function joinEmpire(state: GameState, system: StarSystem, empireId: Empir
     buildQueue: [],
     morale: 100,
     moraleEffects: [],
+    unrestTurns: 0,
     minorRace: minor.race,
   };
   system.minor = null;

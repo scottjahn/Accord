@@ -20,6 +20,7 @@ export * from './view';
 export * from './combat';
 export * from './morale';
 export * from './minors';
+export * from './diplomacy';
 export { redactFor } from './redact';
 export { itemCost, itemName } from './economy/build';
 export { computeColonyEconomy, maxPopulationOf, totalOf, type ColonyEconomy } from './economy/outputs';

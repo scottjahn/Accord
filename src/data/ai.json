@@ -18,7 +18,10 @@
       "warshipsPerColony": 50,
       "scouts": 2,
       "minorInfluence": 100,
-      "conquersMinors": 0
+      "conquersMinors": 0,
+      "honour": 90,
+      "counterIntel": 40,
+      "espionage": 0
     },
     "vashran": {
       "posture": {
@@ -38,7 +41,10 @@
       "warshipsPerColony": 100,
       "scouts": 1,
       "minorInfluence": 40,
-      "conquersMinors": 1
+      "conquersMinors": 1,
+      "honour": 40,
+      "counterIntel": 20,
+      "espionage": 40
     }
   }
 }

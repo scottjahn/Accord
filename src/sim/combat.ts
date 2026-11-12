@@ -3,6 +3,7 @@ import { applyGovernor } from './economy/governor';
 import { maxPopulationOf } from './economy/outputs';
 import { coloniesOf, findPath, fleetsOf, systemAt } from './fleets';
 import { memberBonuses } from './members';
+import { accordWinner, addOpinion } from './diplomacy';
 import { minorGarrison } from './minors';
 import { addColonyMorale, addEmpireMorale } from './morale';
 import { sameSector, sectorDistance, sectorKey } from './geometry';
@@ -389,6 +390,7 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
       applyGovernor(state, system, content);
       addEmpireMorale(state, attacker, 'colonyCaptured', content);
       addEmpireMorale(state, defender!, 'colonyLost', content);
+      addOpinion(state, defender!, attacker, 'colonyCaptured');
       addColonyMorale(state, system, 'conquered', content);
     }
     const report: InvasionReport = {
@@ -438,11 +440,13 @@ function conquerMinor(state: GameState, system: StarSystem, fleets: Fleet[], con
       buildQueue: [],
       morale: 100,
       moraleEffects: [],
+      unrestTurns: 0,
       minorRace: null,
     };
     system.minor = null;
     applyGovernor(state, system, content);
     addEmpireMorale(state, attacker, 'minorConquered', content);
+    for (const witness of sortedKeys(state.empires)) addOpinion(state, witness, attacker, 'minorConquered');
     addColonyMorale(state, system, 'conquered', content);
     // Word gets round: every other minor thinks less of the conqueror.
     for (const id of sortedKeys(state.systems)) {
@@ -479,6 +483,7 @@ export function checkVictory(state: GameState, content: Content, events: TurnEve
   if (ids.length < 2 || state.winner !== null) return;
   const standing = ids.filter((id) => !state.empires[id].eliminated);
   let winner: EmpireId | null = standing.length === 1 ? standing[0] : null;
+  let how: GameState['victory'] = winner === null ? null : 'conquest';
 
   const share = content.rules.combat.dominationPercent;
   if (winner === null && share > 0) {
@@ -489,9 +494,15 @@ export function checkVictory(state: GameState, content: Content, events: TurnEve
         const homes = standing.every((rival) => rival === id || state.systems[state.empires[rival].homeSystem]?.colony?.owner === id);
         return homes && held * 100 >= total * share;
       }) ?? null;
+    if (winner !== null) how = 'domination';
+  }
+  if (winner === null) {
+    winner = accordWinner(state, content);
+    if (winner !== null) how = 'accord';
   }
   if (winner !== null) {
     state.winner = winner;
+    state.victory = how;
     events.push({ type: 'gameWon', empire: winner });
   }
 }

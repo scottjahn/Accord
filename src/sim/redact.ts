@@ -51,6 +51,7 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
         buildQueue: [],
         morale: 100,
         moraleEffects: [],
+        unrestTurns: 0,
         minorRace: system.colony.minorRace,
       };
     }
@@ -78,8 +79,25 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
     rival.intelPool = 0;
     rival.knownSystems = {};
     rival.lastWarTurn = 0;
+    rival.intelSplit = 0;
+    rival.revealedUntil = {};
+    // A rival's counter-intel is known only while it is under surveillance.
+    if ((state.empires[empireId].revealedUntil[id] ?? -1) < state.turn) rival.counterIntel = 0;
     if (mine[rival.homeSystem] !== id) rival.homeSystem = '' as SystemId;
   }
+
+  // Treaties are public. Offers, orders and memories are not, except the ones this empire is part of:
+  // it knows what it thinks of others and what they think of it, but not what they think of each other.
+  known.offers = known.offers.filter((o) => o.from === empireId || o.to === empireId);
+  known.operations = known.operations.filter((o) => o.by === empireId);
+  known.pendingEvents = [];
+  const opinions = {} as GameState['opinions'];
+  for (const of of sortedKeys(known.opinions)) {
+    for (const about of sortedKeys(known.opinions[of])) {
+      if (of === empireId || about === empireId) (opinions[of] ??= {})[about] = known.opinions[of][about];
+    }
+  }
+  known.opinions = opinions;
 
   return known;
 }
