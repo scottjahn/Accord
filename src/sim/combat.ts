@@ -379,7 +379,8 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
       // A member race that is conquered stops granting its bonus to anyone.
       if (colony.minorRace) {
         const loser = state.empires[defender!];
-        loser.members = loser.members.filter((m) => m !== colony.minorRace);
+        const at = loser.members.indexOf(colony.minorRace);
+        if (at >= 0) loser.members.splice(at, 1);
         colony.minorRace = null;
       }
       colony.moraleEffects = [];

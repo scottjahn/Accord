@@ -21,6 +21,7 @@ export * from './combat';
 export * from './morale';
 export * from './minors';
 export * from './diplomacy';
+export * from './intel';
 export { redactFor } from './redact';
 export { itemCost, itemName } from './economy/build';
 export { computeColonyEconomy, maxPopulationOf, totalOf, type ColonyEconomy } from './economy/outputs';

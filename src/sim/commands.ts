@@ -7,6 +7,7 @@ import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
 import { courtGain, minorOf } from './minors';
 import { addEmpireMorale } from './morale';
+import { operationBlocker } from './intel';
 import { meetsRequirements } from './research';
 import {
   FIELDS,
@@ -19,6 +20,7 @@ import {
   type Fleet,
   type GameState,
   type Governor,
+  type OperationKind,
   type Outputs,
   type Result,
   type Sector,
@@ -50,6 +52,8 @@ export type Command =
   | { type: 'proposeTreaty'; empire: EmpireId; to: EmpireId; treaty: TreatyType }
   | { type: 'answerOffer'; empire: EmpireId; offer: string; accept: boolean; note?: string }
   | { type: 'breakTreaty'; empire: EmpireId; with: EmpireId; treaty: TreatyType }
+  | { type: 'setIntelSplit'; empire: EmpireId; percent: number }
+  | { type: 'runOperation'; empire: EmpireId; target: EmpireId; kind: OperationKind; system: SystemId | null }
   | { type: 'courtMinor'; empire: EmpireId; system: SystemId; points: number }
   | { type: 'mergeFleets'; empire: EmpireId; from: FleetId; into: FleetId }
   | { type: 'splitFleet'; empire: EmpireId; fleet: FleetId; ships: ShipId[] };
@@ -79,6 +83,8 @@ export type CommandErrorCode =
   | 'cannotCourt'
   | 'badTreaty'
   | 'badOffer'
+  | 'badSplit'
+  | 'cannotOperate'
   | 'gameOver'
   | 'badFleets';
 
@@ -289,6 +295,14 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       }
       return null;
     }
+    case 'setIntelSplit':
+      return Number.isInteger(cmd.percent) && cmd.percent >= 0 && cmd.percent <= 100
+        ? null
+        : fail('badSplit', 'The counter-intel share must be a whole percent from 0 to 100');
+    case 'runOperation': {
+      const blocker = operationBlocker(state, { by: cmd.empire, target: cmd.target, kind: cmd.kind, system: cmd.system }, content);
+      return blocker ? fail('cannotOperate', blocker) : null;
+    }
     case 'breakTreaty':
       return state.empires[cmd.with] && hasTreaty(state, cmd.empire, cmd.with, cmd.treaty)
         ? null
@@ -365,7 +379,7 @@ export function submitCommands(
  * copy) and have just checked the command with validateCommand.
  */
 export function applyValidated(next: GameState, cmd: Command, content: Content): void {
-  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' && cmd.type !== 'invadeSystem' && cmd.type !== 'courtMinor' && 'system' in cmd ? next.systems[cmd.system].colony! : null;
+  const colony = 'system' in cmd && cmd.type !== 'coloniseSystem' && cmd.type !== 'invadeSystem' && cmd.type !== 'courtMinor' && cmd.type !== 'runOperation' && 'system' in cmd ? next.systems[cmd.system].colony! : null;
 
   switch (cmd.type) {
     case 'setAllocation':
@@ -443,6 +457,14 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
     }
     case 'breakTreaty':
       breakTreaty(next, cmd.empire, cmd.with, cmd.treaty, content);
+      break;
+    case 'setIntelSplit':
+      next.empires[cmd.empire].intelSplit = cmd.percent;
+      break;
+    case 'runOperation':
+      // Paid for now; it resolves, with its roll, when the turn does.
+      next.empires[cmd.empire].intelPool -= content.rules.intel.operations[cmd.kind].cost;
+      next.operations.push({ by: cmd.empire, target: cmd.target, kind: cmd.kind, system: cmd.system });
       break;
     case 'courtMinor': {
       const system = next.systems[cmd.system];

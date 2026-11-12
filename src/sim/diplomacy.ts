@@ -203,15 +203,17 @@ export function accordWinner(state: GameState, content: Content): EmpireId | nul
   if (state.minorsPlaced === 0 || content.rules.diplomacy.accordMemberPercent === 0) return null;
   const standing = sortedKeys(state.empires).filter((id) => !state.empires[id].eliminated);
   if (standing.length < 2) return null;
+  // Colonies that revolted and came back do not count; only the peoples the galaxy began with.
+  const members = (id: EmpireId) => state.empires[id].members.filter((m) => m !== content.rules.morale.rebelRace).length;
   const qualified = standing.filter(
     (id) =>
       standing.every((other) => other === id || hasTreaty(state, id, other, 'alliance')) &&
-      state.empires[id].members.length * 100 >= state.minorsPlaced * content.rules.diplomacy.accordMemberPercent,
+      members(id) * 100 >= state.minorsPlaced * content.rules.diplomacy.accordMemberPercent,
   );
   if (qualified.length === 0) return null;
   const learning = (id: EmpireId) => Object.values(state.empires[id].research.levels).reduce((sum, n) => sum + n, 0);
-  const most = Math.max(...qualified.map((id) => state.empires[id].members.length));
-  let leaders = qualified.filter((id) => state.empires[id].members.length === most);
+  const most = Math.max(...qualified.map(members));
+  let leaders = qualified.filter((id) => members(id) === most);
   if (leaders.length > 1) {
     const best = Math.max(...leaders.map(learning));
     leaders = leaders.filter((id) => learning(id) === best);

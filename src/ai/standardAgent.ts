@@ -1,6 +1,7 @@
 import { FIELDS, POSTURES, treatiesBetween, type Json, type Posture } from '../sim';
 import { createPlanner, type Agent } from './agent';
 import { answerOffers, attackable, guardAccord, proposeTreaties } from './diplomacy';
+import { runEspionage } from './intel';
 import { survey } from './maps';
 import { setTargets } from './operational';
 import { POSTURE_REVIEW_TURNS, choosePosture, scorePostures } from './strategic';
@@ -77,6 +78,7 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
   directFleets(plan, empireId, content, next.posture, picture);
   if (next.posture === 'war') wageWar(plan, empireId, content, targets.strikeSize);
   else conquerMinors(plan, empireId, content, personality, picture);
+  runEspionage(plan, empireId, content, personality);
   courtMinors(plan, empireId, content, personality, picture);
 
   return { commands: plan.issued, memory: { posture: next.posture, postureTurn: next.postureTurn } };
