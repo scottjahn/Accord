@@ -7,6 +7,7 @@ import {
   type GameState,
   type Governor,
   type HullRole,
+  type IdleItem,
   type MinorDef,
   type OutputKind,
   type Sector,
@@ -52,6 +53,20 @@ export function bonusText(def: MinorDef, content: Content): string {
       return `${signed(value)}% attack in battle`;
   }
   return content.minors[def.id]?.name ?? '';
+}
+
+/** One line for something idle, for the turn report and the End Turn warning. */
+export function idleText(item: IdleItem, state: GameState): string {
+  switch (item.kind) {
+    case 'idleWorkers':
+      return `${state.systems[item.system].name}: ${item.count} idle ${item.count === 1 ? 'worker' : 'workers'}`;
+    case 'emptyQueue':
+      return `${state.systems[item.system].name}: nothing in the build queue`;
+    case 'colonyShip':
+      return item.canFound ? `Colony ship at ${state.systems[item.canFound].name} can found a colony` : 'Colony ship has no orders';
+    case 'unsettled':
+      return `${item.count} free ${item.count === 1 ? 'system' : 'systems'} in range with no colony ship on the way`;
+  }
 }
 
 export const signed = (n: number): string => (n > 0 ? `+${n}` : `${n}`);

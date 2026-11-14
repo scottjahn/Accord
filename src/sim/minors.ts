@@ -92,6 +92,7 @@ export function joinEmpire(state: GameState, system: StarSystem, empireId: Empir
     morale: 100,
     moraleEffects: [],
     unrestTurns: 0,
+      pinned: { food: 0, industry: 0, energy: 0, intel: 0, research: 0 },
     minorRace: minor.race,
   };
   system.minor = null;

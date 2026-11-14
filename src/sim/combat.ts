@@ -384,6 +384,7 @@ export function resolveInvasions(state: GameState, content: Content, silenced: S
         colony.minorRace = null;
       }
       colony.moraleEffects = [];
+      colony.pinned = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
       colony.buildQueue = [];
       colony.growthProgress = 0;
       colony.allocation = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
@@ -442,6 +443,7 @@ function conquerMinor(state: GameState, system: StarSystem, fleets: Fleet[], con
       morale: 100,
       moraleEffects: [],
       unrestTurns: 0,
+      pinned: { food: 0, industry: 0, energy: 0, intel: 0, research: 0 },
       minorRace: null,
     };
     system.minor = null;

@@ -125,7 +125,7 @@ describe('FleetPanel', () => {
     expect(screen.queryByText('Also here')).toBeNull();
   });
 
-  it('offers to colonise a free system the fleet is sitting at', () => {
+  it('offers to found a colony at a free system the fleet is sitting at', () => {
     const { fleet, now } = setup((s, c) => {
       const target = Object.values(s.systems).find((x) => !x.colony)!;
       target.sector = emptyNeighbour(s);
@@ -133,16 +133,16 @@ describe('FleetPanel', () => {
       s.empires[ALPHA].knownSystems[target.id] = null;
       return addFleet(s, c, ALPHA, target.sector, ['colony_ship']);
     });
-    fireEvent.click(button(/^Colonise /));
+    fireEvent.click(button(/^Found colony at /));
     expect(now().fleets[fleet.id].order).toBe('colonise');
     expect(status()).toBe('Founding a colony this turn');
-    expect(screen.queryByRole('button', { name: /^Colonise / })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Found colony at / })).toBeNull();
   });
 
   it('does not offer to colonise an owned system', () => {
     setup((s, c) => addFleet(s, c, ALPHA, homeOf(s, ALPHA).sector, ['colony_ship']));
-    expect(button(/^Colonise /).disabled).toBe(true);
-    expect(button(/^Colonise /).title).toMatch(/already colonised/);
+    expect(button(/^Found colony at /).disabled).toBe(true);
+    expect(button(/^Found colony at /).title).toMatch(/already colonised/);
   });
 
   it('queues a refit for a docked ship when a newer hull is researched', () => {

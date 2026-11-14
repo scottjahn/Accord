@@ -88,20 +88,71 @@ describe('SystemPanel: own colony', () => {
     expect(within(document.getElementById('breakdown-food')!).getByText('Biology level 2')).toBeTruthy();
   });
 
-  it('moving a slider reassigns workers and switches to the manual governor', () => {
+  it('under a governor, raising a slider places workers by hand and keeps the governor', () => {
     const { colony } = setup();
     expect(screen.getByRole('radio', { name: 'Balanced' }).getAttribute('aria-checked')).toBe('true');
-    setSlider('Research', 1);
-    expect(colony().allocation.research).toBe(1);
-    expect(colony().governor).toBe('manual');
-    expect(screen.getByRole('radio', { name: 'Manual' }).getAttribute('aria-checked')).toBe('true');
-    expect(text('idle')).toBe('3 idle');
+    expect(colony().allocation.industry).toBe(0);
+
+    setSlider('Industry', 2);
+    expect(colony().governor).toBe('balanced');
+    expect(colony().pinned).toEqual({ food: 0, industry: 2, energy: 0, intel: 0, research: 0 });
+    expect(colony().allocation.industry).toBe(2);
+    expect(text('pinned-industry')).toContain('+2');
+    expect(text('placed')).toBe('2 placed by hand');
+    // Everyone else is still placed by the governor, so nobody is idle.
+    expect(text('idle')).toBe('Everyone is working');
+    expect(screen.getByRole('radio', { name: 'Balanced' }).getAttribute('aria-checked')).toBe('true');
+
+    fireEvent.click(button('Clear adjustments'));
+    expect(colony().pinned.industry).toBe(0);
+    expect(colony().allocation.industry).toBe(0);
+    expect(screen.queryByTestId('placed')).toBeNull();
   });
 
-  it('cannot assign more workers than are idle', () => {
+  it('under a governor, lowering a slider below the governor’s own share does nothing', () => {
     const { colony } = setup();
+    setSlider('Research', 1);
+    expect(colony().governor).toBe('balanced');
+    expect(colony().allocation.research).toBe(4);
+    expect(colony().pinned.research).toBe(0);
+  });
+
+  it('hand-placed workers stay put as the colony grows, and the governor places the newcomers', () => {
+    const { session, colony } = setup();
+    setSlider('Industry', 2);
+    const state = structuredClone(session.getSnapshot().state);
+    state.systems[state.empires[ALPHA].homeSystem].colony!.growthProgress = 59;
+    act(() => void session.importSave(JSON.stringify(state)));
+    act(() => session.endTurn());
+    expect(colony().population).toBe(11);
+    expect(colony().pinned.industry).toBe(2);
+    expect(colony().allocation.industry).toBeGreaterThanOrEqual(2);
+    expect(text('idle')).toBe('Everyone is working');
+  });
+
+  it('switching to Manual hands over full control and drops the adjustments', () => {
+    const { colony } = setup();
+    setSlider('Industry', 2);
+    fireEvent.click(screen.getByRole('radio', { name: 'Manual' }));
+    expect(colony().governor).toBe('manual');
+    expect(colony().pinned.industry).toBe(0);
+    expect(colony().allocation.industry).toBe(2); // the workers stay where they were
+    setSlider('Research', 1);
+    expect(colony().allocation.research).toBe(1);
+    expect(text('idle')).toMatch(/^\d+ idle$/);
+  });
+
+  it('shows the room for people and the combined planet bonuses', () => {
+    setup();
+    // Terran 30 (+10% food) and Barren 10 (-5% food, +5% energy).
+    expect(text('system-capacity')).toBe('Room for 40 people · food +5% · energy +5% across 2 planets');
+  });
+
+  it('under Manual, cannot assign more workers than are idle', () => {
+    const { colony } = setup();
+    fireEvent.click(screen.getByRole('radio', { name: 'Manual' }));
     setSlider('Industry', 9);
-    expect(colony().allocation.industry).toBe(0); // nobody idle under the governor
+    expect(colony().allocation.industry).toBe(0); // nobody is idle yet
 
     setSlider('Research', 0);
     setSlider('Industry', 9);
@@ -229,6 +280,19 @@ describe('SystemPanel: fog of war', () => {
     expect(screen.getByText(/Beta home system \(last seen\)/)).toBeTruthy();
     expect(screen.getByText('Planets')).toBeTruthy();
     expect(screen.queryByText(/^Population/)).toBeNull();
+  });
+
+  it('shows capacity and bonuses for a scanned, unclaimed system, to compare where to settle', () => {
+    const free = (s: GameState) => Object.values(s.systems).find((x) => !x.colony)!.id;
+    setup(free, (s) => {
+      s.empires[ALPHA].knownSystems[free(s)] = null;
+      s.systems[free(s)].planets = [
+        { type: 'terran', maxPopulation: 14, foodBonus: 10, energyBonus: 0 },
+        { type: 'barren', maxPopulation: 3, foodBonus: -5, energyBonus: 5 },
+        { type: 'barren', maxPopulation: 5, foodBonus: -5, energyBonus: 5 },
+      ];
+    });
+    expect(text('system-capacity')).toBe('Room for 22 people · food 0% · energy +10% across 3 planets');
   });
 
   it('shows planets for a scanned, unclaimed system', () => {

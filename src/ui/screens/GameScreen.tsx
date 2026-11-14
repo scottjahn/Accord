@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { idleText } from '../format';
 import { saveFileName } from '../../game/persistence';
 import type { GameSession } from '../../game/session';
 import {
   atWar,
   getEmpireView,
+  idleReport,
   sameSector,
   sortedKeys,
   systemAt,
@@ -31,6 +33,25 @@ interface Props {
 }
 
 type Selection = { kind: 'system'; id: SystemId } | { kind: 'fleet'; id: FleetId } | null;
+
+const SKIP_IDLE_KEY = 'accord.skipIdleWarning';
+
+// A per-player convenience; the game works the same if browser storage is unavailable.
+function readSkipIdleWarning(): boolean {
+  try {
+    return localStorage.getItem(SKIP_IDLE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeSkipIdleWarning(skip: boolean): void {
+  try {
+    if (skip) localStorage.setItem(SKIP_IDLE_KEY, '1');
+    else localStorage.removeItem(SKIP_IDLE_KEY);
+  } catch {
+    // Nothing to do: the choice still holds for this session.
+  }
+}
 
 function downloadText(name: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -61,6 +82,20 @@ export function GameScreen({ session, onQuit }: Props) {
   const fleet = selection?.kind === 'fleet' ? view.fleets.find((f) => f.id === selection.id) : undefined;
   const ownFleet = fleet?.owner === player ? fleet : undefined;
 
+  const idle = useMemo(() => idleReport(state, player, content), [state, player, content]);
+  const waiting = idle.filter((item) => item.blocking);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [skipIdleWarning, setSkipIdleWarning] = useState(readSkipIdleWarning);
+  const endTurn = () => {
+    setConfirmEnd(false);
+    session.endTurn();
+  };
+  /** Ends the turn, first asking if the player means to leave things idle. */
+  const requestEndTurn = () => {
+    if (waiting.length > 0 && !skipIdleWarning) setConfirmEnd(true);
+    else endTurn();
+  };
+
   const select = (next: Selection) => {
     setSelection(next);
     setMoveMode(false);
@@ -68,7 +103,7 @@ export function GameScreen({ session, onQuit }: Props) {
 
   /**
    * Sends the selected fleet to a sector. Transports sent to an enemy colony
-   * invade it, and a colony ship sent to a free system settles it.
+   * invade it. A colony ship only travels; founding the colony is its own action.
    */
   const sendFleet = (sector: Sector) => {
     if (!ownFleet) return;
@@ -78,11 +113,6 @@ export function GameScreen({ session, onQuit }: Props) {
       const invade: Command = { type: 'invadeSystem', empire: player, fleet: ownFleet.id, system: target.id };
       if (!validateCommand(state, invade, content)) {
         session.dispatch(invade);
-        return;
-      }
-      const colonise: Command = { type: 'coloniseSystem', empire: player, fleet: ownFleet.id, system: target.id };
-      if (!validateCommand(state, colonise, content)) {
-        session.dispatch(colonise);
         return;
       }
     }
@@ -111,7 +141,7 @@ export function GameScreen({ session, onQuit }: Props) {
         state={state}
         content={content}
         player={player}
-        onEndTurn={() => session.endTurn()}
+        onEndTurn={requestEndTurn}
         onResearch={() => setShowResearch(true)}
         onEmpires={() => setShowEmpires(true)}
         onIntel={() => setShowIntel(true)}
@@ -131,7 +161,16 @@ export function GameScreen({ session, onQuit }: Props) {
             selectedFleet={fleet ?? null}
             onSectorClick={onSectorClick}
           />
-          <EventLog state={state} content={content} player={player} events={lastEvents} onOpenReport={setReport} />
+          <EventLog
+            state={state}
+            content={content}
+            player={player}
+            events={lastEvents}
+            idle={idle}
+            onOpenReport={setReport}
+            onSelectSystem={(id) => select({ kind: 'system', id })}
+            onSelectFleet={(id) => select({ kind: 'fleet', id })}
+          />
         </section>
         <aside className="side-panel" aria-label="Details">
           {lastError && !system && (
@@ -168,6 +207,42 @@ export function GameScreen({ session, onQuit }: Props) {
           )}
         </aside>
       </div>
+      {confirmEnd && (
+        <div className="modal-backdrop" onClick={() => setConfirmEnd(false)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="End turn?" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <h2>End turn?</h2>
+                <p className="muted">These will do nothing this turn:</p>
+              </div>
+            </header>
+            <ul className="planet-list" aria-label="Left idle">
+              {waiting.map((item, i) => (
+                <li key={i}>{idleText(item, state)}</li>
+              ))}
+            </ul>
+            <label className="skip-warning">
+              <input
+                type="checkbox"
+                checked={skipIdleWarning}
+                onChange={(e) => {
+                  setSkipIdleWarning(e.target.checked);
+                  writeSkipIdleWarning(e.target.checked);
+                }}
+              />{' '}
+              Don't warn me about idle colonies and ships again
+            </label>
+            <div className="fleet-actions">
+              <button type="button" className="btn primary" onClick={() => setConfirmEnd(false)}>
+                Go back
+              </button>
+              <button type="button" className="btn" onClick={endTurn}>
+                End turn anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showEmpires && (
         <EmpiresScreen state={state} content={content} player={player} view={view} dispatch={session.dispatch} onClose={() => setShowEmpires(false)} />
       )}

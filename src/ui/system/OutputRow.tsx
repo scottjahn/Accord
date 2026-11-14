@@ -9,11 +9,13 @@ interface Props {
   maxWorkers: number;
   population: number;
   output: OutputBreakdown;
+  /** Workers the player has placed here by hand on top of a governor. */
+  pinned?: number;
   onChange: (workers: number) => void;
 }
 
 /** One output: a worker slider, the total it produces, and the causes behind that total. */
-export function OutputRow({ kind, workers, maxWorkers, population, output, onChange }: Props) {
+export function OutputRow({ kind, workers, maxWorkers, population, output, pinned = 0, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const label = OUTPUT_LABELS[kind];
   const detailsId = `breakdown-${kind}`;
@@ -21,7 +23,15 @@ export function OutputRow({ kind, workers, maxWorkers, population, output, onCha
   return (
     <li className={`output-row kind-${kind}`}>
       <div className="output-main">
-        <span className="output-label">{label}</span>
+        <span className="output-label">
+          {label}
+          {pinned > 0 && (
+            <span className="pin" data-testid={`pinned-${kind}`} title={`${pinned} placed by hand`}>
+              {' '}
+              +{pinned}
+            </span>
+          )}
+        </span>
         <input
           type="range"
           aria-label={`${label} workers`}

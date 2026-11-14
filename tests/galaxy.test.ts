@@ -63,6 +63,7 @@ describe('galaxy generation', () => {
         foodStock: 0,
         allocation: { food: 6, industry: 2, energy: 1, intel: 0, research: 1 },
         governor: 'manual',
+        pinned: { food: 0, industry: 0, energy: 0, intel: 0, research: 0 },
         buildings: { farm: 1, reactor: 1 },
         buildQueue: [],
         morale: 100,

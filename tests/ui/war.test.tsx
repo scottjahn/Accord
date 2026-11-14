@@ -71,6 +71,7 @@ function saveOnTheBrink(): { outpost: StarSystem; enemyHome: StarSystem } {
     morale: 100,
     moraleEffects: [],
     unrestTurns: 0,
+      pinned: { food: 0, industry: 0, energy: 0, intel: 0, research: 0 },
     minorRace: null,
   };
   for (let i = 0; i < 6; i++) spawnShip(state, HUMAN, outpost.sector, 'frigate' as HullId, content);
@@ -81,7 +82,11 @@ function saveOnTheBrink(): { outpost: StarSystem; enemyHome: StarSystem } {
   return { outpost, enemyHome };
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  // The End Turn idle warning has its own tests; everything else here plays straight through.
+  localStorage.setItem('accord.skipIdleWarning', '1');
+});
 afterEach(cleanup);
 
 const button = (name: string | RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement;

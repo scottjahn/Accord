@@ -41,7 +41,11 @@ vi.mock('../../src/ui/map/GalaxyMap', () => ({
 const content = loadContent();
 const HUMAN = 'emp-1' as EmpireId;
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  // The End Turn idle warning has its own tests; everything else here plays straight through.
+  localStorage.setItem('accord.skipIdleWarning', '1');
+});
 afterEach(cleanup);
 
 const turn = () => screen.getByTestId('turn').textContent;
@@ -91,7 +95,8 @@ describe('one human turn', () => {
     const industry = Number(screen.getByTestId('total-industry').textContent);
     expect(industry).toBeGreaterThan(0);
 
-    // Take workers off research by hand, then give the colony back to the governor.
+    // Take full control, pull workers off research by hand, then give the colony back to the governor.
+    fireEvent.click(screen.getByRole('radio', { name: 'Manual' }));
     const research = screen.getByLabelText('Research workers') as HTMLInputElement;
     const before = Number(research.value);
     fireEvent.change(research, { target: { value: '0' } });
@@ -161,6 +166,81 @@ describe('one human turn', () => {
   });
 });
 
+describe('idle warnings', () => {
+  /** These tests are about the warning, so they turn it back on. */
+  const startWarned = () => {
+    localStorage.removeItem('accord.skipIdleWarning');
+    startGame();
+  };
+  const idleList = () => within(screen.getByRole('list', { name: 'Idle' }));
+
+  it('lists what is idle on the first turn, and each entry jumps to it', () => {
+    startWarned();
+    const home = autosave().systems[autosave().empires[HUMAN].homeSystem];
+    expect(idleList().getByText(`${home.name}: nothing in the build queue`)).toBeTruthy();
+    expect(idleList().getByText('Colony ship has no orders')).toBeTruthy();
+    expect(idleList().queryByText(/idle worker/)).toBeNull(); // the governor has placed everyone
+
+    fireEvent.click(idleList().getByRole('button', { name: 'Colony ship has no orders' }));
+    expect(screen.getByRole('heading', { name: 'Your fleet' })).toBeTruthy();
+    fireEvent.click(idleList().getByRole('button', { name: `${home.name}: nothing in the build queue` }));
+    expect(screen.getByRole('heading', { name: home.name })).toBeTruthy();
+  });
+
+  it('asks before ending a turn with things left idle, and can go back', () => {
+    startWarned();
+    fireEvent.click(button('End turn'));
+    const dialog = screen.getByRole('dialog', { name: 'End turn?' });
+    const left = within(within(dialog).getByRole('list', { name: 'Left idle' }));
+    expect(left.getByText(/nothing in the build queue$/)).toBeTruthy();
+    expect(left.getByText('Colony ship has no orders')).toBeTruthy();
+    expect(left.queryByText(/free system/)).toBeNull(); // worth mentioning, not worth a warning
+    expect(turn()).toBe('1');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Go back' }));
+    expect(screen.queryByRole('dialog', { name: 'End turn?' })).toBeNull();
+    expect(turn()).toBe('1');
+
+    fireEvent.click(button('End turn'));
+    fireEvent.click(button('End turn anyway'));
+    expect(turn()).toBe('2');
+  });
+
+  it('does not ask once nothing is idle', () => {
+    startWarned();
+    fireEvent.click(button('Build Farm'));
+    const target = Object.values(autosave().systems).find((s) => !s.colony && s.id !== autosave().empires[HUMAN].homeSystem)!;
+    fireEvent.click(button('Select fleet: Colony Ship'));
+    // Any legal move counts as orders; the home sector's neighbour will do if this one is out of range.
+    fireEvent.click(button(`Send to ${target.name}`));
+    if (screen.getByTestId('fleet-status').textContent === 'Holding position') return; // out of range on this seed: covered by the test above
+    expect(screen.queryByRole('list', { name: 'Idle' })?.textContent ?? '').not.toMatch(/build queue|no orders/);
+    fireEvent.click(button('End turn'));
+    expect(screen.queryByRole('dialog', { name: 'End turn?' })).toBeNull();
+    expect(turn()).toBe('2');
+  });
+
+  it('can be told not to warn again, and remembers it', () => {
+    startWarned();
+    fireEvent.click(button('End turn'));
+    fireEvent.click(screen.getByLabelText(/Don't warn me about idle/));
+    fireEvent.click(button('End turn anyway'));
+    expect(turn()).toBe('2');
+    fireEvent.click(button('End turn'));
+    expect(turn()).toBe('3');
+    expect(localStorage.getItem('accord.skipIdleWarning')).toBe('1');
+  });
+
+  it('reports idle workers in a colony run by hand', () => {
+    startWarned();
+    fireEvent.click(screen.getByRole('radio', { name: 'Manual' }));
+    fireEvent.change(screen.getByLabelText('Research workers'), { target: { value: '0' } });
+    const idle = screen.getByTestId('idle').textContent!;
+    if (idle === 'Everyone is working') return; // nobody was on research on this seed
+    expect(idleList().getByText(/: \d+ idle workers?$/)).toBeTruthy();
+  });
+});
+
 describe('expand and build a navy', () => {
   /** A free system the starting colony ship is allowed to settle. */
   function settleTarget(state: GameState): StarSystem {
@@ -172,7 +252,7 @@ describe('expand and build a navy', () => {
     return target;
   }
 
-  it('sends the starting colony ship to found a second colony', () => {
+  it('moves the starting colony ship to a free system and founds a colony there as a separate action', () => {
     startGame();
     const target = settleTarget(autosave());
 
@@ -180,11 +260,21 @@ describe('expand and build a navy', () => {
     expect(screen.getByRole('heading', { name: 'Your fleet' })).toBeTruthy();
     expect(screen.getByTestId('fleet-status').textContent).toBe('Holding position');
 
+    // Sending it there is only a move: nothing is founded on arrival.
     fireEvent.click(button(`Send to ${target.name}`));
-    expect(screen.getByTestId('fleet-status').textContent).toMatch(new RegExp(`^Heading to ${target.name} to colonise · \\d+ turns?$`));
+    expect(screen.getByTestId('fleet-status').textContent).toMatch(new RegExp(`^Heading to ${target.name} · \\d+ turns?$`));
     expect(screen.getByTestId('idle-fleets').textContent).toBe('1');
+    const settlers = (s: GameState) => fleetsOf(s, HUMAN).find((f) => f.ships.some((x) => x.hull === 'colony_ship'))!;
+    endTurnsUntil((s) => settlers(s).sector.x === target.sector.x && settlers(s).sector.y === target.sector.y, 8);
+    expect(coloniesOf(autosave(), HUMAN)).toHaveLength(1);
+    expect(screen.getByTestId('fleet-status').textContent).toBe('Holding position');
+    expect(within(screen.getByRole('list', { name: 'Idle' })).getByText(`Colony ship at ${target.name} can found a colony`)).toBeTruthy();
 
-    endTurnsUntil((s) => coloniesOf(s, HUMAN).length === 2, 8);
+    // Founding is the player's choice.
+    fireEvent.click(button(`Found colony at ${target.name}`));
+    expect(screen.getByTestId('fleet-status').textContent).toBe('Founding a colony this turn');
+    endTurn();
+    expect(coloniesOf(autosave(), HUMAN)).toHaveLength(2);
     expect(screen.getByText(`Colony founded at ${target.name}`)).toBeTruthy();
     // The colony ship was used up, so the fleet panel has nothing left to show.
     expect(screen.getByText('Select a system or a fleet on the map.')).toBeTruthy();

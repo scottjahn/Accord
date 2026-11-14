@@ -34,6 +34,15 @@ export function totalOf(lines: BreakdownLine[]): number {
   return Math.max(0, Math.floor((additive * Math.max(0, 100 + percent)) / 100));
 }
 
+/** A system's total room for people and its planets' combined bonuses, for comparing where to settle. */
+export function systemSummary(system: StarSystem): { maxPopulation: number; foodBonus: number; energyBonus: number } {
+  return {
+    maxPopulation: system.planets.reduce((sum, p) => sum + p.maxPopulation, 0),
+    foodBonus: system.planets.reduce((sum, p) => sum + p.foodBonus, 0),
+    energyBonus: system.planets.reduce((sum, p) => sum + p.energyBonus, 0),
+  };
+}
+
 export function maxPopulationOf(system: StarSystem): number {
   return system.planets.reduce((sum, p) => sum + p.maxPopulation, 0);
 }

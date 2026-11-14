@@ -289,6 +289,7 @@ export function resolveColonisation(state: GameState, content: Content, events: 
       morale: 100,
       moraleEffects: [],
       unrestTurns: 0,
+      pinned: { food: 0, industry: 0, energy: 0, intel: 0, research: 0 },
       minorRace: null,
     };
     applyGovernor(state, system, content);

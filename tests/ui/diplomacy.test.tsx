@@ -34,7 +34,11 @@ vi.mock('../../src/ui/map/GalaxyMap', () => ({
   ),
 }));
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  // The End Turn idle warning has its own tests; everything else here plays straight through.
+  localStorage.setItem('accord.skipIdleWarning', '1');
+});
 afterEach(cleanup);
 
 function Diplomacy({ session }: { session: GameSession }) {

@@ -1,4 +1,5 @@
 import {
+  systemSummary,
   garrisonStrength,
   inUnrest,
   moraleBreakdown,
@@ -78,6 +79,7 @@ export function SystemPanel(props: Props) {
     );
   }
 
+  const summary = systemSummary(system);
   const colony = sight.visible ? system.colony : null;
   const owner = sight.owner ? state.empires[sight.owner] : null;
   const ownerFaction = owner ? content.factions[owner.faction] : null;
@@ -106,6 +108,10 @@ export function SystemPanel(props: Props) {
 
       <section>
         <h3>Planets</h3>
+        <p className="capacity" data-testid="system-capacity">
+          Room for {summary.maxPopulation} people · food {signed(summary.foodBonus)}% · energy {signed(summary.energyBonus)}%
+          <span className="muted"> across {system.planets.length === 1 ? '1 planet' : `${system.planets.length} planets`}</span>
+        </p>
         <ul className="planet-list">
           {system.planets.map((planet, i) => (
             <li key={i}>

@@ -152,13 +152,13 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
                 title={coloniseError?.message}
                 onClick={() => dispatch(colonise)}
               >
-                Colonise {here!.name}
+                Found colony at {here!.name}
               </button>
             )}
           </div>
           <p className="muted hint">
             Right-click the map, or press Move and click, to send this fleet. The highlighted sectors are in supply
-            range.{hasColonyShip && ' Send it to an unclaimed system to found a colony there.'}
+            range.{hasColonyShip && ' Move it to an unclaimed system, then choose Found colony there.'}
             {invade === null && fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) && ' Send transports to an enemy colony to invade it.'}
           </p>
         </section>

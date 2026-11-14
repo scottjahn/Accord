@@ -1,6 +1,6 @@
 import { GOVERNOR_WEIGHT_KINDS, type Content } from '../content';
 import { sortedKeys } from '../ids';
-import type { AutoGovernor, GameState, Outputs, StarSystem } from '../types';
+import { OUTPUT_KINDS, type AutoGovernor, type Colony, type GameState, type OutputKind, type Outputs, type StarSystem } from '../types';
 import { computeColonyEconomy } from './outputs';
 
 /**
@@ -18,8 +18,27 @@ function fewestWorkers(max: number, enough: (workers: number) => boolean): numbe
   return low;
 }
 
+/** Hand-placed workers are given up in this order if the population falls below their number. */
+const UNPIN_ORDER: OutputKind[] = ['research', 'intel', 'energy', 'industry', 'food'];
+
+/** The colony's hand-placed workers, cut back if there are no longer enough people for them all. */
+export function effectivePins(colony: Colony): Outputs {
+  const pins = { ...colony.pinned };
+  let excess = OUTPUT_KINDS.reduce((sum, k) => sum + pins[k], 0) - colony.population;
+  for (const kind of UNPIN_ORDER) {
+    if (excess <= 0) break;
+    const cut = Math.min(excess, pins[kind]);
+    pins[kind] -= cut;
+    excess -= cut;
+  }
+  return pins;
+}
+
 /**
  * The allocation an automated governor would choose for a colony right now.
+ *
+ * Workers the player has placed by hand stay where they are and count toward
+ * the colony's needs; the governor assigns everyone else:
  *
  * 1. Energy: the fewest workers that power every building, using at most a
  *    third of the population.
@@ -38,20 +57,29 @@ export function governorAllocation(
   const colony = system.colony;
   if (!colony) throw new Error(`governorAllocation: ${system.id} has no colony`);
 
-  const pop = colony.population;
+  const pins = effectivePins(colony);
+  const withPins = (a: Outputs): Outputs => ({
+    food: a.food + pins.food,
+    industry: a.industry + pins.industry,
+    energy: a.energy + pins.energy,
+    intel: a.intel + pins.intel,
+    research: a.research + pins.research,
+  });
+  // The workers the governor is free to place.
+  const pop = colony.population - OUTPUT_KINDS.reduce((sum, k) => sum + pins[k], 0);
   const none: Outputs = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
   const trial = (allocation: Outputs) =>
-    computeColonyEconomy(state, { ...system, colony: { ...colony, allocation } }, content);
+    computeColonyEconomy(state, { ...system, colony: { ...colony, allocation: withPins(allocation) } }, content);
 
   const upkeep = sortedKeys(colony.buildings).reduce(
     (sum, id) => sum + colony.buildings[id] * (content.buildings[id]?.energyUpkeep ?? 0),
     0,
   );
-  const energy = fewestWorkers(Math.floor(pop / 3), (w) => trial({ ...none, energy: w }).outputs.energy.total >= upkeep);
+  const energy = fewestWorkers(Math.min(pop, Math.floor(colony.population / 3)), (w) => trial({ ...none, energy: w }).outputs.energy.total >= upkeep);
 
   const base = trial({ ...none, energy });
-  const growing = pop < base.maxPopulation;
-  const foodTarget = base.foodNeeded + (growing ? Math.max(2, Math.ceil(pop / 5)) : 0);
+  const growing = colony.population < base.maxPopulation;
+  const foodTarget = base.foodNeeded + (growing ? Math.max(2, Math.ceil(colony.population / 5)) : 0);
   const food = fewestWorkers(pop - energy, (w) => trial({ ...none, energy, food: w }).outputs.food.total >= foodTarget);
 
   const weights = { ...content.rules.governors[governor] };
@@ -76,7 +104,7 @@ export function governorAllocation(
   }
   // Workers lost to rounding go to the governor's highest-weighted output.
   result[favourite] += rest - assigned;
-  return result;
+  return withPins(result);
 }
 
 /** Reassigns the colony's workers if it has an automated governor. Mutates the colony. */

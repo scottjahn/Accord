@@ -37,6 +37,7 @@ import { visibleSectors } from './view';
 export type Command =
   | { type: 'setAllocation'; empire: EmpireId; system: SystemId; allocation: Outputs }
   | { type: 'setGovernor'; empire: EmpireId; system: SystemId; governor: Governor }
+  | { type: 'adjustWorkers'; empire: EmpireId; system: SystemId; pinned: Outputs }
   | { type: 'enqueueBuild'; empire: EmpireId; system: SystemId; building: BuildingId }
   | { type: 'enqueueShip'; empire: EmpireId; system: SystemId; hull: HullId }
   | { type: 'enqueueRefit'; empire: EmpireId; system: SystemId; ship: ShipId; hull: HullId }
@@ -139,6 +140,24 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
         return fail('invalidAllocation', `Allocation uses ${assigned} workers but population is ${own.colony.population}`);
       }
       return null;
+    }
+    case 'adjustWorkers': {
+      const own = ownColony(state, cmd.empire, cmd.system);
+      if (isError(own)) return own;
+      if (own.colony.governor === 'manual') {
+        return fail('invalidAllocation', 'Hand adjustments sit on top of a governor; under Manual, set the workers directly');
+      }
+      const p = cmd.pinned;
+      const valid =
+        typeof p === 'object' &&
+        p !== null &&
+        Object.keys(p).length === OUTPUT_KINDS.length &&
+        OUTPUT_KINDS.every((k) => Number.isInteger(p[k]) && p[k] >= 0);
+      if (!valid) return fail('invalidAllocation', 'Adjustments need a whole number >= 0 for each output');
+      const held = OUTPUT_KINDS.reduce((sum, k) => sum + p[k], 0);
+      return held > own.colony.population
+        ? fail('invalidAllocation', `That places ${held} workers by hand but population is ${own.colony.population}`)
+        : null;
     }
     case 'setGovernor': {
       const own = ownColony(state, cmd.empire, cmd.system);
@@ -385,9 +404,15 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
     case 'setAllocation':
       for (const kind of OUTPUT_KINDS) colony!.allocation[kind] = cmd.allocation[kind];
       colony!.governor = 'manual';
+      colony!.pinned = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
       break;
     case 'setGovernor':
       colony!.governor = cmd.governor;
+      // Hand adjustments belong to a governor; under Manual the allocation itself is the player's.
+      if (cmd.governor === 'manual') colony!.pinned = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
+      break;
+    case 'adjustWorkers':
+      colony!.pinned = { food: cmd.pinned.food, industry: cmd.pinned.industry, energy: cmd.pinned.energy, intel: cmd.pinned.intel, research: cmd.pinned.research };
       break;
     case 'enqueueBuild':
       colony!.buildQueue.push({ kind: 'building', building: cmd.building, progress: 0 });

@@ -722,3 +722,20 @@ h3.spaced {
 .planet-list .fleet-actions {
   margin-top: 0;
 }
+
+/* Idle warnings, capacity summary, hand-placed workers */
+.capacity {
+  margin-bottom: 8px;
+}
+.pin {
+  color: var(--accent);
+  font-weight: 600;
+}
+.skip-warning {
+  display: block;
+  margin: 14px 0 4px;
+  color: var(--muted);
+}
+.event-log h3.spaced {
+  margin-top: 12px;
+}

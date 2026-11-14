@@ -2,7 +2,7 @@ import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, ShipId,
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export const TREATY_TYPES = ['peace', 'nonAggression', 'openBorders', 'researchPact', 'alliance'] as const;
 export type TreatyType = (typeof TREATY_TYPES)[number];
@@ -160,6 +160,12 @@ export interface Colony {
   /** Workers per output. The sum never exceeds population; the rest are idle. */
   allocation: Outputs;
   governor: Governor;
+  /**
+   * Workers the player has placed by hand on top of an automated governor. The
+   * governor leaves them where they are and assigns everyone else. All zero
+   * under the manual governor.
+   */
+  pinned: Outputs;
   buildings: Record<BuildingId, number>;
   buildQueue: BuildItem[];
   /** 100 is neutral. Kept in step with its causes by the sim; see moraleBreakdown. */
