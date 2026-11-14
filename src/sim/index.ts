@@ -26,6 +26,7 @@ export { redactFor } from './redact';
 export { itemCost, itemName } from './economy/build';
 export { computeColonyEconomy, maxPopulationOf, systemSummary, totalOf, type ColonyEconomy } from './economy/outputs';
 export * from './idle';
+export * from './survey';
 export { growthCost } from './economy/growth';
 export { effectivePins, governorAllocation } from './economy/governor';
 export { forecastColony, type ColonyForecast } from './economy/forecast';

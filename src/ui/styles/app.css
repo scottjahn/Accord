@@ -739,3 +739,50 @@ h3.spaced {
 .event-log h3.spaced {
   margin-top: 12px;
 }
+
+/* Systems list */
+.modal.wide {
+  width: min(860px, 100%);
+}
+.table-scroll {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+.systems-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.systems-table th,
+.systems-table td {
+  padding: 5px 8px;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+  font-weight: 400;
+}
+.systems-table thead th {
+  border-top: 0;
+}
+.systems-table .num {
+  text-align: right;
+}
+.systems-table tr.own th,
+.systems-table tr.own td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.sort {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.sort:hover {
+  color: var(--text);
+}

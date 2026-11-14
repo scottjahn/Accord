@@ -22,6 +22,7 @@ import { TopBar } from '../hud/TopBar';
 import { GalaxyMap } from '../map/GalaxyMap';
 import { ResearchScreen } from '../research/ResearchScreen';
 import { SystemPanel } from '../system/SystemPanel';
+import { SystemsScreen } from '../system/SystemsScreen';
 import { useSession } from '../useSession';
 import { EmpiresScreen } from '../war/EmpiresScreen';
 import { IntelScreen } from '../war/IntelScreen';
@@ -70,6 +71,7 @@ export function GameScreen({ session, onQuit }: Props) {
   const [showResearch, setShowResearch] = useState(false);
   const [showEmpires, setShowEmpires] = useState(false);
   const [showIntel, setShowIntel] = useState(false);
+  const [showSystems, setShowSystems] = useState(false);
   const offers = state.offers.filter((o) => o.to === player).length;
   const [report, setReport] = useState<Extract<TurnEvent, { type: 'battle' | 'invasion' }> | null>(null);
   const [resultSeen, setResultSeen] = useState(false);
@@ -145,6 +147,7 @@ export function GameScreen({ session, onQuit }: Props) {
         onResearch={() => setShowResearch(true)}
         onEmpires={() => setShowEmpires(true)}
         onIntel={() => setShowIntel(true)}
+        onSystems={() => setShowSystems(true)}
         offers={offers}
         wars={wars}
         over={over}
@@ -245,6 +248,9 @@ export function GameScreen({ session, onQuit }: Props) {
       )}
       {showEmpires && (
         <EmpiresScreen state={state} content={content} player={player} view={view} dispatch={session.dispatch} onClose={() => setShowEmpires(false)} />
+      )}
+      {showSystems && (
+        <SystemsScreen state={state} content={content} player={player} onSelect={(id) => select({ kind: 'system', id })} onClose={() => setShowSystems(false)} />
       )}
       {showIntel && <IntelScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setShowIntel(false)} />}
       {report && <ReportScreen state={state} content={content} player={player} event={report} onClose={() => setReport(null)} />}

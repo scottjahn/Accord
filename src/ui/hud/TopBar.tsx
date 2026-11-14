@@ -8,6 +8,7 @@ interface Props {
   onResearch: () => void;
   onEmpires: () => void;
   onIntel: () => void;
+  onSystems: () => void;
   /** Treaty offers waiting for the player's answer. */
   offers: number;
   /** How many empires the player is at war with. */
@@ -18,7 +19,7 @@ interface Props {
   onQuit: () => void;
 }
 
-export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpires, onIntel, offers, wars, over, onSave, onQuit }: Props) {
+export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpires, onIntel, onSystems, offers, wars, over, onSave, onQuit }: Props) {
   const empire = state.empires[player];
   const faction = content.factions[empire.faction];
   const support = empireSupport(state, player, content);
@@ -60,6 +61,9 @@ export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpire
         </button>
         <button type="button" className="btn" onClick={onSave}>
           Save file
+        </button>
+        <button type="button" className="btn" onClick={onSystems}>
+          Systems
         </button>
         <button type="button" className="btn" onClick={onResearch}>
           Research
