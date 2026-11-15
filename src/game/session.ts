@@ -14,6 +14,7 @@ import {
   type SaveError,
   type TurnEvent,
 } from '../sim';
+import { idleKeys, turnNeedsPlayer } from './skip';
 import { playTurn } from './turn';
 
 export interface NewGameOptions {
@@ -34,6 +35,8 @@ export interface SessionSnapshot {
   player: EmpireId;
   /** Events from the turn that just resolved. */
   lastEvents: TurnEvent[];
+  /** How many turns that was: 1 for End Turn, more after skipping ahead. */
+  turnsPlayed: number;
   /** Why the most recent command was rejected, or null if it was accepted. */
   lastError: CommandError | null;
 }
@@ -47,6 +50,11 @@ export interface GameSession {
   dispatch(command: Command): boolean;
   /** AI empires act, then the turn resolves. */
   endTurn(): void;
+  /**
+   * Ends turns until something needs the player (see `turnNeedsPlayer`) or
+   * `maxTurns` have passed. Returns how many turns were played.
+   */
+  skipAhead(maxTurns: number): number;
   exportSave(): string;
   importSave(json: string): Result<void, SaveError>;
 }
@@ -90,7 +98,7 @@ export function createSession(content: Content, initial: GameState): GameSession
   const firstPlayer = humanEmpire(initial);
   if (!firstPlayer) throw new Error('createSession: the game has no human empire');
 
-  let snapshot: SessionSnapshot = { state: initial, player: firstPlayer, lastEvents: [], lastError: null };
+  let snapshot: SessionSnapshot = { state: initial, player: firstPlayer, lastEvents: [], turnsPlayed: 0, lastError: null };
   const listeners = new Set<() => void>();
   const publish = (next: SessionSnapshot) => {
     snapshot = next;
@@ -112,7 +120,24 @@ export function createSession(content: Content, initial: GameState): GameSession
     },
     endTurn() {
       const { state, events } = playTurn(snapshot.state, content);
-      publish({ ...snapshot, state, lastEvents: events, lastError: null });
+      publish({ ...snapshot, state, lastEvents: events, turnsPlayed: 1, lastError: null });
+    },
+    skipAhead(maxTurns) {
+      const player = snapshot.player;
+      // What was already idle when the player chose to skip is theirs to ignore.
+      const accepted = idleKeys(snapshot.state, player, content);
+      let state = snapshot.state;
+      const all: TurnEvent[] = [];
+      let played = 0;
+      while (played < maxTurns && state.winner === null) {
+        const turn = playTurn(state, content);
+        state = turn.state;
+        all.push(...turn.events);
+        played++;
+        if (turnNeedsPlayer(state, player, turn.events, content, accepted)) break;
+      }
+      if (played > 0) publish({ ...snapshot, state, lastEvents: all, turnsPlayed: played, lastError: null });
+      return played;
     },
     exportSave: () => serialize(snapshot.state),
     importSave(json) {
@@ -120,7 +145,7 @@ export function createSession(content: Content, initial: GameState): GameSession
       if (!loaded.ok) return loaded;
       const player = humanEmpire(loaded.value);
       if (!player) return { ok: false, error: { code: 'badShape', message: 'Save has no human empire' } };
-      publish({ state: loaded.value, player, lastEvents: [], lastError: null });
+      publish({ state: loaded.value, player, lastEvents: [], turnsPlayed: 0, lastError: null });
       return { ok: true, value: undefined };
     },
   };

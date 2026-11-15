@@ -8,6 +8,8 @@ interface Props {
   events: TurnEvent[];
   /** Colonies and ships of the player's that are doing nothing this turn. */
   idle: IdleItem[];
+  /** How many turns the last End Turn or Skip Ahead played. */
+  turnsPlayed: number;
   /** Opens the full report for a battle or an invasion. */
   onOpenReport: (event: Extract<TurnEvent, { type: 'battle' | 'invasion' }>) => void;
   onSelectSystem: (id: SystemId) => void;
@@ -32,7 +34,7 @@ const BAD: TurnEvent['type'][] = [
  * just resolved, and what of theirs is idle now. Idle items jump to the colony
  * or fleet when clicked.
  */
-export function EventLog({ state, content, player, events, idle, onOpenReport, onSelectSystem, onSelectFleet }: Props) {
+export function EventLog({ state, content, player, events, idle, turnsPlayed, onOpenReport, onSelectSystem, onSelectFleet }: Props) {
   const mine = events.filter((e) => eventIsMine(e, state, player));
   const firstTurn = state.turn === 1;
   if (firstTurn && idle.length === 0) return null;
@@ -40,7 +42,7 @@ export function EventLog({ state, content, player, events, idle, onOpenReport, o
     <div className="event-log" aria-label="Last turn" aria-live="polite">
       {!firstTurn && (
         <>
-          <h3>Turn {state.turn - 1} report</h3>
+          <h3>{turnsPlayed > 1 ? `Turns ${state.turn - turnsPlayed} to ${state.turn - 1} report` : `Turn ${state.turn - 1} report`}</h3>
           {mine.length === 0 ? (
             <p className="muted">Nothing to report.</p>
           ) : (
@@ -72,7 +74,7 @@ export function EventLog({ state, content, player, events, idle, onOpenReport, o
                   <button
                     type="button"
                     className="link"
-                    onClick={() => (item.kind === 'colonyShip' ? onSelectFleet(item.fleet) : onSelectSystem(item.system))}
+                    onClick={() => ('fleet' in item ? onSelectFleet(item.fleet) : onSelectSystem(item.system))}
                   >
                     {idleText(item, state)}
                   </button>

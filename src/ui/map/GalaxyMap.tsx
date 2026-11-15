@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Content, EmpireView, Fleet, GameState, Sector, SystemId } from '../../sim';
 import { fitCamera, pan, screenToWorld, worldToSector, zoomAt, type Camera, type Point } from './camera';
-import { MapRenderer } from './mapRenderer';
+import type { MapRenderer } from './mapRenderer';
 import { buildScene, type MapScene } from './scene';
 
 interface Props {
@@ -62,15 +62,22 @@ export function GalaxyMap({ state, content, view, selectedSystem, selectedFleet,
   // first (React strict mode) is honoured when it finishes.
   useEffect(() => {
     const host = hostRef.current!;
-    const renderer = new MapRenderer();
+    let renderer: MapRenderer | null = null;
     let disposed = false;
-    renderer
-      .init(host)
-      .then(() => {
+    // PixiJS is most of the download, so it is fetched on its own once the map is wanted.
+    import('./mapRenderer')
+      .then((module) => {
+        if (disposed) return undefined;
+        renderer = new module.MapRenderer();
+        return renderer.init(host).then(() => renderer);
+      })
+      .then((started) => {
+        if (!started) return;
         if (disposed) {
-          renderer.destroy();
+          started.destroy();
           return;
         }
+        const renderer = started;
         rendererRef.current = renderer;
         applyCamera(fitCamera(sceneRef.current, renderer.viewport));
         setReady(true);
@@ -87,7 +94,7 @@ export function GalaxyMap({ state, content, view, selectedSystem, selectedFleet,
       disposed = true;
       host.removeEventListener('wheel', onWheel);
       rendererRef.current = null;
-      renderer.destroy();
+      renderer?.destroy();
     };
   }, []);
 

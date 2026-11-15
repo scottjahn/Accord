@@ -276,10 +276,8 @@ describe('expand and build a navy', () => {
     endTurn();
     expect(coloniesOf(autosave(), HUMAN)).toHaveLength(2);
     expect(screen.getByText(`Colony founded at ${target.name}`)).toBeTruthy();
-    // The colony ship was used up, so the fleet panel has nothing left to show.
-    expect(screen.getByText('Select a system or a fleet on the map.')).toBeTruthy();
-
-    fireEvent.click(button(target.name));
+    // The colony ship was used up, so the panel moves on to the colony it founded.
+    expect(screen.queryByText('Select a system or a fleet on the map.')).toBeNull();
     expect(screen.getByRole('heading', { name: target.name })).toBeTruthy();
     expect(screen.getByTestId('population').textContent).toMatch(/^2 \/ \d+$/);
     expect(screen.getByText('Build a Shipyard here to construct ships.')).toBeTruthy();

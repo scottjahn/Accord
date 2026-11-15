@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { idleText, victoryText } from '../format';
 import { saveFileName } from '../../game/persistence';
 import type { GameSession } from '../../game/session';
+import { SKIP_LIMIT } from '../../game/skip';
 import {
   atWar,
   getEmpireView,
@@ -17,12 +18,15 @@ import {
   type TurnEvent,
 } from '../../sim';
 import { FleetPanel } from '../fleet/FleetPanel';
+import { HelpScreen } from '../help/HelpScreen';
+import { hotkeyAction } from '../hotkeys';
 import { EventLog } from '../hud/EventLog';
 import { TopBar } from '../hud/TopBar';
 import { GalaxyMap } from '../map/GalaxyMap';
 import { ResearchScreen } from '../research/ResearchScreen';
 import { SystemPanel } from '../system/SystemPanel';
 import { SystemsScreen } from '../system/SystemsScreen';
+import { SaveScreen } from './SaveScreen';
 import { useSession } from '../useSession';
 import { EmpiresScreen } from '../war/EmpiresScreen';
 import { IntelScreen } from '../war/IntelScreen';
@@ -34,6 +38,8 @@ interface Props {
 }
 
 type Selection = { kind: 'system'; id: SystemId } | { kind: 'fleet'; id: FleetId } | null;
+/** The full-screen page that is open, if any. */
+type Screen = 'research' | 'empires' | 'intel' | 'systems' | 'help' | 'save' | null;
 
 const SKIP_IDLE_KEY = 'accord.skipIdleWarning';
 
@@ -64,14 +70,11 @@ function downloadText(name: string, text: string): void {
 }
 
 export function GameScreen({ session, onQuit }: Props) {
-  const { state, player, lastEvents, lastError } = useSession(session);
+  const { state, player, lastEvents, turnsPlayed, lastError } = useSession(session);
   const { content } = session;
   const [selection, setSelection] = useState<Selection>({ kind: 'system', id: state.empires[player].homeSystem });
   const [moveMode, setMoveMode] = useState(false);
-  const [showResearch, setShowResearch] = useState(false);
-  const [showEmpires, setShowEmpires] = useState(false);
-  const [showIntel, setShowIntel] = useState(false);
-  const [showSystems, setShowSystems] = useState(false);
+  const [screen, setScreen] = useState<Screen>(null);
   const offers = state.offers.filter((o) => o.to === player).length;
   const [report, setReport] = useState<Extract<TurnEvent, { type: 'battle' | 'invasion' }> | null>(null);
   const [resultSeen, setResultSeen] = useState(false);
@@ -86,22 +89,79 @@ export function GameScreen({ session, onQuit }: Props) {
 
   const idle = useMemo(() => idleReport(state, player, content), [state, player, content]);
   const waiting = idle.filter((item) => item.blocking);
-  const [confirmEnd, setConfirmEnd] = useState(false);
+  /** Set while the idle warning is up: which way of ending the turn is waiting on the answer. */
+  const [confirmEnd, setConfirmEnd] = useState<'turn' | 'skip' | null>(null);
   const [skipIdleWarning, setSkipIdleWarning] = useState(readSkipIdleWarning);
-  const endTurn = () => {
-    setConfirmEnd(false);
-    session.endTurn();
+  const endTurn = (how: 'turn' | 'skip') => {
+    setConfirmEnd(null);
+    const sector = ownFleet?.sector ?? null;
+    if (how === 'skip') session.skipAhead(SKIP_LIMIT);
+    else session.endTurn();
+    // A selected colony ship that has just founded its colony is gone: show the colony instead
+    // of an empty panel.
+    if (selection?.kind !== 'fleet' || !sector) return;
+    const now = session.getSnapshot().state;
+    if (now.fleets[selection.id]) return;
+    const here = systemAt(now, sector);
+    if (here?.colony?.owner === player) setSelection({ kind: 'system', id: here.id });
   };
   /** Ends the turn, first asking if the player means to leave things idle. */
-  const requestEndTurn = () => {
-    if (waiting.length > 0 && !skipIdleWarning) setConfirmEnd(true);
-    else endTurn();
+  const requestEndTurn = (how: 'turn' | 'skip' = 'turn') => {
+    if (over) return;
+    if (waiting.length > 0 && !skipIdleWarning) setConfirmEnd(how);
+    else endTurn(how);
   };
 
   const select = (next: Selection) => {
     setSelection(next);
     setMoveMode(false);
   };
+
+  /** Steps through the idle colonies and ships, one per press. */
+  const idleCursor = useRef(0);
+  const selectNextIdle = () => {
+    const targets = idle.filter((item) => item.kind !== 'unsettled');
+    if (targets.length === 0) return;
+    const item = targets[idleCursor.current++ % targets.length];
+    select('fleet' in item ? { kind: 'fleet', id: item.fleet } : { kind: 'system', id: item.system });
+  };
+
+  // Keyboard shortcuts. One listener for the life of the screen; it calls whatever the latest
+  // render put in the ref, so it always sees current state.
+  const onKey = useRef<(e: KeyboardEvent) => void>(() => {});
+  onKey.current = (e) => {
+    const action = hotkeyAction({
+      key: e.key,
+      shiftKey: e.shiftKey,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      altKey: e.altKey,
+      targetTag: e.target instanceof Element ? e.target.tagName : null,
+    });
+    if (!action) return;
+    const result = over && !resultSeen;
+    if (action === 'close') {
+      if (confirmEnd) setConfirmEnd(null);
+      else if (report) setReport(null);
+      else if (screen) setScreen(null);
+      else if (result) setResultSeen(true);
+      else setMoveMode(false);
+      return;
+    }
+    // With a window open, the keys belong to it.
+    if (confirmEnd || report || screen || result) return;
+    e.preventDefault();
+    if (action === 'endTurn') requestEndTurn('turn');
+    else if (action === 'skipAhead') requestEndTurn('skip');
+    else if (action === 'nextIdle') selectNextIdle();
+    else if (action === 'move') setMoveMode(ownFleet !== undefined);
+    else setScreen(action);
+  };
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => onKey.current(e);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, []);
 
   /**
    * Sends the selected fleet to a sector. Transports sent to an enemy colony
@@ -143,15 +203,17 @@ export function GameScreen({ session, onQuit }: Props) {
         state={state}
         content={content}
         player={player}
-        onEndTurn={requestEndTurn}
-        onResearch={() => setShowResearch(true)}
-        onEmpires={() => setShowEmpires(true)}
-        onIntel={() => setShowIntel(true)}
-        onSystems={() => setShowSystems(true)}
+        onEndTurn={() => requestEndTurn('turn')}
+        onSkipAhead={() => requestEndTurn('skip')}
+        onResearch={() => setScreen('research')}
+        onEmpires={() => setScreen('empires')}
+        onIntel={() => setScreen('intel')}
+        onSystems={() => setScreen('systems')}
+        onHelp={() => setScreen('help')}
         offers={offers}
         wars={wars}
         over={over}
-        onSave={() => downloadText(saveFileName(state), session.exportSave())}
+        onSave={() => setScreen('save')}
         onQuit={onQuit}
       />
       <div className="game-body">
@@ -170,6 +232,7 @@ export function GameScreen({ session, onQuit }: Props) {
             player={player}
             events={lastEvents}
             idle={idle}
+            turnsPlayed={turnsPlayed}
             onOpenReport={setReport}
             onSelectSystem={(id) => select({ kind: 'system', id })}
             onSelectFleet={(id) => select({ kind: 'fleet', id })}
@@ -211,7 +274,7 @@ export function GameScreen({ session, onQuit }: Props) {
         </aside>
       </div>
       {confirmEnd && (
-        <div className="modal-backdrop" onClick={() => setConfirmEnd(false)}>
+        <div className="modal-backdrop" onClick={() => setConfirmEnd(null)}>
           <div className="modal" role="dialog" aria-modal="true" aria-label="End turn?" onClick={(e) => e.stopPropagation()}>
             <header className="modal-head">
               <div>
@@ -236,23 +299,32 @@ export function GameScreen({ session, onQuit }: Props) {
               Don't warn me about idle colonies and ships again
             </label>
             <div className="fleet-actions">
-              <button type="button" className="btn primary" onClick={() => setConfirmEnd(false)}>
+              <button type="button" className="btn primary" onClick={() => setConfirmEnd(null)}>
                 Go back
               </button>
-              <button type="button" className="btn" onClick={endTurn}>
-                End turn anyway
+              <button type="button" className="btn" onClick={() => endTurn(confirmEnd)}>
+                {confirmEnd === 'skip' ? 'Skip ahead anyway' : 'End turn anyway'}
               </button>
             </div>
           </div>
         </div>
       )}
-      {showEmpires && (
-        <EmpiresScreen state={state} content={content} player={player} view={view} dispatch={session.dispatch} onClose={() => setShowEmpires(false)} />
+      {screen === 'empires' && (
+        <EmpiresScreen state={state} content={content} player={player} view={view} dispatch={session.dispatch} onClose={() => setScreen(null)} />
       )}
-      {showSystems && (
-        <SystemsScreen state={state} content={content} player={player} onSelect={(id) => select({ kind: 'system', id })} onClose={() => setShowSystems(false)} />
+      {screen === 'systems' && (
+        <SystemsScreen state={state} content={content} player={player} onSelect={(id) => select({ kind: 'system', id })} onClose={() => setScreen(null)} />
       )}
-      {showIntel && <IntelScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setShowIntel(false)} />}
+      {screen === 'intel' && <IntelScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setScreen(null)} />}
+      {screen === 'help' && <HelpScreen state={state} content={content} player={player} onClose={() => setScreen(null)} />}
+      {screen === 'save' && (
+        <SaveScreen
+          state={state}
+          content={content}
+          onDownload={() => downloadText(saveFileName(state), session.exportSave())}
+          onClose={() => setScreen(null)}
+        />
+      )}
       {report && <ReportScreen state={state} content={content} player={player} event={report} onClose={() => setReport(null)} />}
       {over && !resultSeen && (
         <div className="modal-backdrop">
@@ -273,8 +345,8 @@ export function GameScreen({ session, onQuit }: Props) {
           </div>
         </div>
       )}
-      {showResearch && (
-        <ResearchScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setShowResearch(false)} />
+      {screen === 'research' && (
+        <ResearchScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setScreen(null)} />
       )}
     </div>
   );

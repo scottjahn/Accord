@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   effectivePins,
+  fleetRange,
   governorAllocation,
   idleReport,
   processTurn,
   sectorKey,
   submitCommand,
+  suppliedSectors,
   systemSummary,
   type BuildingId,
   type Command,
@@ -164,12 +166,33 @@ describe('what is idle', () => {
     expect(unsettled(state, content)).toBe(before);
   });
 
-  it('leaves warships and scouts alone: standing guard is not idleness', () => {
+  it('leaves warships alone: standing guard is not idleness', () => {
     const { state, content, home } = setup();
     colonyOf(state, ALPHA).buildQueue = [{ kind: 'building', building: 'lab' as BuildingId, progress: 0 }];
     addFleet(state, content, ALPHA, home.sector, ['frigate']);
-    addFleet(state, content, ALPHA, home.sector, ['scout']);
     expect(kinds(state, content)).toEqual([]);
+  });
+
+  it('flags a scout with no orders only while there is something in reach it has not seen', () => {
+    const { state, content, home } = setup();
+    colonyOf(state, ALPHA).buildQueue = [{ kind: 'building', building: 'lab' as BuildingId, progress: 0 }];
+    const scout = addFleet(state, content, ALPHA, home.sector, ['scout']);
+    const within = suppliedSectors(state, ALPHA, fleetRange(state, scout, content));
+    const unseen = Object.values(state.systems).filter((s) => !(s.id in state.empires[ALPHA].knownSystems) && within.has(sectorKey(s.sector)));
+    expect(unseen.length).toBeGreaterThan(0);
+    expect(urgent(state, content)).toEqual([{ kind: 'scout', blocking: true, fleet: scout.id, unexplored: unseen.length }]);
+
+    // On its way somewhere, it is busy.
+    const moving = structuredClone(state);
+    moving.fleets[scout.id].destination = { ...unseen[0].sector };
+    expect(kinds(moving, content)).toEqual([]);
+
+    // With everything in reach scanned, a parked scout is standing watch.
+    for (const system of unseen) state.empires[ALPHA].knownSystems[system.id] = null;
+    expect(kinds(state, content)).toEqual([]);
+
+    // A rival's scout is never the player's problem.
+    expect(idleReport(state, ALPHA, content).some((i) => i.kind === 'scout')).toBe(false);
   });
 
   it('reports only the empire asked about, and nothing once the game is over', () => {

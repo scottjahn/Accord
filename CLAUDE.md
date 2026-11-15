@@ -31,8 +31,11 @@ Read `DESIGN.md` for the game design and milestone list.
 - **Combat is exact in rule tests.** The fixture sets `minRollPercent` to 100 so every shot does full damage; tests that are about randomness lower it themselves.
 - **Long AI runs are opt-in.** `npm test` plays 4 full AI games for the conquest exit test; `npm run test:long` plays 20. Use `npm run batch` when tuning.
 - **Agents return only legal commands.** `playTurn` throws on an illegal one. Check with `validateCommand` against a working copy, as `baselineAgent` does.
+- **What stops Skip Ahead is decided in `src/game/skip.ts`.** `turnNeedsPlayer` is the one place that says which events and idle items need the player; `session.skipAhead` publishes one snapshot for the whole stretch. A new event type that needs no decision goes in its `ROUTINE` list.
+- **Hotkeys are data in `src/ui/hotkeys.ts`.** `hotkeyAction` is pure and tested; the help page lists `HOTKEYS`, so a new key is added there and nowhere else. Keys do nothing while a window is open, except Escape.
+- **Saves in the browser go through `src/game/persistence.ts`:** one autosave plus `SLOT_COUNT` slots, every access guarded so the game runs without storage.
 - **Disabled buttons explain themselves with the sim's own message:** call `validateCommand` and show its `message` rather than re-deriving the rule in the UI.
-- **PixiJS stays inside `src/ui/map/mapRenderer.ts`.** Pan, zoom and hit-testing live in `camera.ts` as pure functions with tests.
+- **PixiJS stays inside `src/ui/map/mapRenderer.ts`,** which `GalaxyMap` loads with a dynamic import so PixiJS is not in the first download. Pan, zoom and hit-testing live in `camera.ts` as pure functions with tests.
 
 ## Commands
 

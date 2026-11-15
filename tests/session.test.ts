@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AUTOSAVE_KEY, clearAutosave, readAutosave, saveFileName, writeAutosave } from '../src/game/persistence';
+import {
+  AUTOSAVE_KEY,
+  SLOT_COUNT,
+  clearAutosave,
+  deleteSlot,
+  listSlots,
+  readAutosave,
+  readSlot,
+  saveFileName,
+  slotKey,
+  writeAutosave,
+  writeSlot,
+} from '../src/game/persistence';
 import { createSession, humanEmpire, startNewGame } from '../src/game/session';
 import { serialize, type BuildingId, type SystemId } from '../src/sim';
 import { ALPHA, BETA, colonyOf, fixtureContent, homeOf, newGame } from './fixture';
@@ -169,6 +181,44 @@ describe('persistence', () => {
     expect(writeAutosave(broken, state)).toBe(false);
     expect(readAutosave(broken)).toBeNull();
     expect(() => clearAutosave(broken)).not.toThrow();
+  });
+
+  it('keeps three save slots apart from each other and from the autosave', () => {
+    const storage = memoryStorage();
+    const first = newGame(4).state;
+    const second = newGame(9).state;
+    expect(listSlots(storage).map((s) => s.game)).toEqual([null, null, null]);
+    expect(writeSlot(storage, 1, first)).toBe(true);
+    expect(writeSlot(storage, 3, second)).toBe(true);
+    expect(readAutosave(storage)).toBeNull();
+    const slots = listSlots(storage);
+    expect(slots).toHaveLength(SLOT_COUNT);
+    expect(slots.map((s) => s.slot)).toEqual([1, 2, 3]);
+    expect(slots[0].game).toEqual(first);
+    expect(slots[1]).toEqual({ slot: 2, game: null, problem: null });
+    expect(slots[2].game).toEqual(second);
+
+    // Saving again replaces what was there; deleting empties only that slot.
+    expect(writeSlot(storage, 1, second)).toBe(true);
+    expect(readSlot(storage, 1).game).toEqual(second);
+    deleteSlot(storage, 1);
+    expect(readSlot(storage, 1).game).toBeNull();
+    expect(readSlot(storage, 3).game).toEqual(second);
+  });
+
+  it('says why a slot cannot be loaded, and refuses slots that do not exist', () => {
+    const storage = memoryStorage();
+    storage.setItem(slotKey(2), '{broken');
+    const slot = readSlot(storage, 2);
+    expect(slot.game).toBeNull();
+    expect(slot.problem).toBeTruthy();
+    const { state } = newGame();
+    expect(writeSlot(storage, 0, state)).toBe(false);
+    expect(writeSlot(storage, SLOT_COUNT + 1, state)).toBe(false);
+    expect(writeSlot(null, 1, state)).toBe(false);
+    expect(listSlots(null).every((s) => s.game === null && s.problem === null)).toBe(true);
+    const full = { getItem: () => null, setItem: () => { throw new Error('quota'); }, removeItem: () => {} };
+    expect(writeSlot(full, 1, state)).toBe(false);
   });
 
   it('names save files by seed and turn', () => {

@@ -1,4 +1,5 @@
 import { creditIncome, empireSupport, eraOf, fleetsOf, type Content, type EmpireId, type GameState } from '../../sim';
+import { SKIP_LIMIT } from '../../game/skip';
 import { lineValue, signed } from '../format';
 
 interface Props {
@@ -6,6 +7,9 @@ interface Props {
   content: Content;
   player: EmpireId;
   onEndTurn: () => void;
+  /** Ends turns until something needs the player. */
+  onSkipAhead: () => void;
+  onHelp: () => void;
   onResearch: () => void;
   onEmpires: () => void;
   onIntel: () => void;
@@ -20,7 +24,7 @@ interface Props {
   onQuit: () => void;
 }
 
-export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpires, onIntel, onSystems, offers, wars, over, onSave, onQuit }: Props) {
+export function TopBar({ state, content, player, onEndTurn, onSkipAhead, onHelp, onResearch, onEmpires, onIntel, onSystems, offers, wars, over, onSave, onQuit }: Props) {
   const empire = state.empires[player];
   const faction = content.factions[empire.faction];
   const support = empireSupport(state, player, content);
@@ -70,8 +74,11 @@ export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpire
         <button type="button" className="btn" onClick={onQuit}>
           Main menu
         </button>
-        <button type="button" className="btn" onClick={onSave}>
-          Save file
+        <button type="button" className="btn" onClick={onHelp} aria-label="Help" title="How to play and keyboard shortcuts (H)">
+          ?
+        </button>
+        <button type="button" className="btn" onClick={onSave} title="Save to a slot or download a file (G)">
+          Save
         </button>
         <button type="button" className="btn" onClick={onSystems}>
           Systems
@@ -85,7 +92,16 @@ export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpire
         <button type="button" className={`btn${wars > 0 ? ' danger' : offers > 0 ? ' primary' : ''}`} onClick={onEmpires}>
           {wars > 0 ? 'Empires (at war)' : offers > 0 ? `Empires (${offers} ${offers === 1 ? 'offer' : 'offers'})` : 'Empires'}
         </button>
-        <button type="button" className="btn primary" onClick={onEndTurn} disabled={over} title={over ? 'The game is over' : undefined}>
+        <button
+          type="button"
+          className="btn"
+          onClick={onSkipAhead}
+          disabled={over}
+          title={over ? 'The game is over' : `End up to ${SKIP_LIMIT} turns, stopping as soon as something needs you (Shift + Enter)`}
+        >
+          Skip ahead
+        </button>
+        <button type="button" className="btn primary" onClick={onEndTurn} disabled={over} title={over ? 'The game is over' : 'End the turn (Enter)'}>
           End turn
         </button>
       </div>

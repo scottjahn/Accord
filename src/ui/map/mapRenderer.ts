@@ -5,6 +5,12 @@ import type { MapScene } from './scene';
 const GRID_COLOR = 0x8fa3c8;
 const RANGE_COLOR = 0x6cb6ff;
 const LABEL_MIN_ZOOM = 0.5;
+// Sectors out of sight are darkened and sectors in sight are lifted a little, so the edge of
+// what the player can see reads at a glance.
+const FOG_COLOR = 0x000000;
+const FOG_ALPHA = 0.6;
+const SIGHT_COLOR = 0x9db8e8;
+const SIGHT_ALPHA = 0.07;
 
 /** Draws the galaxy with PixiJS. Knows nothing about game rules; it renders a MapScene. */
 export class MapRenderer {
@@ -57,7 +63,8 @@ export class MapRenderer {
     for (let y = 0; y < scene.height; y++) {
       for (let x = 0; x < scene.width; x++) {
         const key = `${x},${y}`;
-        if (!scene.visible.has(key)) this.fog.rect(x * S, y * S, S, S).fill({ color: 0x000000, alpha: 0.42 });
+        if (!scene.visible.has(key)) this.fog.rect(x * S, y * S, S, S).fill({ color: FOG_COLOR, alpha: FOG_ALPHA });
+        else this.fog.rect(x * S, y * S, S, S).fill({ color: SIGHT_COLOR, alpha: SIGHT_ALPHA });
         if (scene.range?.has(key)) this.range.rect(x * S + 1, y * S + 1, S - 2, S - 2).fill({ color: RANGE_COLOR, alpha: 0.1 });
       }
     }

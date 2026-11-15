@@ -18,6 +18,7 @@ import {
   type ShipId,
   type Stance,
 } from '../../sim';
+import { HullIcon } from './HullIcon';
 import { ROLE_LABELS, placeName, sectorLabel, sectors, ships as shipCount, turns } from '../format';
 
 const STANCE_HELP: Record<Stance, string> = {
@@ -184,7 +185,7 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
                         }
                       />
                     )}{' '}
-                    {hull?.name ?? ship.hull}
+                    {hull && <HullIcon role={hull.role} tier={hull.tier} color={faction.color} />} {hull?.name ?? ship.hull}
                   </span>
                   <span className="muted">
                     {hull ? ROLE_LABELS[hull.role] : 'Unknown'} · hull {ship.hp} / {hull?.hp ?? '?'}

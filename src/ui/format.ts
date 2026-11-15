@@ -65,6 +65,8 @@ export function idleText(item: IdleItem, state: GameState): string {
       return `${state.systems[item.system].name}: nothing in the build queue`;
     case 'colonyShip':
       return item.canFound ? `Colony ship at ${state.systems[item.canFound].name} can found a colony` : 'Colony ship has no orders';
+    case 'scout':
+      return `Scout has no orders: ${item.unexplored} unexplored ${item.unexplored === 1 ? 'system' : 'systems'} in range`;
     case 'unsettled':
       return `${item.count} free ${item.count === 1 ? 'system' : 'systems'} in range with no colony ship on the way`;
   }
@@ -139,12 +141,7 @@ export function victoryText(victory: GameState['victory'], winnerName: string, m
 }
 
 /** Whether an event belongs in this player's turn report. */
-export function eventIsMine(event: TurnEvent, state: GameState, player: EmpireId): boolean {
-  if (event.type === 'warDeclared' || event.type === 'empireEliminated' || event.type === 'gameWon') return true;
-  if ('empires' in event) return event.empires.includes(player);
-  if ('empire' in event) return event.empire === player;
-  return state.systems[event.system]?.colony?.owner === player;
-}
+export { eventIsMine } from '../game/skip';
 
 export function eventText(event: TurnEvent, state: GameState, content: Content): string {
   const treatyLabel = (type: keyof typeof content.rules.diplomacy.treaties) => content.rules.diplomacy.treaties[type].label;

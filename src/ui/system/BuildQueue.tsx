@@ -1,3 +1,4 @@
+import { HullIcon } from '../fleet/HullIcon';
 import {
   buyOutCost,
   mercenaryCost,
@@ -165,7 +166,7 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
               <li key={id}>
                 <div className="building-info">
                   <span>
-                    {hull.name}
+                    <HullIcon role={hull.role} tier={hull.tier} color={faction.color} /> {hull.name}
                     {hull.faction !== null && <span className="muted count"> {faction.name} only</span>}
                     {hull.cloaked && <span className="muted count"> cloaked</span>}
                   </span>

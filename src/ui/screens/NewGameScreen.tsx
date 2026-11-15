@@ -1,7 +1,9 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { browserStorage, deleteSlot, listSlots } from '../../game/persistence';
 import { humanEmpire, startNewGame } from '../../game/session';
 import { DIFFICULTIES, deserialize, sortedKeys, type Content, type Difficulty, type FactionId, type GameState } from '../../sim';
 import { factionText, signed } from '../format';
+import { slotText } from './SaveScreen';
 
 interface Props {
   content: Content;
@@ -25,6 +27,15 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [seed, setSeed] = useState(randomSeed);
   const [error, setError] = useState<string | null>(null);
+  const [slots, setSlots] = useState(() => listSlots(browserStorage()));
+  /** The slot whose Delete button has been pressed once and is waiting for a second press. */
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const used = slots.filter((slot) => slot.game || slot.problem);
+  const removeSlot = (slot: number) => {
+    deleteSlot(browserStorage(), slot);
+    setDeleting(null);
+    setSlots(listSlots(browserStorage()));
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -69,6 +80,41 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
           <button type="button" className="btn primary" onClick={() => onStart(saved)}>
             Continue game
           </button>
+        </section>
+      )}
+
+      {used.length > 0 && (
+        <section className="card">
+          <h2>Saved games</h2>
+          <ul className="building-list" aria-label="Saved games">
+            {used.map((slot) => (
+              <li key={slot.slot}>
+                <div className="building-info">
+                  <span>Slot {slot.slot}</span>
+                  <span className="muted">{slotText(slot, content)}</span>
+                </div>
+                {slot.game && humanEmpire(slot.game) && (
+                  <button type="button" className="btn small" aria-label={`Load slot ${slot.slot}`} onClick={() => onStart(slot.game!)}>
+                    Load
+                  </button>
+                )}
+                {deleting === slot.slot ? (
+                  <>
+                    <button type="button" className="btn small danger" aria-label={`Delete slot ${slot.slot} for good`} onClick={() => removeSlot(slot.slot)}>
+                      Delete for good
+                    </button>
+                    <button type="button" className="btn small" onClick={() => setDeleting(null)}>
+                      Keep
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="btn small" aria-label={`Delete slot ${slot.slot}`} onClick={() => setDeleting(slot.slot)}>
+                    Delete
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
