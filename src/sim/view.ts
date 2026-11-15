@@ -1,7 +1,8 @@
 import type { Content } from './content';
 import { allies, treatiesBetween } from './diplomacy';
 import { coloniesOf, fleetsOf } from './fleets';
-import { sectorKey, sectorsAround } from './geometry';
+import { sameSector, sectorDistance, sectorKey, sectorsAround } from './geometry';
+import { eraOf } from './research';
 import { sortedKeys, type EmpireId, type SystemId } from './ids';
 import type { Fleet, GameState } from './types';
 
@@ -41,6 +42,27 @@ export function updateKnownSystems(state: GameState, empireId: EmpireId, content
   }
 }
 
+/**
+ * True if a fleet is hidden from this viewer by cloaking: its owner has the
+ * trait and has reached the era for it, every ship in it has a cloaked hull,
+ * and the viewer has nothing in the same sector and no scout within scan range.
+ * Allies are never fooled.
+ */
+export function cloakedFrom(state: GameState, fleet: Fleet, viewer: EmpireId, content: Content): boolean {
+  // Allies share sight, so an ally's fleet is never hidden: what it sees, the viewer sees.
+  if (fleet.owner === viewer || allies(state, viewer).includes(fleet.owner)) return false;
+  const owner = state.empires[fleet.owner];
+  const from = content.factions[owner?.faction]?.traits.cloakFromEra ?? 0;
+  if (from === 0 || eraOf(owner.research, content) < from) return false;
+  if (!fleet.ships.every((s) => content.hulls[s.hull]?.cloaked)) return false;
+  if (coloniesOf(state, viewer).some((c) => sameSector(c.sector, fleet.sector))) return false;
+  return !fleetsOf(state, viewer).some((mine) => {
+    if (sameSector(mine.sector, fleet.sector)) return true;
+    const scan = Math.max(0, ...mine.ships.filter((s) => content.hulls[s.hull]?.role === 'scout').map((s) => content.hulls[s.hull].scan));
+    return scan > 0 && sectorDistance(mine.sector, fleet.sector) <= scan;
+  });
+}
+
 export interface SystemSight {
   /** The empire has scanned this system at some point, so its planets are known. */
   known: boolean;
@@ -78,6 +100,6 @@ export function getEmpireView(state: GameState, empireId: EmpireId, content: Con
   }
   const fleets = sortedKeys(state.fleets)
     .map((id) => state.fleets[id])
-    .filter((f) => f.owner === empireId || visible.has(sectorKey(f.sector)));
+    .filter((f) => f.owner === empireId || (visible.has(sectorKey(f.sector)) && !cloakedFrom(state, f, empireId, content)));
   return { empire: empireId, visible, systems, fleets };
 }

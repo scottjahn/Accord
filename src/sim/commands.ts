@@ -1,8 +1,10 @@
 import type { Content } from './content';
 import { applyGovernor } from './economy/governor';
 import { atWar, invadeBlocker, warKey } from './combat';
-import { addOpinion, boundToPeace, breakTreaty, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
-import { coloniseBlocker, empireSupport, findPath, fleetOfShip } from './fleets';
+import { buyOutCost, membershipCost, mercenaryCost } from './credits';
+import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
+import { itemCost } from './economy/build';
+import { coloniseBlocker, empireSupport, findPath, fleetOfShip, spawnShip } from './fleets';
 import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
 import { courtGain, minorOf } from './minors';
@@ -53,6 +55,10 @@ export type Command =
   | { type: 'proposeTreaty'; empire: EmpireId; to: EmpireId; treaty: TreatyType }
   | { type: 'answerOffer'; empire: EmpireId; offer: string; accept: boolean; note?: string }
   | { type: 'breakTreaty'; empire: EmpireId; with: EmpireId; treaty: TreatyType }
+  | { type: 'buyOut'; empire: EmpireId; system: SystemId }
+  | { type: 'giftCredits'; empire: EmpireId; to: EmpireId; amount: number }
+  | { type: 'buyMembership'; empire: EmpireId; system: SystemId }
+  | { type: 'hireMercenaries'; empire: EmpireId; system: SystemId; hull: HullId }
   | { type: 'setIntelSplit'; empire: EmpireId; percent: number }
   | { type: 'runOperation'; empire: EmpireId; target: EmpireId; kind: OperationKind; system: SystemId | null }
   | { type: 'courtMinor'; empire: EmpireId; system: SystemId; points: number }
@@ -85,6 +91,8 @@ export type CommandErrorCode =
   | 'badTreaty'
   | 'badOffer'
   | 'badSplit'
+  | 'cannotAfford'
+  | 'notAllowed'
   | 'cannotOperate'
   | 'gameOver'
   | 'badFleets';
@@ -169,6 +177,9 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       if (isError(own)) return own;
       const def = content.buildings[cmd.building];
       if (!def) return fail('unknownBuilding', `No building ${cmd.building}`);
+      if (def.faction !== null && def.faction !== empire.faction) {
+        return fail('locked', `Only ${content.factions[def.faction].name} can build the ${def.name}`);
+      }
       if (!meetsRequirements(empire.research, def.requires)) {
         return fail('locked', `${def.name} needs ${requirementText(def.requires, content)}`);
       }
@@ -191,6 +202,9 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const yard = content.rules.fleets.shipyardBuilding;
       if ((own.colony.buildings[yard] ?? 0) < 1) {
         return fail('noShipyard', `${own.system.name} needs a ${content.buildings[yard].name}`);
+      }
+      if (hull.faction !== null && hull.faction !== empire.faction) {
+        return fail('locked', `Only ${content.factions[hull.faction].name} can build the ${hull.name}`);
       }
       if (!meetsRequirements(empire.research, hull.requires)) {
         return fail('locked', `${hull.name} needs ${requirementText(hull.requires, content)}`);
@@ -313,6 +327,47 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
         if (blocker) return fail('badOffer', blocker);
       }
       return null;
+    }
+    case 'buyOut': {
+      const own = ownColony(state, cmd.empire, cmd.system);
+      if (isError(own)) return own;
+      const cost = buyOutCost(own.system, content);
+      if (cost === null) return fail('notAllowed', 'There is nothing in the queue to buy');
+      return cost > empire.credits ? fail('cannotAfford', `That costs ${cost} credits; you have ${empire.credits}`) : null;
+    }
+    case 'giftCredits': {
+      const other = state.empires[cmd.to];
+      if (!other || cmd.to === cmd.empire || other.eliminated) return fail('notAllowed', 'Choose another empire');
+      if (!hasMet(state, cmd.empire, cmd.to)) return fail('notAllowed', 'You have not made contact with them yet');
+      if (!Number.isInteger(cmd.amount) || cmd.amount <= 0) return fail('notAllowed', 'A gift must be a whole number of credits');
+      return cmd.amount > empire.credits ? fail('cannotAfford', `That costs ${cmd.amount} credits; you have ${empire.credits}`) : null;
+    }
+    case 'buyMembership': {
+      const faction = content.factions[empire.faction];
+      if (!faction.traits.buysMinors) return fail('notAllowed', `${faction.name} cannot buy a people's loyalty`);
+      const system = state.systems[cmd.system];
+      if (!system || !(cmd.system in empire.knownSystems)) return fail('unknownSystem', `No known system ${cmd.system}`);
+      if (!minorOf(system, content)) return fail('notAllowed', `No independent people live at ${system.name}`);
+      if (state.pledges.some((p) => p.system === cmd.system)) return fail('notAllowed', `The people of ${system.name} have already agreed to join an empire`);
+      const cost = membershipCost(state, system, cmd.empire, content);
+      return cost > empire.credits ? fail('cannotAfford', `That costs ${cost} credits; you have ${empire.credits}`) : null;
+    }
+    case 'hireMercenaries': {
+      const faction = content.factions[empire.faction];
+      if (!faction.traits.hiresMercenaries) return fail('notAllowed', `${faction.name} does not hire mercenaries`);
+      const own = ownColony(state, cmd.empire, cmd.system);
+      if (isError(own)) return own;
+      const hull = content.hulls[cmd.hull];
+      if (!hull) return fail('unknownHull', `No hull ${cmd.hull}`);
+      if (hull.role !== 'warship') return fail('notAllowed', 'Only warships can be hired');
+      if (hull.faction !== null && hull.faction !== empire.faction) return fail('locked', `Only ${content.factions[hull.faction].name} can field the ${hull.name}`);
+      if (!meetsRequirements(empire.research, hull.requires)) return fail('locked', `${hull.name} needs ${requirementText(hull.requires, content)}`);
+      const yard = content.rules.fleets.shipyardBuilding;
+      if ((own.colony.buildings[yard] ?? 0) < 1) return fail('noShipyard', `${own.system.name} needs a ${content.buildings[yard].name}`);
+      const support = empireSupport(state, cmd.empire, content);
+      if (support.used + hull.support > support.cap) return fail('supportCap', `Fleet support is ${support.used} of ${support.cap}; ${hull.name} needs ${hull.support}`);
+      const cost = mercenaryCost(hull, content);
+      return cost > empire.credits ? fail('cannotAfford', `That costs ${cost} credits; you have ${empire.credits}`) : null;
     }
     case 'setIntelSplit':
       return Number.isInteger(cmd.percent) && cmd.percent >= 0 && cmd.percent <= 100
@@ -482,6 +537,30 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
     }
     case 'breakTreaty':
       breakTreaty(next, cmd.empire, cmd.with, cmd.treaty, content);
+      break;
+    case 'buyOut': {
+      const system = next.systems[cmd.system];
+      next.empires[cmd.empire].credits -= buyOutCost(system, content)!;
+      // Paid in full: it completes when the turn resolves, whatever the colony's industry.
+      const item = system.colony!.buildQueue[0];
+      item.progress = itemCost(item, content)!;
+      break;
+    }
+    case 'giftCredits':
+      next.empires[cmd.empire].credits -= cmd.amount;
+      next.empires[cmd.to].credits += cmd.amount;
+      if (cmd.amount >= content.rules.credits.giftSize) addOpinion(next, cmd.to, cmd.empire, 'gift');
+      break;
+    case 'buyMembership': {
+      const system = next.systems[cmd.system];
+      next.empires[cmd.empire].credits -= membershipCost(next, system, cmd.empire, content);
+      // They join when the turn resolves, so the buyer learns nothing new mid-turn.
+      next.pledges.push({ system: cmd.system, empire: cmd.empire });
+      break;
+    }
+    case 'hireMercenaries':
+      next.empires[cmd.empire].credits -= mercenaryCost(content.hulls[cmd.hull], content);
+      spawnShip(next, cmd.empire, next.systems[cmd.system].sector, cmd.hull, content);
       break;
     case 'setIntelSplit':
       next.empires[cmd.empire].intelSplit = cmd.percent;

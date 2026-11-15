@@ -2,7 +2,7 @@ import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, ShipId,
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export const TREATY_TYPES = ['peace', 'nonAggression', 'openBorders', 'researchPact', 'alliance'] as const;
 export type TreatyType = (typeof TREATY_TYPES)[number];
@@ -29,7 +29,7 @@ export interface Offer {
 }
 
 /** Things an empire remembers another doing. Values, labels and fading are in content rules. */
-export const OPINION_CAUSES = ['warDeclared', 'colonyCaptured', 'treatyBroken', 'treatyBrokenWitness', 'minorConquered', 'spyCaught'] as const;
+export const OPINION_CAUSES = ['warDeclared', 'colonyCaptured', 'treatyBroken', 'treatyBrokenWitness', 'minorConquered', 'spyCaught', 'gift'] as const;
 export type OpinionCause = (typeof OPINION_CAUSES)[number];
 
 export interface OpinionEntry {
@@ -224,6 +224,8 @@ export interface Empire {
   controller: 'human' | 'ai';
   homeSystem: SystemId;
   research: ResearchState;
+  /** Money: buys out builds, gifts and, for some powers, memberships and mercenaries. */
+  credits: number;
   intelPool: number;
   /** True once the empire has lost its last colony and colony ship. */
   eliminated: boolean;
@@ -275,6 +277,8 @@ export interface GameState {
   operations: Operation[];
   /** Things commands did this turn that the turn report should mention. */
   pendingEvents: TurnEvent[];
+  /** Minor races whose membership has been bought this turn; they join when the turn resolves. */
+  pledges: { system: SystemId; empire: EmpireId }[];
   /** How many minor races the galaxy began with. */
   minorsPlaced: number;
   /**

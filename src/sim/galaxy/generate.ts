@@ -131,6 +131,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
       controller: e.controller,
       homeSystem: home.id,
       research: newResearchState(),
+      credits: rules.credits.starting,
       intelPool: 0,
       eliminated: false,
       counterIntel: 0,
@@ -182,6 +183,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
     opinions: {},
     operations: [],
     pendingEvents: [],
+    pledges: [],
     minorsPlaced,
     agentMemory: {},
   };

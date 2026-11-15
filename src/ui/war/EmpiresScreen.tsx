@@ -30,6 +30,9 @@ interface Props {
  * Diplomacy: what each rival thinks of you and why, the treaties between you,
  * offers waiting for an answer, and the buttons to propose, break or go to war.
  */
+/** Sizes of gift on offer. */
+const GIFTS = [50, 200];
+
 export function EmpiresScreen({ state, content, player, view, dispatch, onClose }: Props) {
   // Declaring war and breaking a treaty cannot be undone, so each takes a second click.
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -180,6 +183,18 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
                         return (
                           <button key={type} type="button" className="btn small" disabled={reason !== undefined} title={reason} onClick={() => dispatch(command)}>
                             Propose {label(type).toLowerCase()}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="fleet-actions">
+                      {GIFTS.map((amount) => {
+                        const command: Command = { type: 'giftCredits', empire: player, to: id, amount };
+                        const reason = validateCommand(state, command, content)?.message;
+                        return (
+                          <button key={amount} type="button" className="btn small" disabled={reason !== undefined} title={reason ?? (amount >= content.rules.credits.giftSize ? 'They will remember this' : 'Too small to be remembered')} onClick={() => dispatch(command)}>
+                            Gift {amount} credits
                           </button>
                         );
                       })}

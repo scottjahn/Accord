@@ -213,6 +213,11 @@
         "value": -20,
         "fadePerTenTurns": 4,
         "label": "We caught their spies"
+      },
+      "gift": {
+        "value": 10,
+        "fadePerTenTurns": 3,
+        "label": "They sent us a gift"
       }
     },
     "treaties": {
@@ -276,5 +281,15 @@
         "label": "Gather intel"
       }
     }
+  },
+  "credits": {
+    "perPopulationPercent": 30,
+    "idleIndustryPercent": 100,
+    "perTreaty": 3,
+    "buyOutPerPoint": 2,
+    "giftSize": 50,
+    "membershipCost": 400,
+    "mercenaryCostPercent": 300,
+    "starting": 0
   }
 }

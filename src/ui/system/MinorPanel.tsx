@@ -12,6 +12,7 @@ import {
   type StarSystem,
 } from '../../sim';
 import { bonusText, lineValue, signed } from '../format';
+import { membershipCost } from '../../sim';
 
 interface Props {
   state: GameState;
@@ -48,6 +49,8 @@ export function MinorPanel({ state, content, player, system, dispatch }: Props) 
   const garrison = minorGarrison(system, content);
   const met_want = (want: MinorWant) => change?.lines.some((l) => l.source.toLowerCase().startsWith(want)) ?? false;
   const pool = state.empires[player].intelPool;
+  const buy: Command = { type: 'buyMembership', empire: player, system: system.id };
+  const buyBlocked = validateCommand(state, buy, content)?.message;
 
   return (
     <>
@@ -142,6 +145,14 @@ export function MinorPanel({ state, content, player, system, dispatch }: Props) 
               );
             })}
           </div>
+          {content.factions[state.empires[player].faction].traits.buysMinors && (
+            <div className="fleet-actions">
+              <button type="button" className="btn primary" disabled={buyBlocked !== undefined} title={buyBlocked} onClick={() => dispatch(buy)}>
+                Buy their membership ({membershipCost(state, system, player, content)} credits)
+              </button>
+              {buyBlocked && <span className="muted reason">{buyBlocked}</span>}
+            </div>
+          )}
           <p className="muted hint">Taking their world by force gains the system but not their bonus, and costs morale.</p>
         </section>
       )}

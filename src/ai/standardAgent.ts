@@ -1,5 +1,6 @@
 import { FIELDS, POSTURES, treatiesBetween, type Json, type Posture } from '../sim';
 import { createPlanner, type Agent } from './agent';
+import { spendCredits } from './credits';
 import { answerOffers, attackable, guardAccord, proposeTreaties } from './diplomacy';
 import { runEspionage } from './intel';
 import { survey } from './maps';
@@ -75,6 +76,7 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
   }
 
   manageColonies(plan, empireId, content, next.posture, targets);
+  spendCredits(plan, empireId, content, next.posture, personality, picture);
   directFleets(plan, empireId, content, next.posture, picture);
   if (next.posture === 'war') wageWar(plan, empireId, content, targets.strikeSize);
   else conquerMinors(plan, empireId, content, personality, picture);

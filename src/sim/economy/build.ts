@@ -44,8 +44,8 @@ function complete(state: GameState, system: StarSystem, item: BuildItem, content
 
 /**
  * Spends this turn's industry on the build queue, front first. Overflow from a
- * finished item carries into the next one; industry with nothing queued is lost.
- * Mutates the state.
+ * finished item carries into the next one. Returns the industry left over with
+ * nothing to build, which the empire sells for credits. Mutates the state.
  */
 export function applyBuild(
   state: GameState,
@@ -53,10 +53,11 @@ export function applyBuild(
   industry: number,
   content: Content,
   events: TurnEvent[],
-): void {
+): number {
   const colony = system.colony!;
   let points = industry;
-  while (points > 0 && colony.buildQueue.length > 0) {
+  // An item that is already paid for (bought out) completes even with no industry this turn.
+  while (colony.buildQueue.length > 0) {
     const item = colony.buildQueue[0];
     const cost = itemCost(item, content);
     if (cost === null) {
@@ -67,10 +68,11 @@ export function applyBuild(
     const needed = cost - item.progress;
     if (points < needed) {
       item.progress += points;
-      return;
+      return 0;
     }
     points -= Math.max(0, needed);
     colony.buildQueue.shift();
     complete(state, system, item, content, events);
   }
+  return points;
 }

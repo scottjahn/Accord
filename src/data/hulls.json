@@ -118,5 +118,105 @@
     "hp": 25,
     "troops": 15,
     "requires": {}
+  },
+  {
+    "id": "peacekeeper",
+    "name": "Peacekeeper",
+    "role": "warship",
+    "tier": 2,
+    "cost": 150,
+    "speed": 2,
+    "rangeBonus": 0,
+    "scan": 1,
+    "support": 3,
+    "attack": 14,
+    "defence": 6,
+    "hp": 60,
+    "troops": 0,
+    "requires": {
+      "energy": 2,
+      "construction": 2
+    },
+    "faction": "concord",
+    "cloaked": false
+  },
+  {
+    "id": "raider",
+    "name": "Raider",
+    "role": "warship",
+    "tier": 2,
+    "cost": 130,
+    "speed": 3,
+    "rangeBonus": 1,
+    "scan": 1,
+    "support": 3,
+    "attack": 16,
+    "defence": 2,
+    "hp": 40,
+    "troops": 0,
+    "requires": {
+      "weapons": 2
+    },
+    "faction": "vashran",
+    "cloaked": false
+  },
+  {
+    "id": "shade",
+    "name": "Shade",
+    "role": "warship",
+    "tier": 2,
+    "cost": 150,
+    "speed": 2,
+    "rangeBonus": 1,
+    "scan": 2,
+    "support": 3,
+    "attack": 15,
+    "defence": 3,
+    "hp": 40,
+    "troops": 0,
+    "requires": {
+      "computing": 2,
+      "propulsion": 2
+    },
+    "faction": "veiled",
+    "cloaked": true
+  },
+  {
+    "id": "bulwark",
+    "name": "Bulwark",
+    "role": "warship",
+    "tier": 2,
+    "cost": 130,
+    "speed": 1,
+    "rangeBonus": 0,
+    "scan": 1,
+    "support": 3,
+    "attack": 14,
+    "defence": 7,
+    "hp": 80,
+    "troops": 0,
+    "requires": {
+      "construction": 2
+    },
+    "faction": "kessic",
+    "cloaked": false
+  },
+  {
+    "id": "privateer",
+    "name": "Privateer",
+    "role": "warship",
+    "tier": 1,
+    "cost": 70,
+    "speed": 2,
+    "rangeBonus": 0,
+    "scan": 1,
+    "support": 2,
+    "attack": 9,
+    "defence": 2,
+    "hp": 28,
+    "troops": 0,
+    "requires": {},
+    "faction": "orrin",
+    "cloaked": false
   }
 ]

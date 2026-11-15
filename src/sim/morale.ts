@@ -83,7 +83,9 @@ export function moraleBreakdown(state: GameState, system: StarSystem, content: C
   }
 
   const sum = lines.reduce((n, line) => n + line.value, 0);
-  const total = Math.max(100 - rules.maxSwing, Math.min(100 + rules.maxSwing, sum));
+  // Some powers have a lid on how content their people can ever be.
+  const lid = content.factions[empire?.faction]?.traits.moraleCeiling || 100 + rules.maxSwing;
+  const total = Math.max(100 - rules.maxSwing, Math.min(100 + rules.maxSwing, lid, sum));
   return { total, lines };
 }
 

@@ -285,7 +285,13 @@ export function garrisonStrength(system: StarSystem, content: Content, state?: G
       lines.push({ source: `${def.name} x${colony.buildings[id]}`, kind: 'flat', value: def.combat.garrison * colony.buildings[id] });
     }
   }
-  if (state) lines.push(...memberBonuses(state, colony.owner, content, 'garrison'));
+  if (state) {
+    lines.push(...memberBonuses(state, colony.owner, content, 'garrison'));
+    const faction = content.factions[state.empires[colony.owner]?.faction];
+    if (faction && faction.traits.garrisonPercent !== 0) {
+      lines.push({ source: `${faction.name} discipline`, kind: 'percent', value: faction.traits.garrisonPercent });
+    }
+  }
   return { total: totalOfLines(lines), lines };
 }
 

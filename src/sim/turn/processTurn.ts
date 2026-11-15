@@ -1,5 +1,6 @@
 import { atWar, checkVictory, repairShips, resolveBattles, resolveInvasions } from '../combat';
 import type { Content } from '../content';
+import { creditIncome } from '../credits';
 import { expireDiplomacy, pruneOpinions } from '../diplomacy';
 import { applyBuild } from '../economy/build';
 import { applyGovernor } from '../economy/governor';
@@ -8,7 +9,7 @@ import { computeColonyEconomy } from '../economy/outputs';
 import { moveFleets, resolveColonisation } from '../fleets';
 import { sortedKeys, type EmpireId } from '../ids';
 import { bankIntel, resolveOperations, stepUnrest } from '../intel';
-import { stepMinors } from '../minors';
+import { joinEmpire, stepMinors } from '../minors';
 import { addColonyMorale, decayMorale, inUnrest, refreshMorale } from '../morale';
 import { applyResearch } from '../research';
 import type { GameState, TurnEvent } from '../types';
@@ -22,8 +23,8 @@ import { updateKnownSystems } from '../view';
  * 2. Colonies, in system-id order, each from its outputs at the start of the turn:
  *    food (stockpile, growth or starvation; no growth in unrest), industry (build
  *    queue, which may launch ships), then the governor reassigns workers.
- * 3. Each empire banks its colonies' research (levelling fields up) and intel
- *    (split between counter-intel and the pool).
+ * 3. Each empire banks its colonies' research (levelling fields up), its intel
+ *    (split between counter-intel and the pool) and its credit income.
  * 4. Ships at a friendly shipyard repair, then fleets move.
  * 5. Battles are fought wherever empires at war share a sector.
  * 6. Invade orders, then colonise orders, resolve for fleets that have arrived.
@@ -42,6 +43,12 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
   // What commands did this turn (wars declared, treaties proposed, signed or broken) goes in the report.
   events.push(...next.pendingEvents);
   next.pendingEvents = [];
+  // Memberships bought this turn take effect now.
+  for (const pledge of next.pledges) {
+    const system = next.systems[pledge.system];
+    if (system?.minor) joinEmpire(next, system, pledge.empire, content, events);
+  }
+  next.pledges = [];
   const empireIds = sortedKeys(next.empires);
   for (const id of empireIds) {
     if (empireIds.some((other) => atWar(next, id, other) && !next.empires[other].eliminated)) next.empires[id].lastWarTurn = next.turn;
@@ -50,6 +57,7 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
 
   const research = {} as Record<EmpireId, number>;
   const intel = {} as Record<EmpireId, number>;
+  const unspent = {} as Record<EmpireId, number>;
   for (const id of sortedKeys(next.systems)) {
     const system = next.systems[id];
     const colony = system.colony;
@@ -60,7 +68,7 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
     const before = events.length;
     applyGrowth(colony, economy.outputs.food.total, economy.maxPopulation, content.rules, id, events, inUnrest(colony, content));
     if (events.slice(before).some((e) => e.type === 'starvation')) addColonyMorale(next, system, 'starvation', content);
-    applyBuild(next, system, economy.outputs.industry.total, content, events);
+    unspent[colony.owner] = (unspent[colony.owner] ?? 0) + applyBuild(next, system, economy.outputs.industry.total, content, events);
 
     intel[colony.owner] = (intel[colony.owner] ?? 0) + economy.outputs.intel.total;
     research[colony.owner] = (research[colony.owner] ?? 0) + economy.outputs.research.total;
@@ -71,6 +79,7 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
   for (const id of empireIds) {
     applyResearch(next.empires[id], research[id] ?? 0, content, events);
     bankIntel(next, id, intel[id] ?? 0, content);
+    next.empires[id].credits += creditIncome(next, id, content, unspent[id] ?? 0).total;
   }
 
   repairShips(next, content);

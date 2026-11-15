@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { humanEmpire, startNewGame } from '../../game/session';
-import { DIFFICULTIES, deserialize, sortedKeys, type Content, type Difficulty, type GameState } from '../../sim';
-import { modifiersText, signed } from '../format';
+import { DIFFICULTIES, deserialize, sortedKeys, type Content, type Difficulty, type FactionId, type GameState } from '../../sim';
+import { factionText, signed } from '../format';
 
 interface Props {
   content: Content;
@@ -17,6 +17,10 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
   const presets = Object.values(content.galaxyPresets).sort((a, b) => a.systems - b.systems);
 
   const [faction, setFaction] = useState<string>(factions[0]);
+  /** Opponents ticked by hand; until then the default is the chosen power's rival. */
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const opponents = (picked ?? [content.factions[faction as FactionId].rival]).filter((id) => id !== faction);
+  const toggle = (id: string) => setPicked(opponents.includes(id) ? opponents.filter((o) => o !== id) : [...opponents, id]);
   const [preset, setPreset] = useState(presets[0].id);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [seed, setSeed] = useState(randomSeed);
@@ -28,7 +32,11 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
       setError('Seed must be a whole number of 0 or more.');
       return;
     }
-    onStart(startNewGame(content, { seed, preset, faction, difficulty }));
+    if (opponents.length === 0) {
+      setError('Choose at least one opponent.');
+      return;
+    }
+    onStart(startNewGame(content, { seed, preset, faction, opponents, difficulty }));
   };
 
   const importFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -77,11 +85,27 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
                   <input type="radio" name="faction" value={id} checked={faction === id} onChange={() => setFaction(id)} />
                   <span className="dot" style={{ background: def.color }} />
                   <span className="faction-name">{def.name}</span>
-                  <span className="muted">{modifiersText(def.outputModifiers)}</span>
+                  <span className="muted">{factionText(def)}</span>
                 </label>
               );
             })}
           </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Opponents</legend>
+          <div className="opponent-list">
+            {factions
+              .filter((id) => id !== faction)
+              .map((id) => (
+                <label key={id} className="opponent">
+                  <input type="checkbox" checked={opponents.includes(id)} onChange={() => toggle(id)} />
+                  <span className="dot" style={{ background: content.factions[id].color }} />
+                  {content.factions[id].name}
+                </label>
+              ))}
+          </div>
+          <p className="muted hint">More than two opponents play best on a medium or large galaxy.</p>
         </fieldset>
 
         <div className="setup-row">

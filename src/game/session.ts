@@ -20,8 +20,10 @@ export interface NewGameOptions {
   seed: number;
   /** Galaxy preset id. */
   preset: string;
-  /** The human player's faction id. Every other faction becomes an AI opponent. */
+  /** The human player's faction id. */
   faction: string;
+  /** Faction ids of the AI opponents. Defaults to the faction's own rival. */
+  opponents?: string[];
   /** How strong the AI opponents' economies are. Defaults to 'normal'. */
   difficulty?: Difficulty;
 }
@@ -55,12 +57,13 @@ export function humanEmpire(state: GameState): EmpireId | null {
 }
 
 /**
- * Creates a game with one human empire and every other faction as an AI
- * opponent. The player's home starts under the balanced governor so the first
+ * Creates a game with one human empire and the chosen factions as AI
+ * opponents. The player's home starts under the balanced governor so the first
  * turn works without touching a slider.
  */
 export function startNewGame(content: Content, options: NewGameOptions): GameState {
-  const opponents = sortedKeys(content.factions).filter((id) => id !== options.faction);
+  const rival = content.factions[options.faction as keyof typeof content.factions]?.rival;
+  const opponents = (options.opponents ?? (rival ? [rival] : sortedKeys(content.factions))).filter((id) => id !== options.faction);
   const state = createGame(
     {
       seed: options.seed,

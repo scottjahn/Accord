@@ -45,6 +45,75 @@
       "honour": 40,
       "counterIntel": 20,
       "espionage": 40
+    },
+    "veiled": {
+      "posture": {
+        "expand": 100,
+        "develop": 105,
+        "fortify": 90,
+        "war": 95
+      },
+      "research": {
+        "biology": 12,
+        "construction": 12,
+        "energy": 14,
+        "propulsion": 18,
+        "computing": 30,
+        "weapons": 14
+      },
+      "warshipsPerColony": 70,
+      "scouts": 2,
+      "minorInfluence": 60,
+      "conquersMinors": 0,
+      "honour": 30,
+      "counterIntel": 40,
+      "espionage": 60
+    },
+    "kessic": {
+      "posture": {
+        "expand": 105,
+        "develop": 100,
+        "fortify": 120,
+        "war": 100
+      },
+      "research": {
+        "biology": 12,
+        "construction": 28,
+        "energy": 15,
+        "propulsion": 10,
+        "computing": 10,
+        "weapons": 25
+      },
+      "warshipsPerColony": 120,
+      "scouts": 1,
+      "minorInfluence": 30,
+      "conquersMinors": 1,
+      "honour": 70,
+      "counterIntel": 30,
+      "espionage": 10
+    },
+    "orrin": {
+      "posture": {
+        "expand": 110,
+        "develop": 115,
+        "fortify": 85,
+        "war": 70
+      },
+      "research": {
+        "biology": 18,
+        "construction": 15,
+        "energy": 15,
+        "propulsion": 20,
+        "computing": 22,
+        "weapons": 10
+      },
+      "warshipsPerColony": 50,
+      "scouts": 2,
+      "minorInfluence": 80,
+      "conquersMinors": 0,
+      "honour": 80,
+      "counterIntel": 30,
+      "espionage": 10
     }
   }
 }

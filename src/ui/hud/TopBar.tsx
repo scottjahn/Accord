@@ -1,4 +1,5 @@
-import { empireSupport, eraOf, fleetsOf, type Content, type EmpireId, type GameState } from '../../sim';
+import { creditIncome, empireSupport, eraOf, fleetsOf, type Content, type EmpireId, type GameState } from '../../sim';
+import { lineValue, signed } from '../format';
 
 interface Props {
   state: GameState;
@@ -24,6 +25,7 @@ export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpire
   const faction = content.factions[empire.faction];
   const support = empireSupport(state, player, content);
   const idle = fleetsOf(state, player).filter((f) => !f.destination && f.order === 'none').length;
+  const income = creditIncome(state, player, content);
   return (
     <header className="topbar">
       <div className="topbar-id">
@@ -49,6 +51,15 @@ export function TopBar({ state, content, player, onEndTurn, onResearch, onEmpire
         <div>
           <dt>Idle fleets</dt>
           <dd data-testid="idle-fleets">{idle}</dd>
+        </div>
+        <div title={income.lines.map((l) => `${l.source}: ${lineValue(l)}`).join('\n') || 'No income'}>
+          <dt>Credits</dt>
+          <dd>
+            <span data-testid="credits">{empire.credits}</span>{' '}
+            <span className="muted" data-testid="credit-income">
+              ({signed(income.total)})
+            </span>
+          </dd>
         </div>
         <div>
           <dt>Intel</dt>

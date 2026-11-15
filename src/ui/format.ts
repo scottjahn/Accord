@@ -2,6 +2,7 @@ import {
   systemAt,
   type BreakdownLine,
   type BuildingDef,
+  type FactionDef,
   type Content,
   type EmpireId,
   type GameState,
@@ -89,9 +90,25 @@ export function lineValue(line: BreakdownLine): string {
 }
 
 export function effectsText(def: BuildingDef): string {
-  return def.effects
-    .map((e) => `${signed(e.value)}${e.kind === 'percent' ? '%' : ''} ${OUTPUT_LABELS[e.output].toLowerCase()}`)
-    .join(', ');
+  return [
+    ...def.effects.map((e) => `${signed(e.value)}${e.kind === 'percent' ? '%' : ''} ${OUTPUT_LABELS[e.output].toLowerCase()}`),
+    ...(def.credits > 0 ? [`${signed(def.credits)} credits`] : []),
+  ].join(', ');
+}
+
+/** What sets a power apart, in a line: its output modifiers and its traits. */
+export function factionText(def: FactionDef): string {
+  const t = def.traits;
+  const parts = (Object.keys(def.outputModifiers) as OutputKind[]).map(
+    (kind) => `${signed(def.outputModifiers[kind]!)}% ${OUTPUT_LABELS[kind].toLowerCase()}`,
+  );
+  if (t.creditsPercent !== 0) parts.push(`${signed(t.creditsPercent)}% credits`);
+  if (t.garrisonPercent !== 0) parts.push(`${signed(t.garrisonPercent)}% garrison`);
+  if (t.moraleCeiling > 0) parts.push(`morale never above ${t.moraleCeiling}`);
+  if (t.buysMinors) parts.push('can buy the loyalty of minor races');
+  if (t.hiresMercenaries) parts.push('can hire warships for credits');
+  if (t.cloakFromEra > 0) parts.push(`cloaked ships from era ${t.cloakFromEra}`);
+  return parts.length > 0 ? parts.join(', ') : 'No modifiers';
 }
 
 export function modifiersText(modifiers: Partial<Record<OutputKind, number>>): string {

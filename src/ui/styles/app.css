@@ -204,6 +204,17 @@ legend,
 .faction-card .muted {
   grid-column: 3;
 }
+.opponent-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.opponent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
 .setup-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

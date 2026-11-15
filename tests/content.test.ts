@@ -16,8 +16,14 @@ describe('content validation', () => {
     expect(() => loadContent()).not.toThrow();
   });
 
-  it('ships the two MVP factions', () => {
-    expect(Object.keys(loadContent().factions).sort()).toEqual(['concord', 'vashran']);
+  it('ships all five powers, each with a personality and a default rival', () => {
+    const content = loadContent();
+    expect(Object.keys(content.factions).sort()).toEqual(['concord', 'kessic', 'orrin', 'vashran', 'veiled']);
+    for (const faction of Object.values(content.factions)) {
+      expect(content.ai.personalities[faction.id]).toBeDefined();
+      expect(content.factions[faction.rival]).toBeDefined();
+      expect(faction.rival).not.toBe(faction.id);
+    }
   });
 
   it('rejects non-objects', () => {

@@ -43,7 +43,7 @@ function summarise(state: GameState, content: Content): string {
     const ships = fleetsOf(state, id).reduce((sum, f) => sum + f.ships.length, 0);
     lines.push(
       `  ${content.factions[empire.faction].name.padEnd(18)} systems ${owned.length}  pop ${population}  buildings ${buildings}` +
-        `  ships ${ships}  era ${eraOf(empire.research, content)} (${levels})  intel ${empire.intelPool}` +
+        `  ships ${ships}  era ${eraOf(empire.research, content)} (${levels})  intel ${empire.intelPool}  credits ${empire.credits}` +
         `  home F${home.food.total} I${home.industry.total} E${home.energy.total} N${home.intel.total} R${home.research.total}`,
     );
   }

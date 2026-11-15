@@ -1,4 +1,6 @@
 import {
+  buyOutCost,
+  mercenaryCost,
   sortedKeys,
   validateCommand,
   type Colony,
@@ -29,6 +31,12 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
   const hasYard = (colony.buildings[yard] ?? 0) > 0;
   /** Why the sim would reject this command, so the button can say so. */
   const blocker = (command: Command) => validateCommand(state, command, content)?.message;
+  const faction = content.factions[state.empires[player].faction];
+  /** Another power's own buildings and hulls are not offered at all. */
+  const offered = (def: { faction: string | null }) => def.faction === null || def.faction === faction.id;
+  const buy: Command = { type: 'buyOut', ...target };
+  const price = buyOutCost(state.systems[systemId], content);
+  const buyBlocked = blocker(buy);
 
   return (
     <section>
@@ -40,7 +48,7 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
       </h3>
 
       {queue.length === 0 ? (
-        <p className="warn">Nothing queued. Industry is going to waste.</p>
+        <p className="warn">Nothing queued. Idle industry is only sold for credits.</p>
       ) : (
         <ol className="queue-list" aria-label="Build queue items">
           {queue.map((item, i) => {
@@ -55,6 +63,12 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
                   <progress max={cost || 1} value={item.progress} aria-label={`${name} progress`} />
                 </div>
                 <div className="queue-actions">
+                  {i === 0 && price !== null && (
+                    <button type="button" className="btn small" aria-label={`Buy ${name} now`} disabled={buyBlocked !== undefined} title={buyBlocked ?? 'Pay credits to finish this at the end of the turn'} onClick={() => dispatch(buy)}>
+                      Buy ({price})
+                    </button>
+                  )}
+                  {i === 0 && price === null && <span className="good">Paid for</span>}
                   <button
                     type="button"
                     className="icon-btn"
@@ -97,7 +111,7 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
 
       <h3>Buildings</h3>
       <ul className="building-list">
-        {sortedKeys(content.buildings).map((id) => {
+        {sortedKeys(content.buildings).filter((id) => offered(content.buildings[id])).map((id) => {
           const def = content.buildings[id];
           const built = colony.buildings[id] ?? 0;
           const queued = queue.filter((item) => item.kind === 'building' && item.building === id).length;
@@ -107,7 +121,8 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
             <li key={id}>
               <div className="building-info">
                 <span>
-                  {def.name}{' '}
+                  {def.name}
+                  {def.faction !== null && <span className="muted count"> {faction.name} only</span>}{' '}
                   <span className="muted count">
                     {built}
                     {queued > 0 && ` +${queued}`} / {def.maxPerSystem}
@@ -140,14 +155,20 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
         <p className="muted">Build a {content.buildings[yard].name} here to construct ships.</p>
       ) : (
         <ul className="building-list">
-          {sortedKeys(content.hulls).map((id) => {
+          {sortedKeys(content.hulls).filter((id) => offered(content.hulls[id])).map((id) => {
             const hull = content.hulls[id];
             const command: Command = { type: 'enqueueShip', ...target, hull: id };
             const reason = blocker(command);
+            const hire: Command = { type: 'hireMercenaries', ...target, hull: id };
+            const hireBlocked = blocker(hire);
             return (
               <li key={id}>
                 <div className="building-info">
-                  <span>{hull.name}</span>
+                  <span>
+                    {hull.name}
+                    {hull.faction !== null && <span className="muted count"> {faction.name} only</span>}
+                    {hull.cloaked && <span className="muted count"> cloaked</span>}
+                  </span>
                   <span className="muted">
                     {ROLE_LABELS[hull.role]} · cost {hull.cost} · speed {hull.speed} · support {hull.support}
                   </span>
@@ -163,6 +184,18 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
                 >
                   Build
                 </button>
+                {faction.traits.hiresMercenaries && hull.role === 'warship' && (
+                  <button
+                    type="button"
+                    className="btn small"
+                    aria-label={`Hire ${hull.name}`}
+                    disabled={hireBlocked !== undefined}
+                    title={hireBlocked ?? 'Pay credits for one now'}
+                    onClick={() => dispatch(hire)}
+                  >
+                    Hire ({mercenaryCost(hull, content)})
+                  </button>
+                )}
               </li>
             );
           })}

@@ -118,6 +118,7 @@ export const rawFixture = {
       { type: 'barren', maxPopulation: 10 },
     ],
     difficulty: { easy: -20, normal: 0, hard: 25 },
+    credits: {"perPopulationPercent":30,"idleIndustryPercent":100,"perTreaty":3,"buyOutPerPoint":2,"giftSize":50,"membershipCost":400,"mercenaryCostPercent":300,"starting":0},
     morale: {
       outputPercent: 100,
       unrestBelow: 60,
@@ -141,7 +142,7 @@ export const rawFixture = {
       revoltTurns: 3,
       rebelRace: 'rebels',
     },
-    diplomacy: {"causes":{"warDeclared":{"value":-40,"fadePerTenTurns":4,"label":"They declared war on us"},"colonyCaptured":{"value":-15,"fadePerTenTurns":3,"label":"They took one of our colonies"},"treatyBroken":{"value":-50,"fadePerTenTurns":2,"label":"They broke a treaty with us"},"treatyBrokenWitness":{"value":-15,"fadePerTenTurns":3,"label":"They broke their word to another"},"minorConquered":{"value":-10,"fadePerTenTurns":3,"label":"They conquered a free people"},"spyCaught":{"value":-20,"fadePerTenTurns":4,"label":"We caught their spies"}},"treaties":{"peace":{"label":"Peace treaty","opinion":5,"duration":20},"nonAggression":{"label":"Non-aggression pact","opinion":10,"duration":40},"openBorders":{"label":"Open borders","opinion":5,"duration":40},"researchPact":{"label":"Research pact","opinion":10,"duration":40},"alliance":{"label":"Alliance","opinion":25,"duration":null}},"warOpinion":-30,"friendshipPerTenTurns":3,"maxFriendship":15,"breakMinorPenalty":10,"offerTurns":3,"researchPactPercent":5,"accordMemberPercent":50},
+    diplomacy: {"causes":{"warDeclared":{"value":-40,"fadePerTenTurns":4,"label":"They declared war on us"},"colonyCaptured":{"value":-15,"fadePerTenTurns":3,"label":"They took one of our colonies"},"treatyBroken":{"value":-50,"fadePerTenTurns":2,"label":"They broke a treaty with us"},"treatyBrokenWitness":{"value":-15,"fadePerTenTurns":3,"label":"They broke their word to another"},"minorConquered":{"value":-10,"fadePerTenTurns":3,"label":"They conquered a free people"},"spyCaught":{"value":-20,"fadePerTenTurns":4,"label":"We caught their spies"},"gift":{"value":10,"fadePerTenTurns":3,"label":"They sent us a gift"}},"treaties":{"peace":{"label":"Peace treaty","opinion":5,"duration":20},"nonAggression":{"label":"Non-aggression pact","opinion":10,"duration":40},"openBorders":{"label":"Open borders","opinion":5,"duration":40},"researchPact":{"label":"Research pact","opinion":10,"duration":40},"alliance":{"label":"Alliance","opinion":25,"duration":null}},"warOpinion":-30,"friendshipPerTenTurns":3,"maxFriendship":15,"breakMinorPenalty":10,"offerTurns":3,"researchPactPercent":5,"accordMemberPercent":50},
     intel: {"decayPercent":5,"defaultSplit":0,"baseChance":70,"defencePerPercent":4,"catchBase":15,"stealPoints":40,"revealTurns":10,"operations":{"stealResearch":{"cost":40,"label":"Steal research"},"sabotage":{"cost":30,"label":"Sabotage"},"inciteUnrest":{"cost":50,"label":"Incite unrest"},"gatherIntel":{"cost":20,"label":"Gather intel"}}},
     minors: { minPopulation: 6, startAttitude: 30, joinAt: 80, joinTurns: 3, protection: 4, technology: 3, neighbours: 2, neighbourRange: 2, influenceCost: 5, conquestPenalty: 15 },
     combat: { maxRounds: 4, minRollPercent: 100, evadeFirePercent: 50, repairPercent: 25, garrisonPerPopulation: 1, captureLossPercent: 25, captureBuildingLossPercent: 50, dominationPercent: 67 },

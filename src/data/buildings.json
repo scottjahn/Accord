@@ -161,5 +161,170 @@
       "garrison": 0
     },
     "morale": 8
+  },
+  {
+    "id": "assembly_hall",
+    "name": "Assembly Hall",
+    "cost": 100,
+    "energyUpkeep": 1,
+    "maxPerSystem": 1,
+    "effects": [
+      {
+        "output": "research",
+        "kind": "percent",
+        "value": 5
+      }
+    ],
+    "requires": {},
+    "faction": "concord",
+    "morale": 6
+  },
+  {
+    "id": "academy",
+    "name": "Concord Academy",
+    "cost": 180,
+    "energyUpkeep": 3,
+    "maxPerSystem": 1,
+    "effects": [
+      {
+        "output": "research",
+        "kind": "percent",
+        "value": 20
+      }
+    ],
+    "requires": {
+      "computing": 4
+    },
+    "faction": "concord"
+  },
+  {
+    "id": "war_shrine",
+    "name": "War Shrine",
+    "cost": 90,
+    "energyUpkeep": 1,
+    "maxPerSystem": 1,
+    "effects": [],
+    "requires": {},
+    "faction": "vashran",
+    "morale": 6,
+    "combat": {
+      "attack": 0,
+      "hp": 0,
+      "garrison": 8
+    }
+  },
+  {
+    "id": "proving_grounds",
+    "name": "Proving Grounds",
+    "cost": 160,
+    "energyUpkeep": 2,
+    "maxPerSystem": 1,
+    "effects": [
+      {
+        "output": "industry",
+        "kind": "percent",
+        "value": 10
+      }
+    ],
+    "requires": {
+      "weapons": 3
+    },
+    "faction": "vashran",
+    "combat": {
+      "attack": 0,
+      "hp": 0,
+      "garrison": 15
+    }
+  },
+  {
+    "id": "shadow_bureau",
+    "name": "Shadow Bureau",
+    "cost": 100,
+    "energyUpkeep": 2,
+    "maxPerSystem": 1,
+    "effects": [
+      {
+        "output": "intel",
+        "kind": "flat",
+        "value": 6
+      }
+    ],
+    "requires": {},
+    "faction": "veiled"
+  },
+  {
+    "id": "silent_archive",
+    "name": "Silent Archive",
+    "cost": 180,
+    "energyUpkeep": 3,
+    "maxPerSystem": 1,
+    "effects": [
+      {
+        "output": "intel",
+        "kind": "percent",
+        "value": 25
+      }
+    ],
+    "requires": {
+      "computing": 3
+    },
+    "faction": "veiled"
+  },
+  {
+    "id": "forge_complex",
+    "name": "Forge Complex",
+    "cost": 80,
+    "energyUpkeep": 2,
+    "maxPerSystem": 2,
+    "effects": [
+      {
+        "output": "industry",
+        "kind": "flat",
+        "value": 5
+      }
+    ],
+    "requires": {},
+    "faction": "kessic"
+  },
+  {
+    "id": "bastion",
+    "name": "Bastion",
+    "cost": 150,
+    "energyUpkeep": 2,
+    "maxPerSystem": 1,
+    "effects": [],
+    "requires": {
+      "construction": 3
+    },
+    "faction": "kessic",
+    "combat": {
+      "attack": 14,
+      "hp": 70,
+      "garrison": 20
+    }
+  },
+  {
+    "id": "trade_hub",
+    "name": "Trade Hub",
+    "cost": 90,
+    "energyUpkeep": 1,
+    "maxPerSystem": 2,
+    "effects": [],
+    "requires": {},
+    "faction": "orrin",
+    "credits": 6
+  },
+  {
+    "id": "bourse",
+    "name": "Bourse",
+    "cost": 200,
+    "energyUpkeep": 2,
+    "maxPerSystem": 1,
+    "effects": [],
+    "requires": {
+      "computing": 3
+    },
+    "faction": "orrin",
+    "credits": 15
   }
 ]

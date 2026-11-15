@@ -62,6 +62,10 @@ export interface HullDef {
   /** Ground troops carried, for invading colonies. */
   troops: number;
   requires: Requirements;
+  /** If set, only this power can build it. */
+  faction: FactionId | null;
+  /** Can be hidden from rivals, if its owner has the cloaking trait and has reached the era for it. */
+  cloaked: boolean;
 }
 
 export const POSTURES = ['expand', 'develop', 'fortify', 'war'] as const;
@@ -155,6 +159,24 @@ export interface DiplomacyRules {
   researchPactPercent: number;
   /** Share of the galaxy's minor races an empire must hold as members for the Accord victory; 0 turns it off. */
   accordMemberPercent: number;
+}
+
+export interface CreditRules {
+  /** Credits per 100 people each turn. */
+  perPopulationPercent: number;
+  /** Percent of industry with nothing to build that is sold for credits. */
+  idleIndustryPercent: number;
+  /** Credits per turn for each treaty that carries trade (all but peace and non-aggression). */
+  perTreaty: number;
+  /** Credits per industry point still needed when buying out a build. */
+  buyOutPerPoint: number;
+  /** A gift of at least this many credits is remembered. */
+  giftSize: number;
+  /** Base price of a minor race's membership, before its attitude is taken into account. */
+  membershipCost: number;
+  /** A hired ship costs this percent of its hull's industry cost, in credits. */
+  mercenaryCostPercent: number;
+  starting: number;
 }
 
 export interface IntelRules {
@@ -256,6 +278,25 @@ export interface FactionDef {
   morale: { events: Partial<Record<MoraleEventKind, number>>; peacePerTenTurns: number };
   /** How long this power holds a grudge: 100 is normal, 200 means memories fade half as fast. */
   grudgePercent: number;
+  /** The power offered as the default opponent when this one is played. */
+  rival: FactionId;
+  /** What sets this power apart beyond its output modifiers. */
+  traits: FactionTraits;
+}
+
+export interface FactionTraits {
+  /** Percent added to credit income. */
+  creditsPercent: number;
+  /** Morale can never rise above this; 0 means no special limit. */
+  moraleCeiling: number;
+  /** Percent added to the garrison of every colony. */
+  garrisonPercent: number;
+  /** Can buy a minor race's membership outright with credits. */
+  buysMinors: boolean;
+  /** Can hire warships on the spot with credits. */
+  hiresMercenaries: boolean;
+  /** From this era on, fleets made up only of cloaked hulls are hidden from rivals; 0 means never. */
+  cloakFromEra: number;
 }
 
 export interface BuildingEffect {
@@ -279,6 +320,10 @@ export interface BuildingDef {
   combat: { attack: number; hp: number; garrison: number };
   /** Morale each one adds to its colony. */
   morale: number;
+  /** Credits each one earns per turn. */
+  credits: number;
+  /** If set, only this power can build it. */
+  faction: FactionId | null;
 }
 
 export interface PlanetTypeDef {
@@ -325,6 +370,7 @@ export interface Rules {
   minors: MinorRules;
   diplomacy: DiplomacyRules;
   intel: IntelRules;
+  credits: CreditRules;
 }
 
 export interface Content {
@@ -399,6 +445,13 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (typeof f.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(f.color)) {
       errors.push(`factions.${id}: color must be #rrggbb`);
     }
+    if (f.rival === undefined) f.rival = Object.keys(factions).find((other) => other !== id) ?? id;
+    if (typeof f.rival !== 'string' || !factions[f.rival]) errors.push(`factions.${id}: rival must be another faction`);
+    f.traits = { creditsPercent: 0, moraleCeiling: 0, garrisonPercent: 0, buysMinors: false, hiresMercenaries: false, cloakFromEra: 0, ...(isObj(f.traits) ? f.traits : {}) };
+    const ft = f.traits as Obj;
+    if (!isInt(ft.creditsPercent) || !isNat(ft.moraleCeiling) || !isInt(ft.garrisonPercent) || !isNat(ft.cloakFromEra) || typeof ft.buysMinors !== 'boolean' || typeof ft.hiresMercenaries !== 'boolean') {
+      errors.push(`factions.${id}: traits has a value of the wrong kind`);
+    }
     if (f.grudgePercent === undefined) f.grudgePercent = 100;
     if (!isPos(f.grudgePercent)) errors.push(`factions.${id}: grudgePercent must be a positive integer`);
     if (f.morale === undefined) f.morale = { events: {}, peacePerTenTurns: 0 };
@@ -420,6 +473,10 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (b.requires === undefined) b.requires = {};
     if (b.combat === undefined) b.combat = { attack: 0, hp: 0, garrison: 0 };
     if (b.morale === undefined) b.morale = 0;
+    if (b.credits === undefined) b.credits = 0;
+    if (!isNat(b.credits)) errors.push(`buildings.${id}: credits must be an integer >= 0`);
+    if (b.faction === undefined) b.faction = null;
+    if (b.faction !== null && (typeof b.faction !== 'string' || !factions[b.faction])) errors.push(`buildings.${id}: faction must be a known faction or null`);
     if (!isInt(b.morale)) errors.push(`buildings.${id}: morale must be an integer`);
     const bc = b.combat;
     if (!isObj(bc) || !isNat(bc.attack) || !isNat(bc.hp) || !isNat(bc.garrison) || ((bc.attack as number) > 0 && (bc.hp as number) < 1)) {
@@ -554,6 +611,10 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
       if (!isNat(h[key])) errors.push(`hulls.${id}: ${key} must be an integer >= 0`);
     }
     if (h.troops === undefined) h.troops = 0;
+    if (h.cloaked === undefined) h.cloaked = false;
+    if (typeof h.cloaked !== 'boolean') errors.push(`hulls.${id}: cloaked must be true or false`);
+    if (h.faction === undefined) h.faction = null;
+    if (h.faction !== null && (typeof h.faction !== 'string' || !factions[h.faction])) errors.push(`hulls.${id}: faction must be a known faction or null`);
     if (!isNat(h.troops)) errors.push(`hulls.${id}: troops must be an integer >= 0`);
     checkRequires(h.requires, `hulls.${id}`, errors);
   }
@@ -700,6 +761,18 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
     for (const key of ['defencePerPercent', 'stealPoints', 'revealTurns'] as const) {
       if (!isPos(intel[key])) errors.push(`rules.intel.${key}: must be a positive integer`);
+    }
+  }
+
+  const credits = isObj(rules) ? rules.credits : undefined;
+  if (!isObj(credits)) {
+    errors.push('rules.credits: must be an object');
+  } else {
+    for (const key of ['perPopulationPercent', 'idleIndustryPercent', 'perTreaty', 'starting'] as const) {
+      if (!isNat(credits[key])) errors.push(`rules.credits.${key}: must be an integer >= 0`);
+    }
+    for (const key of ['buyOutPerPoint', 'giftSize', 'membershipCost', 'mercenaryCostPercent'] as const) {
+      if (!isPos(credits[key])) errors.push(`rules.credits.${key}: must be a positive integer`);
     }
   }
 

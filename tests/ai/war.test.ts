@@ -221,8 +221,8 @@ describe('waging war', () => {
 describe('full games end', () => {
   const long = process.env.ACCORD_LONG === '1';
   const count = long ? 20 : 4;
-  // Measured at 18 of 20 with diplomacy in play: 12 by the Accord and 6 by domination.
-  // The bar sits a little under that. The first four seeds give 2 of 4.
+  // Measured at 18 of 20 with credits and unique content in play: 9 by the Accord and 9 by
+  // domination. The bar sits a little under that. The first four seeds give 3 of 4.
   const needed = long ? 15 : 2;
   it(`at least ${needed} of ${count} AI games have a winner by turn 400, and the winner dominates`, () => {
     const games = runBatch({

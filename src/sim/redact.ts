@@ -67,9 +67,11 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
     }
   }
 
+  const shown = new Set(view.fleets.map((f) => f.id));
   for (const id of sortedKeys(known.fleets)) {
     const fleet = known.fleets[id];
-    if (fleet.owner !== empireId && !view.visible.has(sectorKey(fleet.sector))) delete known.fleets[id];
+    // Out of sight, or cloaked: either way this empire does not know it is there.
+    if (fleet.owner !== empireId && !shown.has(id)) delete known.fleets[id];
   }
 
   const mine = state.empires[empireId].knownSystems;
@@ -78,6 +80,7 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
     const rival = known.empires[id];
     rival.research = newResearchState();
     rival.intelPool = 0;
+    rival.credits = 0;
     rival.knownSystems = {};
     rival.lastWarTurn = 0;
     rival.intelSplit = 0;
@@ -92,6 +95,7 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
   known.offers = known.offers.filter((o) => o.from === empireId || o.to === empireId);
   known.operations = known.operations.filter((o) => o.by === empireId);
   known.pendingEvents = [];
+  known.pledges = known.pledges.filter((p) => p.empire === empireId || p.system in mine);
   const opinions = {} as GameState['opinions'];
   for (const of of sortedKeys(known.opinions)) {
     for (const about of sortedKeys(known.opinions[of])) {

@@ -22,6 +22,7 @@ export * from './morale';
 export * from './minors';
 export * from './diplomacy';
 export * from './intel';
+export * from './credits';
 export { redactFor } from './redact';
 export { itemCost, itemName } from './economy/build';
 export { computeColonyEconomy, maxPopulationOf, systemSummary, totalOf, type ColonyEconomy } from './economy/outputs';
