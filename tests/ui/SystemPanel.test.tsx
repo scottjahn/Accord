@@ -109,12 +109,34 @@ describe('SystemPanel: own colony', () => {
     expect(screen.queryByTestId('placed')).toBeNull();
   });
 
-  it('under a governor, lowering a slider below the governor’s own share does nothing', () => {
+  it('under a governor, lowering a slider sets a limit and keeps the governor', () => {
     const { colony } = setup();
+    expect(colony().allocation.research).toBe(4);
     setSlider('Research', 1);
     expect(colony().governor).toBe('balanced');
-    expect(colony().allocation.research).toBe(4);
+    expect(colony().allocation.research).toBe(1);
+    expect(colony().capped.research).toBe(1);
     expect(colony().pinned.research).toBe(0);
+    expect(text('cap-research')).toContain('max 1');
+    expect(text('placed')).toBe('1 limit set');
+    // The three turned away went elsewhere, so nobody is idle.
+    expect(text('idle')).toBe('Everyone is working');
+
+    // Raising it past the governor's own share swaps the limit for hand-placed workers.
+    setSlider('Research', 6);
+    expect(colony().allocation.research).toBe(6);
+    expect(colony().capped.research).toBeNull();
+    expect(screen.queryByTestId('cap-research')).toBeNull();
+    expect(text('pinned-research')).toContain('+');
+
+    setSlider('Research', 2);
+    setSlider('Industry', 2);
+    expect(text('placed')).toBe('2 placed by hand · 1 limit set');
+    fireEvent.click(button('Clear adjustments'));
+    expect(colony().capped.research).toBeNull();
+    expect(colony().pinned.industry).toBe(0);
+    expect(colony().allocation.research).toBe(4);
+    expect(screen.queryByTestId('placed')).toBeNull();
   });
 
   it('hand-placed workers stay put as the colony grows, and the governor places the newcomers', () => {
@@ -163,7 +185,6 @@ describe('SystemPanel: own colony', () => {
 
   it('choosing a governor reassigns workers', () => {
     const { colony } = setup();
-    setSlider('Research', 0);
     fireEvent.click(screen.getByRole('radio', { name: 'Research' }));
     expect(colony().governor).toBe('research');
     expect(colony().allocation.research).toBe(5);

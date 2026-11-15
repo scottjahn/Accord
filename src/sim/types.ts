@@ -2,7 +2,7 @@ import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, ShipId,
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export const TREATY_TYPES = ['peace', 'nonAggression', 'openBorders', 'researchPact', 'alliance'] as const;
 export type TreatyType = (typeof TREATY_TYPES)[number];
@@ -152,6 +152,9 @@ export type BuildItem =
   | { kind: 'ship'; hull: HullId; progress: number }
   | { kind: 'refit'; ship: ShipId; hull: HullId; progress: number };
 
+/** A ceiling on workers per output; null means none. */
+export type WorkerCaps = Record<OutputKind, number | null>;
+
 export interface Colony {
   owner: EmpireId;
   population: number;
@@ -166,6 +169,13 @@ export interface Colony {
    * under the manual governor.
    */
   pinned: Outputs;
+  /**
+   * The most workers an automated governor may leave on each output, or null
+   * for no limit. A fixed number: it does not grow with the colony. The
+   * governor places the workers it turns away elsewhere. All null under the
+   * manual governor.
+   */
+  capped: WorkerCaps;
   buildings: Record<BuildingId, number>;
   buildQueue: BuildItem[];
   /** 100 is neutral. Kept in step with its causes by the sim; see moraleBreakdown. */

@@ -1,5 +1,5 @@
 import type { Content } from './content';
-import { applyGovernor } from './economy/governor';
+import { applyGovernor, governorAllocation } from './economy/governor';
 import { atWar, invadeBlocker, warKey } from './combat';
 import { buyOutCost, membershipCost, mercenaryCost } from './credits';
 import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
@@ -21,7 +21,10 @@ import {
   type FieldId,
   type Fleet,
   type GameState,
+  type AutoGovernor,
   type Governor,
+  type OutputKind,
+  type WorkerCaps,
   type OperationKind,
   type Outputs,
   type Result,
@@ -40,6 +43,13 @@ export type Command =
   | { type: 'setAllocation'; empire: EmpireId; system: SystemId; allocation: Outputs }
   | { type: 'setGovernor'; empire: EmpireId; system: SystemId; governor: Governor }
   | { type: 'adjustWorkers'; empire: EmpireId; system: SystemId; pinned: Outputs }
+  /** Sets the most workers a governor may leave on each output; null lifts a limit. */
+  | { type: 'capWorkers'; empire: EmpireId; system: SystemId; capped: WorkerCaps }
+  /**
+   * Under a governor, asks for exactly `workers` on one output: more than the
+   * governor would place there are placed by hand, fewer become a cap.
+   */
+  | { type: 'placeWorkers'; empire: EmpireId; system: SystemId; output: OutputKind; workers: number }
   | { type: 'enqueueBuild'; empire: EmpireId; system: SystemId; building: BuildingId }
   | { type: 'enqueueShip'; empire: EmpireId; system: SystemId; hull: HullId }
   | { type: 'enqueueRefit'; empire: EmpireId; system: SystemId; ship: ShipId; hull: HullId }
@@ -165,6 +175,34 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const held = OUTPUT_KINDS.reduce((sum, k) => sum + p[k], 0);
       return held > own.colony.population
         ? fail('invalidAllocation', `That places ${held} workers by hand but population is ${own.colony.population}`)
+        : null;
+    }
+    case 'capWorkers': {
+      const own = ownColony(state, cmd.empire, cmd.system);
+      if (isError(own)) return own;
+      if (own.colony.governor === 'manual') {
+        return fail('invalidAllocation', 'Limits apply to a governor; under Manual, set the workers directly');
+      }
+      const c = cmd.capped;
+      const valid =
+        typeof c === 'object' &&
+        c !== null &&
+        Object.keys(c).length === OUTPUT_KINDS.length &&
+        OUTPUT_KINDS.every((k) => c[k] === null || (Number.isInteger(c[k]) && (c[k] as number) >= 0));
+      return valid ? null : fail('invalidAllocation', 'Limits need a whole number >= 0, or none, for each output');
+    }
+    case 'placeWorkers': {
+      const own = ownColony(state, cmd.empire, cmd.system);
+      if (isError(own)) return own;
+      if (own.colony.governor === 'manual') {
+        return fail('invalidAllocation', 'Under Manual, set the workers directly');
+      }
+      if (!OUTPUT_KINDS.includes(cmd.output)) return fail('invalidAllocation', `No output ${String(cmd.output)}`);
+      if (!Number.isInteger(cmd.workers) || cmd.workers < 0) return fail('invalidAllocation', 'Workers must be a whole number >= 0');
+      const elsewhere = OUTPUT_KINDS.reduce((sum, k) => sum + (k === cmd.output ? 0 : own.colony.pinned[k]), 0);
+      const free = own.colony.population - elsewhere;
+      return cmd.workers > free
+        ? fail('invalidAllocation', `Only ${free} workers are free: ${elsewhere} are placed by hand elsewhere`)
         : null;
     }
     case 'setGovernor': {
@@ -460,15 +498,42 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       for (const kind of OUTPUT_KINDS) colony!.allocation[kind] = cmd.allocation[kind];
       colony!.governor = 'manual';
       colony!.pinned = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
+      colony!.capped = { food: null, industry: null, energy: null, intel: null, research: null };
       break;
     case 'setGovernor':
       colony!.governor = cmd.governor;
       // Hand adjustments belong to a governor; under Manual the allocation itself is the player's.
-      if (cmd.governor === 'manual') colony!.pinned = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
+      if (cmd.governor === 'manual') {
+        colony!.pinned = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
+        colony!.capped = { food: null, industry: null, energy: null, intel: null, research: null };
+      }
       break;
     case 'adjustWorkers':
       colony!.pinned = { food: cmd.pinned.food, industry: cmd.pinned.industry, energy: cmd.pinned.energy, intel: cmd.pinned.intel, research: cmd.pinned.research };
       break;
+    case 'capWorkers':
+      colony!.capped = { food: cmd.capped.food, industry: cmd.capped.industry, energy: cmd.capped.energy, intel: cmd.capped.intel, research: cmd.capped.research };
+      break;
+    case 'placeWorkers': {
+      const system = next.systems[cmd.system];
+      const governor = colony!.governor as AutoGovernor;
+      // What the governor would do here with no adjustment to this output.
+      colony!.pinned[cmd.output] = 0;
+      colony!.capped[cmd.output] = null;
+      const own = governorAllocation(next, system, content, governor)[cmd.output];
+      if (cmd.workers < own) {
+        colony!.capped[cmd.output] = cmd.workers;
+      } else if (cmd.workers > own) {
+        // Hand-placed workers leave the governor fewer to place, so it may put fewer here itself:
+        // add by hand until the output has what was asked for.
+        let pin = cmd.workers - own;
+        colony!.pinned[cmd.output] = pin;
+        while (pin < cmd.workers && governorAllocation(next, system, content, governor)[cmd.output] < cmd.workers) {
+          colony!.pinned[cmd.output] = ++pin;
+        }
+      }
+      break;
+    }
     case 'enqueueBuild':
       colony!.buildQueue.push({ kind: 'building', building: cmd.building, progress: 0 });
       break;

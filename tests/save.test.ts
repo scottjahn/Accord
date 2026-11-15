@@ -47,6 +47,17 @@ describe('save and load', () => {
     expect(!r.ok && r.error.code).toBe('wrongVersion');
   });
 
+  it('loads a save from the version before, which had no worker limits', () => {
+    const { state } = newGame();
+    const old = JSON.parse(JSON.stringify(state)) as { saveVersion: number; systems: Record<string, { colony: Record<string, unknown> | null }> };
+    old.saveVersion = 9;
+    for (const system of Object.values(old.systems)) if (system.colony) delete system.colony.capped;
+    const r = deserialize(JSON.stringify(old));
+    expect(r.ok && r.value).toEqual(state);
+    const older = deserialize(JSON.stringify({ ...old, saveVersion: 8 }));
+    expect(!older.ok && older.error.code).toBe('wrongVersion');
+  });
+
   it('rejects saves with missing parts', () => {
     const { state } = newGame();
     for (const key of ['seed', 'turn', 'rng', 'galaxy', 'systems', 'empires'] as const) {

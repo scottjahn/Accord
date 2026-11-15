@@ -12,6 +12,19 @@ export function serialize(state: GameState): string {
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
+/**
+ * Brings a save from the version before this one up to date, in place.
+ * Version 10 added worker limits to colonies; a version 9 colony has none.
+ */
+function upgrade(raw: Record<string, unknown>): void {
+  if (raw.saveVersion !== 9 || !isObj(raw.systems)) return;
+  for (const system of Object.values(raw.systems)) {
+    if (!isObj(system) || !isObj(system.colony)) continue;
+    system.colony.capped = { food: null, industry: null, energy: null, intel: null, research: null };
+  }
+  raw.saveVersion = 10;
+}
+
 export function deserialize(json: string): Result<GameState, SaveError> {
   let raw: unknown;
   try {
@@ -22,6 +35,7 @@ export function deserialize(json: string): Result<GameState, SaveError> {
   const bad = (message: string): Result<GameState, SaveError> => ({ ok: false, error: { code: 'badShape', message } });
 
   if (!isObj(raw)) return bad('Save must be an object');
+  upgrade(raw);
   if (raw.saveVersion !== SAVE_VERSION) {
     return {
       ok: false,

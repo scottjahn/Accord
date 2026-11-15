@@ -111,6 +111,116 @@ describe('placing workers by hand under a governor', () => {
   });
 });
 
+describe('limiting workers under a governor', () => {
+  const FREE = { food: null, industry: null, energy: null, intel: null, research: null };
+  const total = (a: Outputs) => Object.values(a).reduce((x, y) => x + y, 0);
+
+  it('holds an output to the limit and sends the workers turned away elsewhere', () => {
+    const { state, home, apply, govern } = setup();
+    const balanced = govern(state, 'balanced');
+    const limited = apply(balanced, { type: 'capWorkers', empire: ALPHA, system: home.id, capped: { ...FREE, research: 2 } });
+    const colony = colonyOf(limited, ALPHA);
+    expect(colony.governor).toBe('balanced');
+    expect(colony.capped).toEqual({ ...FREE, research: 2 });
+    // Research had four; the two turned away join the one on intel.
+    expect(colony.allocation).toEqual({ food: 5, industry: 0, energy: 0, intel: 3, research: 2 });
+  });
+
+  it('is a fixed number: it does not grow with the colony', () => {
+    const { state, content, home, apply, govern } = setup();
+    const limited = apply(govern(state, 'growth'), { type: 'capWorkers', empire: ALPHA, system: home.id, capped: { ...FREE, research: 1 } });
+    colonyOf(limited, ALPHA).growthProgress = 59;
+    let next = processTurn(limited, content).state;
+    expect(colonyOf(next, ALPHA).population).toBe(11);
+    colonyOf(next, ALPHA).population = 30;
+    next = apply(next, { type: 'setGovernor', empire: ALPHA, system: home.id, governor: 'research' as never });
+    const colony = colonyOf(next, ALPHA);
+    expect(colony.capped.research).toBe(1);
+    expect(colony.allocation.research).toBe(1);
+    expect(total(colony.allocation)).toBe(30);
+  });
+
+  it('may hold food below what the colony eats', () => {
+    const { state, home, apply, govern } = setup();
+    const hungry = apply(govern(state, 'balanced'), { type: 'placeWorkers', empire: ALPHA, system: home.id, output: 'food', workers: 2 });
+    expect(colonyOf(hungry, ALPHA).allocation.food).toBe(2);
+    expect(total(colonyOf(hungry, ALPHA).allocation)).toBe(10);
+  });
+
+  it('leaves workers idle only when every output is at its limit', () => {
+    const { state, content, home, apply, govern } = setup();
+    const shut = apply(govern(state, 'balanced'), {
+      type: 'capWorkers',
+      empire: ALPHA,
+      system: home.id,
+      capped: { food: 3, industry: 1, energy: 0, intel: 1, research: 1 },
+    });
+    expect(colonyOf(shut, ALPHA).allocation).toEqual({ food: 3, industry: 1, energy: 0, intel: 1, research: 1 });
+    expect(idleReport(shut, ALPHA, content)).toContainEqual({ kind: 'idleWorkers', blocking: true, system: home.id, count: 4 });
+  });
+
+  it('never moves workers the player placed by hand', () => {
+    const { state, home, apply, govern, pin } = setup();
+    const pinned = pin(govern(state, 'balanced'), { research: 3 });
+    const limited = apply(pinned, { type: 'capWorkers', empire: ALPHA, system: home.id, capped: { ...FREE, research: 1 } });
+    // The governor adds none of its own, but the three stay.
+    expect(colonyOf(limited, ALPHA).allocation.research).toBe(3);
+  });
+
+  it('placeWorkers turns one number into a limit, hand-placed workers, or neither', () => {
+    const { state, home, apply, govern } = setup();
+    const place = (s: GameState, output: keyof Outputs, workers: number) =>
+      apply(s, { type: 'placeWorkers', empire: ALPHA, system: home.id, output, workers });
+    const balanced = govern(state, 'balanced');
+    expect(colonyOf(balanced, ALPHA).allocation.research).toBe(4);
+
+    const fewer = place(balanced, 'research', 2);
+    expect(colonyOf(fewer, ALPHA)).toMatchObject({ capped: { ...FREE, research: 2 }, pinned: NONE });
+    expect(colonyOf(fewer, ALPHA).allocation.research).toBe(2);
+
+    // Asking for more lifts the limit and places the difference by hand.
+    const more = place(fewer, 'research', 7);
+    expect(colonyOf(more, ALPHA).capped).toEqual(FREE);
+    expect(colonyOf(more, ALPHA).pinned.research).toBeGreaterThan(0);
+    expect(colonyOf(more, ALPHA).allocation.research).toBe(7);
+    expect(total(colonyOf(more, ALPHA).allocation)).toBe(10);
+
+    // Asking for what the governor would do anyway leaves no adjustment behind.
+    const same = place(more, 'research', 4);
+    expect(colonyOf(same, ALPHA)).toMatchObject({ capped: FREE, pinned: NONE });
+    expect(colonyOf(same, ALPHA).allocation).toEqual(colonyOf(balanced, ALPHA).allocation);
+
+    for (let n = 0; n <= 10; n++) expect(colonyOf(place(balanced, 'industry', n), ALPHA).allocation.industry).toBe(n);
+  });
+
+  it('is dropped under Manual and when the allocation is set directly', () => {
+    const { state, home, apply, govern } = setup();
+    const limited = apply(govern(state, 'balanced'), { type: 'capWorkers', empire: ALPHA, system: home.id, capped: { ...FREE, research: 2 } });
+    expect(colonyOf(govern(limited, 'growth'), ALPHA).capped.research).toBe(2);
+    expect(colonyOf(govern(limited, 'manual'), ALPHA).capped).toEqual(FREE);
+    const direct = apply(limited, { type: 'setAllocation', empire: ALPHA, system: home.id, allocation: { ...NONE, food: 6, industry: 4 } });
+    expect(colonyOf(direct, ALPHA).capped).toEqual(FREE);
+  });
+
+  it('is refused under Manual, for bad numbers, and for more workers than are free', () => {
+    const { state, home, why, govern, pin } = setup();
+    const cap = (capped: unknown): Command => ({ type: 'capWorkers', empire: ALPHA, system: home.id, capped: capped as never });
+    const place = (workers: number, output = 'research'): Command => ({ type: 'placeWorkers', empire: ALPHA, system: home.id, output: output as never, workers });
+    expect(why(state, cap({ ...FREE, research: 1 }))).toMatch(/under Manual, set the workers directly/);
+    expect(why(state, place(1))).toMatch(/Under Manual, set the workers directly/);
+    const balanced = govern(state, 'balanced');
+    expect(why(balanced, cap({ ...FREE, research: -1 }))).toMatch(/whole number/);
+    expect(why(balanced, cap({ ...FREE, research: 1.5 }))).toMatch(/whole number/);
+    expect(why(balanced, cap({ research: 1 }))).toMatch(/whole number/);
+    expect(why(balanced, { ...cap(FREE), empire: BETA } as Command)).toMatch(/does not own/);
+    expect(why(balanced, cap({ ...FREE, research: 0 }))).toBe('ok');
+    expect(why(balanced, place(-1))).toMatch(/whole number/);
+    expect(why(balanced, place(1, 'gold'))).toBe('No output gold');
+    expect(why(balanced, place(10))).toBe('ok');
+    expect(why(pin(balanced, { industry: 4 }), place(7))).toBe('Only 6 workers are free: 4 are placed by hand elsewhere');
+  });
+});
+
 describe('what is idle', () => {
   type C = ReturnType<typeof newGame>['content'];
   /** The items worth a warning; free systems nearby are reported separately and only mentioned. */

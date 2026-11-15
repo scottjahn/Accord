@@ -11,11 +11,13 @@ interface Props {
   output: OutputBreakdown;
   /** Workers the player has placed here by hand on top of a governor. */
   pinned?: number;
+  /** The most workers the governor may leave here, if the player has set a limit. */
+  cap?: number | null;
   onChange: (workers: number) => void;
 }
 
 /** One output: a worker slider, the total it produces, and the causes behind that total. */
-export function OutputRow({ kind, workers, maxWorkers, population, output, pinned = 0, onChange }: Props) {
+export function OutputRow({ kind, workers, maxWorkers, population, output, pinned = 0, cap = null, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const label = OUTPUT_LABELS[kind];
   const detailsId = `breakdown-${kind}`;
@@ -29,6 +31,12 @@ export function OutputRow({ kind, workers, maxWorkers, population, output, pinne
             <span className="pin" data-testid={`pinned-${kind}`} title={`${pinned} placed by hand`}>
               {' '}
               +{pinned}
+            </span>
+          )}
+          {cap !== null && (
+            <span className="pin" data-testid={`cap-${kind}`} title={`The governor leaves at most ${cap} here`}>
+              {' '}
+              max {cap}
             </span>
           )}
         </span>

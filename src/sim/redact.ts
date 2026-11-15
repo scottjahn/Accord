@@ -53,6 +53,7 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
         moraleEffects: [],
         unrestTurns: 0,
       pinned: { food: 0, industry: 0, energy: 0, intel: 0, research: 0 },
+      capped: { food: null, industry: null, energy: null, intel: null, research: null },
         minorRace: system.colony.minorRace,
       };
     }
