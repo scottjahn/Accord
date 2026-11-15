@@ -96,6 +96,11 @@ export interface Personality {
   earlyWar: number;
   /** Once the treasury is this percent of the wealth victory, stop spending and save for it; 0 never saves. */
   thrift: number;
+  /**
+   * With at least this many gifts' worth of credits to spare, it sends a gift to the largest
+   * power it is at peace with; 0 never gives.
+   */
+  gifts: number;
 }
 
 export interface AiContent {
@@ -846,6 +851,7 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
       if (isObj(p)) {
         if (p.earlyWar === undefined) p.earlyWar = 0;
         if (p.thrift === undefined) p.thrift = 0;
+        if (p.gifts === undefined) p.gifts = 0;
       }
       const valid =
         isObj(p) &&
@@ -862,7 +868,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
         isNat(p.counterIntel) &&
         isNat(p.espionage) &&
         isNat(p.earlyWar) &&
-        isNat(p.thrift);
+        isNat(p.thrift) &&
+        isNat(p.gifts);
       if (!valid) errors.push(`ai.personalities.${id}: needs posture, research, warshipsPerColony, scouts, minorInfluence, conquersMinors, honour, counterIntel and espionage`);
     }
   }

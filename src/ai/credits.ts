@@ -1,6 +1,8 @@
 import {
   buyOutCost,
+  atWar,
   coloniesOf,
+  hasMet,
   membershipCost,
   mercenaryCost,
   sortedKeys,
@@ -18,6 +20,8 @@ import { enemiesOf } from './tactical/war';
 const HIRES_PER_TURN = 2;
 /** With this many times the price in the bank, anything at the front of a queue is worth buying. */
 const FLUSH_MULTIPLE = 3;
+/** Turns between gifts to the same empire. */
+export const GIFT_EVERY_TURNS = 20;
 
 /**
  * Spends the treasury where it helps the current posture most:
@@ -25,7 +29,9 @@ const FLUSH_MULTIPLE = 3;
  * 2. at war, a power that hires mercenaries hires its best affordable warship;
  * 3. it buys out the ship its posture is waiting for (a colony ship when
  *    expanding, a warship or transport when fighting), or anything at all once
- *    it has far more than the price.
+ *    it has far more than the price;
+ * 4. a power that gives gifts sends one, from what is left, to the largest
+ *    power it is at peace with.
  */
 export function spendCredits(
   plan: Planner,
@@ -75,4 +81,31 @@ export function spendCredits(
     const wanted = (role === 'colony' && posture === 'expand') || ((role === 'warship' || role === 'transport') && fighting);
     if (wanted || credits() >= cost * FLUSH_MULTIPLE) plan.attempt({ type: 'buyOut', empire: empireId, system: system.id });
   }
+
+  giveGift(plan, empireId, content, personality);
 }
+
+/**
+ * Sends one gift, of the smallest size that is remembered, to the power most
+ * worth keeping friendly: the one with the most colonies this empire knows of,
+ * among those it has met and is not fighting. It gives only from a full
+ * treasury, and not again to the same empire while the last gift is recent.
+ * Everything here is the empire's own knowledge: its map, and what others
+ * remember it doing.
+ */
+export function giveGift(plan: Planner, empireId: EmpireId, content: Content, personality: Personality): boolean {
+  const size = content.rules.credits.giftSize;
+  const state = plan.state;
+  if (personality.gifts <= 0 || state.empires[empireId].credits < size * personality.gifts) return false;
+
+  const known = state.empires[empireId].knownSystems;
+  const coloniesKnown = (other: EmpireId) => sortedKeys(known).filter((id) => known[id] === other).length;
+  const lastGift = (other: EmpireId) =>
+    (state.opinions[other]?.[empireId] ?? []).filter((entry) => entry.cause === 'gift').reduce((latest, entry) => Math.max(latest, entry.turn), -Infinity);
+  const candidates = sortedKeys(state.empires)
+    .filter((other) => other !== empireId && !state.empires[other].eliminated && hasMet(state, empireId, other) && !atWar(state, empireId, other))
+    .filter((other) => state.turn - lastGift(other) >= GIFT_EVERY_TURNS)
+    .sort((a, b) => coloniesKnown(b) - coloniesKnown(a) || (a < b ? -1 : 1));
+  return candidates.length > 0 && plan.attempt({ type: 'giftCredits', empire: empireId, to: candidates[0], amount: size });
+}
+

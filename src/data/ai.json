@@ -21,7 +21,8 @@
       "conquersMinors": 0,
       "honour": 90,
       "counterIntel": 40,
-      "espionage": 0
+      "espionage": 0,
+      "gifts": 8
     },
     "vashran": {
       "posture": {
@@ -116,7 +117,8 @@
       "honour": 80,
       "counterIntel": 30,
       "espionage": 10,
-      "thrift": 15
+      "thrift": 15,
+      "gifts": 12
     }
   },
   "defence": {
