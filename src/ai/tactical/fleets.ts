@@ -5,6 +5,8 @@ import {
   sectorDistance,
   sectorKey,
   suppliedSectors,
+  systemAt,
+  validateCommand,
   type Content,
   type EmpireId,
   type Fleet,
@@ -31,13 +33,24 @@ export function directFleets(plan: Planner, empireId: EmpireId, content: Content
   const mine = () => fleetsOf(plan.state, empireId);
 
   // Settlers.
-  const claimed = new Set(mine().filter((f) => f.order === 'colonise').map(heading));
+  // Founding is a step of its own: a settler that has arrived founds its colony, and one with
+  // nowhere to be sets off for the best free system nobody else is heading for.
+  const settling = (f: Fleet) => rolesOf(f).has('colony') && (f.destination !== null || f.order === 'colonise');
+  const claimed = new Set(mine().filter(settling).map(heading));
   for (const { id } of mine()) {
     const fleet = plan.state.fleets[id];
     if (!fleet || !idle(fleet) || !rolesOf(fleet).has('colony')) continue;
+    const here = systemAt(plan.state, fleet.sector);
+    if (here && !claimed.has(sectorKey(here.sector)) && plan.attempt({ type: 'coloniseSystem', empire: empireId, fleet: id, system: here.id })) {
+      claimed.add(sectorKey(here.sector));
+      continue;
+    }
     for (const { system } of picture.opportunities) {
-      if (claimed.has(sectorKey(system.sector))) continue;
-      if (plan.attempt({ type: 'coloniseSystem', empire: empireId, fleet: id, system: system.id })) {
+      if (claimed.has(sectorKey(system.sector)) || sameSector(system.sector, fleet.sector)) continue;
+      // 'notThere' is the sim saying this fleet could settle the system once it arrives.
+      const verdict = validateCommand(plan.state, { type: 'coloniseSystem', empire: empireId, fleet: id, system: system.id }, content);
+      if (verdict?.code !== 'notThere') continue;
+      if (plan.attempt({ type: 'moveFleet', empire: empireId, fleet: id, to: system.sector })) {
         claimed.add(sectorKey(system.sector));
         break;
       }

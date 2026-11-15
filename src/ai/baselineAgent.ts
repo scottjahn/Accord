@@ -91,14 +91,24 @@ export function baselineAgent(state: GameState, empireId: EmpireId, content: Con
     const roles = new Set(fleet.ships.map((s) => roleOf(s.hull)));
 
     if (roles.has('colony')) {
+      // Found a colony here if that is possible; otherwise head for the nearest free system
+      // nobody else is going to. Founding is a separate step once the ship has arrived.
       const claimed = new Set(
         fleetsOf(current, empireId)
-          .filter((f) => f.order === 'colonise')
+          .filter((f) => f.id !== id && (f.order === 'colonise' || (f.destination && f.ships.some((s) => roleOf(s.hull) === 'colony'))))
           .map((f) => sectorKey(f.destination ?? f.sector)),
       );
-      freeSystems(fleet.sector)
-        .filter((s) => !claimed.has(sectorKey(s.sector)))
-        .some((s) => attempt({ type: 'coloniseSystem', empire: empireId, fleet: id, system: s.id }));
+      const open = freeSystems(fleet.sector).filter((s) => !claimed.has(sectorKey(s.sector)));
+      const here = open.find((s) => sectorKey(s.sector) === sectorKey(fleet.sector));
+      if (!here || !attempt({ type: 'coloniseSystem', empire: empireId, fleet: id, system: here.id })) {
+        open
+          .filter((s) => s !== here)
+          .some(
+            (s) =>
+              validateCommand(current, { type: 'coloniseSystem', empire: empireId, fleet: id, system: s.id }, content)?.code === 'notThere' &&
+              attempt({ type: 'moveFleet', empire: empireId, fleet: id, to: s.sector }),
+          );
+      }
     } else if (roles.size === 1 && roles.has('scout')) {
       // Star positions are public; what is there is not until a scout arrives.
       const known = current.empires[empireId].knownSystems;

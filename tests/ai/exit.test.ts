@@ -65,7 +65,7 @@ describe('the standard AI never stalls', () => {
         if (fleet.destination || fleet.order !== 'none') continue;
         if (!fleet.ships.some((ship) => c.hulls[ship.hull].role === 'colony')) continue;
         const target = sortedKeys(s.empires[empire].knownSystems).find(
-          (id) => !validateCommand(s, { type: 'coloniseSystem', empire, fleet: fleet.id, system: id }, c),
+          (id) => ['notThere', undefined].includes(validateCommand(s, { type: 'coloniseSystem', empire, fleet: fleet.id, system: id }, c)?.code),
         );
         if (target) problems.push(`turn ${s.turn}: a colony ship is idle but could settle ${s.systems[target].name}`);
       }

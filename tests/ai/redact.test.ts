@@ -155,18 +155,17 @@ describe('orders never reveal what fog hides', () => {
     target.colony = { ...structuredClone(colonyOf(state, BETA)), population: 2 };
 
     const fleet = addFleet(state, content, ALPHA, home.sector, ['colony_ship']);
-    const order = submitCommand(state, { type: 'coloniseSystem', empire: ALPHA, fleet: fleet.id, system: target.id }, content);
+    // The sim answers as if the system were still free: all it says is to go there first.
+    const found = { type: 'coloniseSystem', empire: ALPHA, fleet: fleet.id, system: target.id } as const;
+    const verdict = submitCommand(state, found, content);
+    expect(!verdict.ok && verdict.error.code).toBe('notThere');
+    const order = submitCommand(state, { type: 'moveFleet', empire: ALPHA, fleet: fleet.id, to: target.sector }, content);
     expect(order.ok).toBe(true);
     if (!order.ok) return;
 
     let s = order.value;
-    const events = [];
-    for (let i = 0; i < 2; i++) {
-      const step = processTurn(s, content);
-      s = step.state;
-      events.push(...step.events);
-    }
-    expect(events).toContainEqual({ type: 'coloniseFailed', empire: ALPHA, system: target.id });
+    for (let i = 0; i < 2; i++) s = processTurn(s, content).state;
+    expect(s.fleets[fleet.id].sector).toEqual(target.sector);
     expect(s.fleets[fleet.id].ships).toHaveLength(1);
     expect(s.systems[target.id].colony!.owner).toBe(BETA);
     // Arriving revealed the truth, so the same order is now refused.

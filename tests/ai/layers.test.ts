@@ -10,6 +10,7 @@ import {
   FIELDS,
   computeColonyEconomy,
   forecastColony,
+  processTurn,
   redactFor,
   sectorKey,
   type BuildingId,
@@ -299,8 +300,33 @@ describe('tactical layer: fleets', () => {
 
     const plan = createPlanner(state, content);
     directFleets(plan, ALPHA, content, 'expand', look());
-    expect(plan.state.fleets[first.id]).toMatchObject({ order: 'colonise', destination: rich.sector });
-    expect(plan.state.fleets[second.id]).toMatchObject({ order: 'colonise', destination: small.sector });
+    // Like the player, it only travels there; founding is a separate step on arrival.
+    expect(plan.state.fleets[first.id]).toMatchObject({ order: 'none', destination: rich.sector });
+    expect(plan.state.fleets[second.id]).toMatchObject({ order: 'none', destination: small.sector });
+  });
+
+  it('founds the colony once the colony ship has arrived, and never from a distance', () => {
+    const { state, content, home, look } = setup();
+    const [a] = neighbours(state);
+    const rich = placeFree(state, a, 20, 10);
+    const settler = addFleet(state, content, ALPHA, home.sector, ['colony_ship']);
+
+    // Turn one: it sets off. No colony can appear on the turn it arrives.
+    let plan = createPlanner(state, content);
+    directFleets(plan, ALPHA, content, 'expand', look());
+    expect(plan.issued.some((c) => c.type === 'coloniseSystem')).toBe(false);
+    let s = plan.state;
+    let turns = 0;
+    while (s.fleets[settler.id].destination && turns++ < 10) s = processTurn(s, content).state;
+    expect(s.fleets[settler.id].sector).toEqual(rich.sector);
+    expect(s.systems[rich.id].colony).toBeNull();
+
+    // Next turn: it gives the order where it stands, and the colony is founded when that turn resolves.
+    plan = createPlanner(s, content);
+    directFleets(plan, ALPHA, content, 'expand', survey(redactFor(s, ALPHA, content), ALPHA, content));
+    expect(plan.issued).toContainEqual({ type: 'coloniseSystem', empire: ALPHA, fleet: settler.id, system: rich.id });
+    s = processTurn(plan.state, content).state;
+    expect(s.systems[rich.id].colony?.owner).toBe(ALPHA);
   });
 
   it('sends scouts to the nearest unexplored system in range and not two to the same one', () => {

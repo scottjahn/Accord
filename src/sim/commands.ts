@@ -94,6 +94,7 @@ export type CommandErrorCode =
   | 'badIndex'
   | 'outOfRange'
   | 'cannotColonise'
+  | 'notThere'
   | 'cannotInvade'
   | 'badStance'
   | 'badWar'
@@ -318,9 +319,10 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const occupied = seen ? system.colony !== null : empire.knownSystems[cmd.system] !== null;
       const blocker = coloniseBlocker(fleet, system, content, occupied);
       if (blocker) return fail('cannotColonise', blocker);
-      return findPath(state, fleet, system.sector, content)
-        ? null
-        : fail('outOfRange', `${system.name} is outside supply range`);
+      if (!findPath(state, fleet, system.sector, content)) return fail('outOfRange', `${system.name} is outside supply range`);
+      // Founding is its own step for every empire: the fleet travels there first. This is checked
+      // last, so 'notThere' also says the system is one this fleet could settle on arrival.
+      return sameSector(fleet.sector, system.sector) ? null : fail('notThere', `Move the fleet to ${system.name} first`);
     }
     case 'invadeSystem': {
       const fleet = ownFleet(state, cmd.empire, cmd.fleet);
@@ -566,8 +568,7 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       break;
     case 'coloniseSystem': {
       const fleet = next.fleets[cmd.fleet];
-      const target = next.systems[cmd.system].sector;
-      fleet.destination = sameSector(fleet.sector, target) ? null : { ...target };
+      fleet.destination = null;
       fleet.order = 'colonise';
       break;
     }

@@ -45,12 +45,24 @@ function setup(seed = 5) {
 }
 
 describe('colonisation', () => {
-  it('sends a colony ship to a system and founds a colony when it arrives', () => {
-    const { state, content, home, target, apply } = setup();
+  it('founds a colony as a step of its own, once the colony ship has travelled there', () => {
+    const { state, content, home, target, apply, codeOf } = setup();
     const fleet = addFleet(state, content, ALPHA, home.sector, ['colony_ship']);
-    let s = apply(state, { type: 'coloniseSystem', empire: ALPHA, fleet: fleet.id, system: target.id });
-    expect(s.fleets[fleet.id]).toMatchObject({ destination: target.sector, order: 'colonise' });
+    const found: Command = { type: 'coloniseSystem', empire: ALPHA, fleet: fleet.id, system: target.id };
+    // From a distance the order is refused, for every empire: the fleet must go there first.
+    const early = submitCommand(state, found, content);
+    expect(!early.ok && early.error).toEqual({ code: 'notThere', message: `Move the fleet to ${target.name} first` });
 
+    let s = apply(state, { type: 'moveFleet', empire: ALPHA, fleet: fleet.id, to: target.sector });
+    const travel = processTurn(s, content);
+    s = travel.state;
+    // Arriving founds nothing.
+    expect(travel.events.some((e) => e.type === 'colonyFounded')).toBe(false);
+    expect(s.systems[target.id].colony).toBeNull();
+    expect(codeOf(s, found)).toBe('ok');
+
+    s = apply(s, found);
+    expect(s.fleets[fleet.id]).toMatchObject({ destination: null, order: 'colonise' });
     const step = processTurn(s, content);
     s = step.state;
     expect(step.events).toContainEqual({ type: 'colonyFounded', empire: ALPHA, system: target.id });
@@ -118,8 +130,8 @@ describe('colonisation', () => {
   });
 
   it('fails cleanly if someone else settles the system first', () => {
-    const { state, content, home, target, apply } = setup();
-    const fleet = addFleet(state, content, ALPHA, home.sector, ['colony_ship']);
+    const { state, content, target, apply } = setup();
+    const fleet = addFleet(state, content, ALPHA, target.sector, ['colony_ship']);
     const s = apply(state, { type: 'coloniseSystem', empire: ALPHA, fleet: fleet.id, system: target.id });
     s.systems[target.id].colony = { ...structuredClone(colonyOf(s, BETA)), population: 2 };
     const step = processTurn(s, content);

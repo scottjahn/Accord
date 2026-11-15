@@ -246,7 +246,7 @@ describe('expand and build a navy', () => {
   function settleTarget(state: GameState): StarSystem {
     const settlers = fleetsOf(state, HUMAN).find((f) => f.ships.some((s) => s.hull === 'colony_ship'))!;
     const target = Object.values(state.systems).find(
-      (s) => !validateCommand(state, { type: 'coloniseSystem', empire: HUMAN, fleet: settlers.id, system: s.id }, content),
+      (s) => validateCommand(state, { type: 'coloniseSystem', empire: HUMAN, fleet: settlers.id, system: s.id }, content)?.code === 'notThere',
     );
     if (!target) throw new Error('This seed has no free system in reach of the home system');
     return target;

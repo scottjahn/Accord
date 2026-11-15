@@ -213,7 +213,7 @@ export interface Ship {
   hp: number;
 }
 
-/** 'colonise' founds a colony with one colony ship when the fleet reaches its destination. */
+/** 'colonise' founds a colony where the fleet is, with one colony ship, when the turn resolves. */
 export type FleetOrder = 'none' | 'colonise' | 'invade';
 
 export interface Fleet {
