@@ -71,8 +71,8 @@ export function TopBar({ state, content, player, onEndTurn, onSkipAhead, onHelp,
         </div>
       </dl>
       <div className="topbar-actions">
-        <button type="button" className="btn" onClick={onQuit}>
-          Main menu
+        <button type="button" className="btn" onClick={onQuit} aria-label="Main menu" title="Back to the main menu; the game is saved">
+          Menu
         </button>
         <button type="button" className="btn" onClick={onHelp} aria-label="Help" title="How to play and keyboard shortcuts (H)">
           ?

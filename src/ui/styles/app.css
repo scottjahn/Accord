@@ -257,7 +257,7 @@ legend,
 .topbar {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   padding: 8px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -276,7 +276,7 @@ legend,
 }
 .topbar-stats {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   margin-right: auto;
 }
 .topbar-stats dt {
@@ -291,7 +291,8 @@ legend,
 }
 .topbar-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .game-body {
   display: grid;
