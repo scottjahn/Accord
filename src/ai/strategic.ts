@@ -44,7 +44,7 @@ export function scorePostures(
   const raw: Record<Posture, number> = {
     expand: free === 0 ? 0 : 50 + 20 * Math.min(free, 5),
     develop: Math.floor((50 + (free === 0 ? 40 : 0) + (fill < 50 ? 20 : 0)) / (fighting ? 2 : 1)),
-    war: rivalColonies === 0 ? 0 : (fighting ? 80 : 0) + (free === 0 ? 60 : 0) + (strong ? 30 : 0) + (known.turn >= 60 ? 10 : 0),
+    war: rivalColonies === 0 ? 0 : (fighting ? 80 : 0) + (free === 0 ? 60 : 0) + (strong ? 30 + personality.earlyWar : 0) + (known.turn >= 60 ? 10 : 0),
     // Fortifying is for the weak: once the navy matches its target it stops being attractive.
     fortify: threatened === 0 ? 10 : thin ? 85 : 30,
   };

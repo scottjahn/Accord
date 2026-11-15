@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  victoryPaths,
   TREATY_TYPES,
   atWar,
   coloniesOf,
@@ -231,6 +232,19 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
               </li>
             );
           })}
+        </ul>
+
+        <h3 className="spaced">Ways to win</h3>
+        <ul className="planet-list" aria-label="Ways to win">
+          {victoryPaths(state, player, content).map((path) => (
+            <li key={path.kind}>
+              <span>
+                {path.label}{' '}
+                <strong data-testid={`victory-${path.kind}`}>{path.need > 0 ? `${path.have} / ${path.need}` : path.have}</strong>
+              </span>
+              <span className="muted">{path.note}</span>
+            </li>
+          ))}
         </ul>
 
         <h3 className="spaced">Minor races</h3>

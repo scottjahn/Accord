@@ -26,6 +26,8 @@ Read `DESIGN.md` for the game design and milestone list.
 - **Credits are an empire stock with a traced income.** `creditIncome` returns the lines; spending goes through `buyOut`, `giftCredits`, `buyMembership` and `hireMercenaries`. A bought membership is a pledge in `state.pledges` that joins when the turn resolves, so the buyer gains no sight mid-turn.
 - **What makes a power different is data.** `faction.traits`, and `faction` on a building or hull, live in `src/data`; the fixture leaves every trait off, so tests switch on the one they are about.
 - **Cloaking only changes what is seen.** `cloakedFrom` feeds `getEmpireView` and `redactFor`; no command's legality may depend on a rival fleet. Allies are never fooled.
+- **Victories are rules data.** `rules.victory` sets the research, wealth and score victories (0 turns one off, as the fixture does); domination scales with the number of empires through `dominationShareOf`. `victoryPaths` gives the UI one empire's own progress.
+- **Balance is measured, not guessed.** `npm run balance` plays all five powers across the machine's cores; try numbers with `--tweak "path=value;..."` before editing `src/data`. The bar is every power at 15-25% over 1,000 games with no stalls; the last full result is in `reports/balance-1000.txt`. AI defence ranges live in `ai.json` under `defence`.
 - **Combat is exact in rule tests.** The fixture sets `minRollPercent` to 100 so every shot does full damage; tests that are about randomness lower it themselves.
 - **Long AI runs are opt-in.** `npm test` plays 4 full AI games for the conquest exit test; `npm run test:long` plays 20. Use `npm run batch` when tuning.
 - **Agents return only legal commands.** `playTurn` throws on an illegal one. Check with `validateCommand` against a working copy, as `baselineAgent` does.
@@ -39,6 +41,7 @@ Read `DESIGN.md` for the game design and milestone list.
 - `npm test` — run all Vitest tests (about a minute)
 - `npm run test:long` — the 20-game conquest exit test (several minutes)
 - `npm run typecheck` — `tsc --noEmit`
+- `npm run balance -- --games 1000 --jobs 10` — the five-power balance report (about 30 minutes for 1,000 games); add `--tweak "rules.victory.wealthCredits=12000"` to trial a change
 - `npm run headless -- --seed 1 --turns 500 --preset small` — run an AI-vs-AI game headless
 - `npm run batch -- --games 20 --turns 100 --a standard --b baseline` — play many AI-vs-AI games and compare the two agents
 

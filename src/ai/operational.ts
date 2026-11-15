@@ -20,6 +20,9 @@ const RESEARCH_FOCUS: Record<Posture, Partial<Record<FieldId, number>>> = {
   war: { weapons: 200, energy: 150, propulsion: 150 },
 };
 
+/** How much a field a minor race admires is favoured (percent). */
+const ADMIRED_FOCUS = 200;
+
 /** Scales weights to whole percents that sum to exactly 100. */
 export function toPercents(weights: Record<FieldId, number>): Record<FieldId, number> {
   const total = FIELDS.reduce((sum, f) => sum + weights[f], 0);
@@ -35,7 +38,14 @@ export function toPercents(weights: Record<FieldId, number>): Record<FieldId, nu
 }
 
 /** Turns a posture into this turn's targets. */
-export function setTargets(posture: Posture, picture: Picture, personality: Personality, minorsToConquer = 0): Targets {
+export function setTargets(
+  posture: Posture,
+  picture: Picture,
+  personality: Personality,
+  minorsToConquer = 0,
+  /** Fields a minor race worth courting wants to see advanced; they get extra weight. */
+  admired: FieldId[] = [],
+): Targets {
   const colonies = picture.colonies.length;
   const free = picture.opportunities.length;
 
@@ -51,7 +61,9 @@ export function setTargets(posture: Posture, picture: Picture, personality: Pers
   const strikeSize = Math.min(8, Math.max(3, Math.floor(warships / 2)));
 
   const weights = {} as Record<FieldId, number>;
-  for (const field of FIELDS) weights[field] = personality.research[field] * (RESEARCH_FOCUS[posture][field] ?? 100);
+  for (const field of FIELDS) {
+    weights[field] = personality.research[field] * (RESEARCH_FOCUS[posture][field] ?? 100) * (admired.includes(field) ? ADMIRED_FOCUS : 100);
+  }
 
   return { settlers, scouts, warships, transports, strikeSize, research: toPercents(weights) };
 }

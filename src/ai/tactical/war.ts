@@ -38,6 +38,31 @@ export function knownColoniesOf(known: GameState, empireId: EmpireId, owners: Em
     .sort((a, b) => distance(a) - distance(b) || (a.id < b.id ? -1 : 1));
 }
 
+/**
+ * Own colonies with an enemy fleet in sight nearby that could hurt them: one
+ * carrying guns or troops that has left its own colonies. Nearest threat first.
+ */
+export function threatenedColonies(known: GameState, empireId: EmpireId, content: Content): StarSystem[] {
+  const enemies = enemiesOf(known, empireId);
+  if (enemies.length === 0 || content.ai.defence.responseRange === 0) return [];
+  const hostile = enemies
+    .flatMap((id) => fleetsOf(known, id))
+    .filter((f) => f.ships.some((s) => (content.hulls[s.hull]?.attack ?? 0) > 0 || (content.hulls[s.hull]?.troops ?? 0) > 0))
+    // A guard sitting over its own colony is no threat, however near the border runs.
+    .filter((f) => !Object.values(known.systems).some((s) => s.colony?.owner === f.owner && sameSector(s.sector, f.sector)));
+  const danger = (s: StarSystem) => hostile.reduce((best, f) => Math.min(best, sectorDistance(f.sector, s.sector)), Infinity);
+  return coloniesOf(known, empireId)
+    .filter((s) => danger(s) <= content.ai.defence.alarmRange)
+    .sort((a, b) => danger(a) - danger(b) || (a.id < b.id ? -1 : 1));
+}
+
+/** The threatened colony this fleet should go to the aid of, if one is close enough. */
+export function colonyToDefend(fleet: Fleet, threatened: StarSystem[], content: Content): StarSystem | undefined {
+  return threatened
+    .filter((s) => sectorDistance(s.sector, fleet.sector) <= content.ai.defence.responseRange)
+    .sort((a, b) => sectorDistance(a.sector, fleet.sector) - sectorDistance(b.sector, fleet.sector) || (a.id < b.id ? -1 : 1))[0];
+}
+
 /** A rough measure of what a set of fleets can do in a fight. */
 export function fleetPower(fleets: Fleet[], content: Content): number {
   let power = 0;
@@ -96,10 +121,17 @@ export function wageWar(plan: Planner, empireId: EmpireId, content: Content, str
   const staging = nearest(colonies, target.sector)!;
   const yards = colonies.filter((c) => (c.colony!.buildings[yard] ?? 0) > 0);
 
+  const threatened = threatenedColonies(plan.state, empireId, content);
   for (const { id } of warFleets()) {
     const fleet = plan.state.fleets[id];
     if (!fleet || !idle(fleet)) continue;
     if (fleet.stance !== 'engage') plan.attempt({ type: 'setStance', empire: empireId, fleet: id, stance: 'engage' });
+    // Home comes first: a fleet near a colony under threat goes to it, unless it is already at the enemy's door.
+    const rescue = sameSector(fleet.sector, target.sector) ? undefined : colonyToDefend(fleet, threatened, content);
+    if (rescue) {
+      if (!sameSector(fleet.sector, rescue.sector)) plan.attempt({ type: 'moveFleet', empire: empireId, fleet: id, to: rescue.sector });
+      continue;
+    }
 
     const docked = yards.some((y) => sameSector(y.sector, fleet.sector));
     if (hullPercent(fleet) < RETREAT_PERCENT || (docked && hullPercent(fleet) < 90)) {
@@ -112,7 +144,9 @@ export function wageWar(plan: Planner, empireId: EmpireId, content: Content, str
   }
 
   // Combine what has gathered into one strike fleet and send it when it is big enough.
-  const gathered = warFleets().filter((f) => idle(f) && sameSector(f.sector, staging.sector) && hullPercent(f) >= 90);
+  const gathered = warFleets().filter(
+    (f) => idle(f) && sameSector(f.sector, staging.sector) && hullPercent(f) >= 90 && !threatened.some((s) => sameSector(s.sector, f.sector)),
+  );
   if (gathered.length > 0) {
     const [lead, ...rest] = gathered;
     for (const other of rest) plan.attempt({ type: 'mergeFleets', empire: empireId, from: other.id, into: lead.id });

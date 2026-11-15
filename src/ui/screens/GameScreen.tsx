@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { idleText } from '../format';
+import { idleText, victoryText } from '../format';
 import { saveFileName } from '../../game/persistence';
 import type { GameSession } from '../../game/session';
 import {
@@ -259,13 +259,7 @@ export function GameScreen({ session, onQuit }: Props) {
           <div className="modal result" role="dialog" aria-modal="true" aria-label="Game over">
             <h2>{state.winner === player ? 'Victory' : 'Defeat'}</h2>
             <p>
-              {state.winner === player
-                ? state.victory === 'accord'
-                  ? 'The powers have joined the Accord under your leadership, without conquest.'
-                  : 'Your rivals are beaten. The galaxy is yours.'
-                : state.victory === 'accord'
-                  ? `${content.factions[state.empires[state.winner!].faction].name} leads the Accord. The game is theirs.`
-                : `${content.factions[state.empires[state.winner!].faction].name} has won the game.`}
+              {victoryText(state.victory, content.factions[state.empires[state.winner!].faction].name, state.winner === player)}
             </p>
             <p className="muted">The game ended on turn {state.turn - 1}.</p>
             <div className="fleet-actions">

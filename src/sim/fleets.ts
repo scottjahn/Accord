@@ -145,7 +145,9 @@ export function empireSupport(state: GameState, empireId: EmpireId, content: Con
     }
   }
   const rules = content.rules.fleets;
-  return { used, cap: rules.supportBase + Math.floor(population / rules.populationPerSupport) };
+  const base = rules.supportBase + Math.floor(population / rules.populationPerSupport);
+  const bonus = content.factions[state.empires[empireId]?.faction]?.traits.supportPercent ?? 0;
+  return { used, cap: Math.floor((base * (100 + bonus)) / 100) };
 }
 
 export function refitCost(hull: HullDef, content: Content): number {

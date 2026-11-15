@@ -13,12 +13,14 @@ import {
 } from '../../sim';
 import type { Planner } from '../agent';
 import { threatDistance, type Picture } from '../maps';
+import { colonyToDefend, threatenedColonies } from './war';
 
 /**
  * Gives orders to idle fleets:
  * - colony ships go to the best free system nobody else is heading for;
  * - scouts go to the nearest unexplored system in their range;
- * - warships spread out so every colony has a guard, the most threatened first.
+ * - warships spread out so every colony has a guard, the most threatened first,
+ *   and gather at a colony with an enemy fleet bearing down on it.
  */
 export function directFleets(plan: Planner, empireId: EmpireId, content: Content, posture: Posture, picture: Picture): void {
   // At war the navy is run by wageWar instead of being spread out as guards.
@@ -78,9 +80,17 @@ export function directFleets(plan: Planner, empireId: EmpireId, content: Content
   ];
   const needAt = (sector: { x: number; y: number }) => (posture === 'fortify' && threatDistance(picture, sector) <= 4 ? 2 : 1);
 
+  // Under attack the guards stop standing alone: those in reach gather at the colony in danger.
+  const threatened = guard ? threatenedColonies(plan.state, empireId, content) : [];
   for (const { id } of guard ? warFleets : []) {
     const fleet = plan.state.fleets[id];
     if (!idle(fleet)) continue;
+    const rescue = colonyToDefend(fleet, threatened, content);
+    if (rescue) {
+      if (fleet.stance !== 'engage') plan.attempt({ type: 'setStance', empire: empireId, fleet: id, stance: 'engage' });
+      if (!sameSector(fleet.sector, rescue.sector)) plan.attempt({ type: 'moveFleet', empire: empireId, fleet: id, to: rescue.sector });
+      continue;
+    }
     const here = posts.find((c) => sameSector(c.sector, fleet.sector));
     if (here && (guards.get(sectorKey(here.sector)) ?? 0) <= needAt(here.sector)) continue; // needed where it is
     for (const post of posts) {

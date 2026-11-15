@@ -92,10 +92,20 @@ export interface Personality {
   counterIntel: number;
   /** Percent of the intel pool it spends each turn on operations against rivals. */
   espionage: number;
+  /** Added to the appeal of war when the navy is clearly stronger, even with room left to settle. */
+  earlyWar: number;
+  /** Once the treasury is this percent of the wealth victory, stop spending and save for it; 0 never saves. */
+  thrift: number;
 }
 
 export interface AiContent {
   personalities: Record<FactionId, Personality>;
+  defence: {
+    /** How close an enemy fleet must come to a colony before the navy answers. */
+    alarmRange: number;
+    /** How far a warship will travel to answer; 0 means colonies are left to their guards. */
+    responseRange: number;
+  };
 }
 
 export interface ResearchRules {
@@ -159,6 +169,16 @@ export interface DiplomacyRules {
   researchPactPercent: number;
   /** Share of the galaxy's minor races an empire must hold as members for the Accord victory; 0 turns it off. */
   accordMemberPercent: number;
+}
+
+export interface VictoryRules {
+  /** A treasury this large wins the game; 0 turns the wealth victory off. */
+  wealthCredits: number;
+  /** Field levels, added up, that win the game; 0 turns the research victory off. */
+  researchLevels: number;
+  /** After this turn the highest score wins; 0 lets the game run for ever. */
+  scoreTurn: number;
+  score: { perPopulation: number; perColony: number; perResearchLevel: number; perMember: number; creditsPerPoint: number };
 }
 
 export interface CreditRules {
@@ -233,6 +253,8 @@ export interface CombatRules {
    * leaving only total conquest.
    */
   dominationPercent: number;
+  /** Share of the other empires' home systems a dominant empire must hold, rounded up. */
+  dominationHomesPercent: number;
 }
 
 export interface FleetRules {
@@ -291,6 +313,10 @@ export interface FactionTraits {
   moraleCeiling: number;
   /** Percent added to the garrison of every colony. */
   garrisonPercent: number;
+  /** Percent added to the attack of every ship and battery. */
+  attackPercent: number;
+  /** Percent added to the fleet support cap. */
+  supportPercent: number;
   /** Can buy a minor race's membership outright with credits. */
   buysMinors: boolean;
   /** Can hire warships on the spot with credits. */
@@ -371,6 +397,7 @@ export interface Rules {
   diplomacy: DiplomacyRules;
   intel: IntelRules;
   credits: CreditRules;
+  victory: VictoryRules;
 }
 
 export interface Content {
@@ -447,9 +474,9 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
     if (f.rival === undefined) f.rival = Object.keys(factions).find((other) => other !== id) ?? id;
     if (typeof f.rival !== 'string' || !factions[f.rival]) errors.push(`factions.${id}: rival must be another faction`);
-    f.traits = { creditsPercent: 0, moraleCeiling: 0, garrisonPercent: 0, buysMinors: false, hiresMercenaries: false, cloakFromEra: 0, ...(isObj(f.traits) ? f.traits : {}) };
+    f.traits = { creditsPercent: 0, moraleCeiling: 0, garrisonPercent: 0, attackPercent: 0, supportPercent: 0, buysMinors: false, hiresMercenaries: false, cloakFromEra: 0, ...(isObj(f.traits) ? f.traits : {}) };
     const ft = f.traits as Obj;
-    if (!isInt(ft.creditsPercent) || !isNat(ft.moraleCeiling) || !isInt(ft.garrisonPercent) || !isNat(ft.cloakFromEra) || typeof ft.buysMinors !== 'boolean' || typeof ft.hiresMercenaries !== 'boolean') {
+    if (!isInt(ft.creditsPercent) || !isNat(ft.moraleCeiling) || !isInt(ft.garrisonPercent) || !isInt(ft.attackPercent) || !isInt(ft.supportPercent) || !isNat(ft.cloakFromEra) || typeof ft.buysMinors !== 'boolean' || typeof ft.hiresMercenaries !== 'boolean') {
       errors.push(`factions.${id}: traits has a value of the wrong kind`);
     }
     if (f.grudgePercent === undefined) f.grudgePercent = 100;
@@ -764,6 +791,18 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
   }
 
+  const victory = isObj(rules) ? rules.victory : undefined;
+  if (!isObj(victory) || !isObj(victory.score)) {
+    errors.push('rules.victory: must be an object with a score');
+  } else {
+    for (const key of ['wealthCredits', 'researchLevels', 'scoreTurn'] as const) {
+      if (!isNat(victory[key])) errors.push(`rules.victory.${key}: must be an integer >= 0`);
+    }
+    for (const key of ['perPopulation', 'perColony', 'perResearchLevel', 'perMember', 'creditsPerPoint'] as const) {
+      if (!isNat(victory.score[key])) errors.push(`rules.victory.score.${key}: must be an integer >= 0`);
+    }
+  }
+
   const credits = isObj(rules) ? rules.credits : undefined;
   if (!isObj(credits)) {
     errors.push('rules.credits: must be an object');
@@ -781,7 +820,7 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     errors.push('rules.combat: must be an object');
   } else {
     if (!isPos(combat.maxRounds)) errors.push('rules.combat.maxRounds: must be a positive integer');
-    for (const key of ['minRollPercent', 'evadeFirePercent', 'repairPercent', 'captureLossPercent', 'captureBuildingLossPercent', 'dominationPercent'] as const) {
+    for (const key of ['minRollPercent', 'evadeFirePercent', 'repairPercent', 'captureLossPercent', 'captureBuildingLossPercent', 'dominationPercent', 'dominationHomesPercent'] as const) {
       if (!isNat(combat[key]) || (combat[key] as number) > 100) errors.push(`rules.combat.${key}: must be an integer from 0 to 100`);
     }
     if (isNat(combat.minRollPercent) && (combat.minRollPercent as number) < 1) errors.push('rules.combat.minRollPercent: must be at least 1');
@@ -794,12 +833,20 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
   }
 
   const ai = raw.ai;
+  if (isObj(ai)) {
+    if (ai.defence === undefined) ai.defence = { alarmRange: 0, responseRange: 0 };
+    if (!isObj(ai.defence) || !isNat(ai.defence.alarmRange) || !isNat(ai.defence.responseRange)) errors.push('ai.defence: needs alarmRange and responseRange');
+  }
   const personalities = isObj(ai) ? ai.personalities : undefined;
   if (!isObj(personalities)) {
     errors.push('ai.personalities: must be an object');
   } else {
     for (const id of Object.keys(factions)) {
       const p = personalities[id];
+      if (isObj(p)) {
+        if (p.earlyWar === undefined) p.earlyWar = 0;
+        if (p.thrift === undefined) p.thrift = 0;
+      }
       const valid =
         isObj(p) &&
         isObj(p.posture) &&
@@ -813,7 +860,9 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
         isNat(p.conquersMinors) &&
         isNat(p.honour) &&
         isNat(p.counterIntel) &&
-        isNat(p.espionage);
+        isNat(p.espionage) &&
+        isNat(p.earlyWar) &&
+        isNat(p.thrift);
       if (!valid) errors.push(`ai.personalities.${id}: needs posture, research, warshipsPerColony, scouts, minorInfluence, conquersMinors, honour, counterIntel and espionage`);
     }
   }

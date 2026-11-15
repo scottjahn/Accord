@@ -264,7 +264,7 @@ export interface GameState {
   /** Set when only one empire is left; the game is then over. */
   winner: EmpireId | null;
   /** How the game was won, once it has been. */
-  victory: 'conquest' | 'domination' | 'accord' | null;
+  victory: 'conquest' | 'domination' | 'accord' | 'research' | 'wealth' | 'score' | null;
   /** Treaties in force. */
   treaties: Treaty[];
   /** Treaties that lapsed, by pair and type, so a prompt renewal keeps the years of friendship. */

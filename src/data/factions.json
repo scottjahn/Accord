@@ -4,7 +4,7 @@
     "name": "The Concord",
     "color": "#4da3ff",
     "outputModifiers": {
-      "research": 10
+      "research": 20
     },
     "morale": {
       "events": {
@@ -22,7 +22,8 @@
     "name": "Vashran Dominate",
     "color": "#e5533d",
     "outputModifiers": {
-      "industry": 10
+      "industry": 25,
+      "research": -15
     },
     "morale": {
       "events": {
@@ -31,17 +32,22 @@
         "minorConquered": 0,
         "battleWon": 6
       },
-      "peacePerTenTurns": -2
+      "peacePerTenTurns": -1
     },
     "grudgePercent": 200,
-    "rival": "concord"
+    "rival": "concord",
+    "traits": {
+      "attackPercent": 25,
+      "supportPercent": 30
+    }
   },
   {
     "id": "veiled",
     "name": "The Veiled Throne",
     "color": "#9b6cff",
     "outputModifiers": {
-      "intel": 100
+      "intel": 100,
+      "research": 10
     },
     "morale": {
       "events": {},
@@ -58,7 +64,8 @@
     "name": "Kessic Union",
     "color": "#d9a441",
     "outputModifiers": {
-      "industry": 20
+      "industry": 20,
+      "research": -3
     },
     "morale": {
       "events": {
@@ -71,14 +78,17 @@
     "rival": "vashran",
     "traits": {
       "moraleCeiling": 110,
-      "garrisonPercent": 50
+      "garrisonPercent": 50,
+      "attackPercent": 8
     }
   },
   {
     "id": "orrin",
     "name": "Orrin Exchange",
     "color": "#3fc7a8",
-    "outputModifiers": {},
+    "outputModifiers": {
+      "research": -20
+    },
     "morale": {
       "events": {
         "warDeclared": -10

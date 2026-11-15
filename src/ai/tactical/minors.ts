@@ -4,6 +4,8 @@ import {
   sectorDistance,
   type Content,
   type EmpireId,
+  type FieldId,
+  type GameState,
   type Personality,
   type StarSystem,
 } from '../../sim';
@@ -22,6 +24,23 @@ const attitudeOf = (system: StarSystem, empireId: EmpireId, fallback: number): n
 export function conquestTargets(picture: Picture, empireId: EmpireId, content: Content, personality: Personality): StarSystem[] {
   if (personality.conquersMinors === 0 || picture.colonies.length < 3) return [];
   return picture.minors.filter((s) => attitudeOf(s, empireId, content.rules.minors.startAttitude) < COLD_ATTITUDE);
+}
+
+/**
+ * Research fields that would win over a minor race this power is courting: the
+ * favoured field of each one that wants technology, until the level it asks for is reached.
+ */
+export function admiredFields(known: GameState, picture: Picture, empireId: EmpireId, content: Content, personality: Personality): FieldId[] {
+  if (personality.minorInfluence === 0) return [];
+  const spared = new Set(conquestTargets(picture, empireId, content, personality).map((s) => s.id));
+  const levels = known.empires[empireId].research.levels;
+  const fields = new Set<FieldId>();
+  for (const system of picture.minors) {
+    const def = system.minor ? content.minors[system.minor.race] : undefined;
+    if (!def || spared.has(system.id) || !def.wants.includes('technology')) continue;
+    if (levels[def.favouredField] < def.techLevel) fields.add(def.favouredField);
+  }
+  return [...fields].sort();
 }
 
 /**

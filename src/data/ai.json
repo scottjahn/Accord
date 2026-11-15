@@ -4,7 +4,7 @@
       "posture": {
         "expand": 100,
         "develop": 115,
-        "fortify": 80,
+        "fortify": 100,
         "war": 70
       },
       "research": {
@@ -15,7 +15,7 @@
         "computing": 25,
         "weapons": 10
       },
-      "warshipsPerColony": 50,
+      "warshipsPerColony": 80,
       "scouts": 2,
       "minorInfluence": 100,
       "conquersMinors": 0,
@@ -44,7 +44,8 @@
       "conquersMinors": 1,
       "honour": 40,
       "counterIntel": 20,
-      "espionage": 40
+      "espionage": 40,
+      "earlyWar": 100
     },
     "veiled": {
       "posture": {
@@ -90,7 +91,8 @@
       "conquersMinors": 1,
       "honour": 70,
       "counterIntel": 30,
-      "espionage": 10
+      "espionage": 10,
+      "earlyWar": 30
     },
     "orrin": {
       "posture": {
@@ -113,7 +115,12 @@
       "conquersMinors": 0,
       "honour": 80,
       "counterIntel": 30,
-      "espionage": 10
+      "espionage": 10,
+      "thrift": 15
     }
+  },
+  "defence": {
+    "alarmRange": 2,
+    "responseRange": 5
   }
 }

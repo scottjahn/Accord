@@ -16,7 +16,7 @@
     1,
     5
   ],
-  "startingPopulation": 10,
+  "startingPopulation": 14,
   "startingAllocation": {
     "food": 6,
     "industry": 2,
@@ -26,9 +26,10 @@
   },
   "startingBuildings": {
     "farm": 1,
-    "factory": 1,
-    "reactor": 1,
-    "shipyard": 1
+    "factory": 2,
+    "reactor": 2,
+    "shipyard": 1,
+    "lab": 1
   },
   "governors": {
     "balanced": {
@@ -97,7 +98,8 @@
     "garrisonPerPopulation": 1,
     "captureLossPercent": 25,
     "captureBuildingLossPercent": 50,
-    "dominationPercent": 67
+    "dominationPercent": 67,
+    "dominationHomesPercent": 25
   },
   "morale": {
     "outputPercent": 50,
@@ -284,12 +286,24 @@
   },
   "credits": {
     "perPopulationPercent": 30,
-    "idleIndustryPercent": 100,
+    "idleIndustryPercent": 25,
     "perTreaty": 3,
     "buyOutPerPoint": 2,
     "giftSize": 50,
-    "membershipCost": 400,
+    "membershipCost": 1200,
     "mercenaryCostPercent": 300,
     "starting": 0
+  },
+  "victory": {
+    "wealthCredits": 11500,
+    "researchLevels": 60,
+    "scoreTurn": 400,
+    "score": {
+      "perPopulation": 1,
+      "perColony": 5,
+      "perResearchLevel": 3,
+      "perMember": 10,
+      "creditsPerPoint": 1000
+    }
   }
 }

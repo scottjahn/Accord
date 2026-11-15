@@ -39,6 +39,10 @@ export function spendCredits(
   const credits = () => plan.state.empires[empireId].credits;
   const fighting = posture === 'war' || enemiesOf(plan.state, empireId).length > 0;
 
+  // A power saving for the wealth victory stops spending once it is within sight.
+  const goal = content.rules.victory.wealthCredits;
+  if (goal > 0 && personality.thrift > 0 && credits() * 100 >= goal * personality.thrift) return;
+
   if (traits.buysMinors) {
     const spared = new Set(conquestTargets(picture, empireId, content, personality).map((s) => s.id));
     const start = content.rules.minors.startAttitude;

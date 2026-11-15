@@ -110,7 +110,7 @@ function main(): void {
   }
   const decided = results.filter((g) => g.winner !== null);
   const lengths = decided.map((g) => g.turns).sort((a, b) => a - b);
-  const kinds = ['conquest', 'domination', 'accord'].map((k) => `${k} ${decided.filter((g) => g.victory === k).length}`).join(', ');
+  const kinds = ['conquest', 'domination', 'accord', 'research', 'wealth', 'score'].map((k) => `${k} ${decided.filter((g) => g.victory === k).length}`).join(', ');
   console.log(`victories: ${kinds}; games with no war at all: ${results.filter((g) => !g.war).length}`);
   console.log(
     `games with a winner: ${decided.length} of ${games}` +

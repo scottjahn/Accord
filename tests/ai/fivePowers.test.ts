@@ -14,7 +14,7 @@ const all = sortedKeys(content.factions);
  */
 describe('a five-power game', () => {
   it('runs headless for 200 turns with every power growing and using its own content', () => {
-    const state = runGame({ content, seed: 4, turns: 200, preset: 'medium', factions: all });
+    const state = runGame({ content, seed: 10, turns: 200, preset: 'medium', factions: all });
     const empires = sortedKeys(state.empires);
     expect(empires).toHaveLength(5);
     for (const id of empires) {

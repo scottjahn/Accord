@@ -156,7 +156,7 @@ describe('war through the UI', () => {
 
   it('shows what defends a colony', () => {
     resume();
-    expect(screen.getByTestId('garrison').textContent).toBe('10');
+    expect(screen.getByTestId('garrison').textContent).toBe('14');
     expect(screen.getByText(/No orbital batteries/)).toBeTruthy();
   });
 
@@ -200,7 +200,7 @@ describe('war through the UI', () => {
     const invasion = screen.getByRole('dialog', { name: `Invasion of ${enemyHome.name}` });
     expect(within(invasion).getByText('6 transports')).toBeTruthy();
     expect(within(invasion).getByText(/^Population \d+$/)).toBeTruthy();
-    expect(within(invasion).getByText(/Roll \d+%: \d+ of 90 troops counted/)).toBeTruthy();
+    expect(within(invasion).getByText(/Roll \d+%: \d+ of \d+ troops counted/)).toBeTruthy();
   });
 
   it('shows defeat when a rival wins', () => {

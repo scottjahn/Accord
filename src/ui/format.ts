@@ -103,6 +103,8 @@ export function factionText(def: FactionDef): string {
     (kind) => `${signed(def.outputModifiers[kind]!)}% ${OUTPUT_LABELS[kind].toLowerCase()}`,
   );
   if (t.creditsPercent !== 0) parts.push(`${signed(t.creditsPercent)}% credits`);
+  if (t.attackPercent !== 0) parts.push(`${signed(t.attackPercent)}% attack`);
+  if (t.supportPercent !== 0) parts.push(`${signed(t.supportPercent)}% fleet support`);
   if (t.garrisonPercent !== 0) parts.push(`${signed(t.garrisonPercent)}% garrison`);
   if (t.moraleCeiling > 0) parts.push(`morale never above ${t.moraleCeiling}`);
   if (t.buysMinors) parts.push('can buy the loyalty of minor races');
@@ -116,6 +118,24 @@ export function modifiersText(modifiers: Partial<Record<OutputKind, number>>): s
     (kind) => `${signed(modifiers[kind]!)}% ${OUTPUT_LABELS[kind].toLowerCase()}`,
   );
   return parts.length > 0 ? parts.join(', ') : 'No modifiers';
+}
+
+/** How the game ended, told to the winner or to everyone else. */
+export function victoryText(victory: GameState['victory'], winnerName: string, mine: boolean): string {
+  switch (victory) {
+    case 'accord':
+      return mine ? 'The powers have joined the Accord under your leadership, without conquest.' : `${winnerName} leads the Accord. The game is theirs.`;
+    case 'research':
+      return mine ? 'Your scholars have mastered every field. No rival can catch you now.' : `${winnerName} has mastered every field of research. The game is theirs.`;
+    case 'wealth':
+      return mine ? 'Your treasury outweighs the rest of the galaxy. Everything has its price, and you can pay it.' : `${winnerName} has bought the galaxy. The game is theirs.`;
+    case 'score':
+      return mine ? 'Time has run out, and yours is the greatest power in the galaxy.' : `Time has run out. ${winnerName} stands above the rest.`;
+    case 'domination':
+      return mine ? 'Your rivals cannot stand against you. The galaxy is yours.' : `${winnerName} has overpowered its rivals. The game is theirs.`;
+    default:
+      return mine ? 'Your rivals are beaten. The galaxy is yours.' : `${winnerName} has won the game.`;
+  }
 }
 
 /** Whether an event belongs in this player's turn report. */

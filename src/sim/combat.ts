@@ -1,4 +1,5 @@
 import type { Content } from './content';
+import { dominationShareOf, researchWinner, scoreWinner, wealthWinner } from './victory';
 import { applyGovernor } from './economy/governor';
 import { maxPopulationOf } from './economy/outputs';
 import { coloniesOf, findPath, fleetsOf, systemAt } from './fleets';
@@ -48,6 +49,7 @@ export function combatBonuses(state: GameState, empireId: EmpireId, content: Con
     shield += content.fields[field].combat.shieldPercent * levels[field];
   }
   attack += memberBonuses(state, empireId, content, 'attack').reduce((sum, line) => sum + line.value, 0);
+  attack += content.factions[state.empires[empireId].faction]?.traits.attackPercent ?? 0;
   return { attack, shield: Math.min(75, shield) };
 }
 
@@ -476,7 +478,9 @@ function conquerMinor(state: GameState, system: StarSystem, fleets: Fleet[], con
 /**
  * Eliminates empires with no colony and no colony ship, and declares a winner:
  * the last empire left, or one that dominates (holds the set share of all
- * colonies and every surviving rival's home system). Mutates the state.
+ * colonies and the set share of its rivals' home systems), leads the Accord, has
+ * finished its research or filled its treasury; and after the last turn, the
+ * one with the highest score. Mutates the state.
  */
 export function checkVictory(state: GameState, content: Content, events: TurnEvent[]): void {
   const ids = sortedKeys(state.empires);
@@ -494,20 +498,33 @@ export function checkVictory(state: GameState, content: Content, events: TurnEve
   let winner: EmpireId | null = standing.length === 1 ? standing[0] : null;
   let how: GameState['victory'] = winner === null ? null : 'conquest';
 
-  const share = content.rules.combat.dominationPercent;
+  const share = dominationShareOf(ids.length, content);
   if (winner === null && share > 0) {
+    const homesNeeded = Math.ceil(((ids.length - 1) * content.rules.combat.dominationHomesPercent) / 100);
     const total = sortedKeys(state.systems).filter((id) => state.systems[id].colony).length;
     winner =
       standing.find((id) => {
         const held = coloniesOf(state, id).length;
-        const homes = standing.every((rival) => rival === id || state.systems[state.empires[rival].homeSystem]?.colony?.owner === id);
-        return homes && held * 100 >= total * share;
+        const homes = ids.filter((rival) => rival !== id && state.systems[state.empires[rival].homeSystem]?.colony?.owner === id).length;
+        return homes >= homesNeeded && held * 100 >= total * share;
       }) ?? null;
     if (winner !== null) how = 'domination';
   }
   if (winner === null) {
     winner = accordWinner(state, content);
     if (winner !== null) how = 'accord';
+  }
+  if (winner === null) {
+    winner = researchWinner(state, content);
+    if (winner !== null) how = 'research';
+  }
+  if (winner === null) {
+    winner = wealthWinner(state, content);
+    if (winner !== null) how = 'wealth';
+  }
+  if (winner === null) {
+    winner = scoreWinner(state, content);
+    if (winner !== null) how = 'score';
   }
   if (winner !== null) {
     state.winner = winner;

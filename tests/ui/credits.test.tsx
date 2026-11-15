@@ -153,8 +153,8 @@ describe('choosing opponents', () => {
 
   it('describes what sets each power apart', () => {
     render(<NewGameScreen content={content} saved={null} onStart={vi.fn()} />);
-    expect(screen.getByText('+50% credits, can buy the loyalty of minor races, can hire warships for credits')).toBeTruthy();
-    expect(screen.getByText('+100% intel, cloaked ships from era 3')).toBeTruthy();
-    expect(screen.getByText('+20% industry, +50% garrison, morale never above 110')).toBeTruthy();
+    expect(screen.getByText('-20% research, +50% credits, can buy the loyalty of minor races, can hire warships for credits')).toBeTruthy();
+    expect(screen.getByText('+100% intel, +10% research, cloaked ships from era 3')).toBeTruthy();
+    expect(screen.getByText('+20% industry, -3% research, +8% attack, +50% garrison, morale never above 110')).toBeTruthy();
   });
 });

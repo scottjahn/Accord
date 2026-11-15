@@ -84,8 +84,8 @@ describe('one human turn', () => {
     expect(turn()).toBe('1');
     expect(screen.getAllByText('Vashran Dominate').length).toBeGreaterThan(0);
     expect(screen.getByText(/home system/)).toBeTruthy();
-    expect(screen.getByTestId('population').textContent).toBe('10 / 58');
-    expect(screen.getByTestId('support').textContent).toBe('3 / 8');
+    expect(screen.getByTestId('population').textContent).toBe('14 / 58');
+    expect(screen.getByTestId('support').textContent).toBe('3 / 10');
     expect(screen.getByTestId('idle-fleets').textContent).toBe('2');
     expect(screen.queryByText(/Turn \d+ report/)).toBeNull();
 
@@ -310,7 +310,7 @@ describe('expand and build a navy', () => {
   it('builds a warship at the home shipyard', () => {
     startGame();
     fireEvent.click(button('Build Frigate'));
-    expect(screen.getByTestId('support').textContent).toBe('5 / 8');
+    expect(screen.getByTestId('support').textContent).toBe('5 / 10');
     const frigates = (s: GameState) => fleetsOf(s, HUMAN).flatMap((f) => f.ships).filter((x) => x.hull === 'frigate').length;
     endTurnsUntil((s) => frigates(s) === 1, 30);
     expect(screen.getByText(/Frigate launched/)).toBeTruthy();
