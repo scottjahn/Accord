@@ -63,3 +63,46 @@ export function systemRows(state: GameState, empireId: EmpireId, content: Conten
   }
   return rows;
 }
+
+/** One planet of a system the empire has scanned. */
+export interface PlanetRow {
+  system: SystemId;
+  systemName: string;
+  sector: Sector;
+  /** Which planet of its system this is, counting from 1. */
+  number: number;
+  /** Planet type id, as in content. */
+  type: string;
+  /** The system's status and owner, as in SystemRow. */
+  status: SystemRow['status'];
+  owner: EmpireId | null;
+  /** Room for people on this planet alone. */
+  room: number;
+  /** This planet's own bonuses, in percent. */
+  food: number;
+  energy: number;
+  distance: number;
+  inRange: boolean;
+}
+
+/** Every planet of every system the empire has scanned, system by system. */
+export function planetRows(state: GameState, empireId: EmpireId, content: Content): PlanetRow[] {
+  return systemRows(state, empireId, content).flatMap((row) =>
+    state.systems[row.id].planets.map(
+      (planet, i): PlanetRow => ({
+        system: row.id,
+        systemName: row.name,
+        sector: row.sector,
+        number: i + 1,
+        type: planet.type,
+        status: row.status,
+        owner: row.owner,
+        room: planet.maxPopulation,
+        food: planet.foodBonus,
+        energy: planet.energyBonus,
+        distance: row.distance,
+        inRange: row.inRange,
+      }),
+    ),
+  );
+}
