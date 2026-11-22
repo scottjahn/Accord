@@ -4,7 +4,7 @@
     "name": "The Concord",
     "color": "#4da3ff",
     "outputModifiers": {
-      "research": 20
+      "research": 6
     },
     "morale": {
       "events": {
@@ -37,7 +37,7 @@
     "grudgePercent": 200,
     "rival": "concord",
     "traits": {
-      "attackPercent": 25,
+      "attackPercent": 28,
       "supportPercent": 30
     }
   },
@@ -79,7 +79,7 @@
     "traits": {
       "moraleCeiling": 110,
       "garrisonPercent": 50,
-      "attackPercent": 8
+      "attackPercent": 12
     }
   },
   {

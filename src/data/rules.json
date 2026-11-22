@@ -98,7 +98,7 @@
     "garrisonPerPopulation": 1,
     "captureLossPercent": 25,
     "captureBuildingLossPercent": 50,
-    "dominationPercent": 67,
+    "dominationPercent": 70,
     "dominationHomesPercent": 25
   },
   "morale": {
@@ -295,7 +295,7 @@
     "starting": 0
   },
   "victory": {
-    "wealthCredits": 11500,
+    "wealthCredits": 62000,
     "researchLevels": 60,
     "scoreTurn": 400,
     "score": {

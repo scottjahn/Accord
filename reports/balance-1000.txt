@@ -1,8 +1,9 @@
-medium galaxy, up to 400 turns, seeds 1 to 1000, 10 workers, 1629 s
-1000 games, median length 213 turns, stalled 0 (0.0%)
-  The Concord         223   22.3%   research 209, domination 14
-  Kessic Union        188   18.8%   domination 136, research 52
-  Orrin Exchange      233   23.3%   wealth 210, domination 22, research 1
-  Vashran Dominate    190   19.0%   domination 143, research 47
-  The Veiled Throne   166   16.6%   research 142, domination 24
+medium galaxy, up to 400 turns, seeds 1 to 1000, 10 workers, 2437 s
+1000 games, median length 268 turns, stalled 0 (0.0%)
+last era played for a median 60 turns; 22 (2.2%) over before turn 150
+  The Concord         228   22.8%   research 210, domination 18
+  Kessic Union        182   18.2%   domination 152, research 30
+  Orrin Exchange      223   22.3%   wealth 172, research 32, domination 19
+  Vashran Dominate    174   17.4%   domination 172, research 2
+  The Veiled Throne   193   19.3%   research 169, domination 24
 Games written to reports/balance-1000.json

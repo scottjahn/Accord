@@ -251,11 +251,18 @@ describe('what the AI does with all this', () => {
 });
 
 describe('the balance report', () => {
-  const game = (seed: number, winner: string | null, victory: GameState['victory'], turns: number): BalanceGame => ({ seed, winner, victory, turns, factions: {} });
+  const game = (seed: number, winner: string | null, victory: GameState['victory'], turns: number, lastEra: number | null = null): BalanceGame => ({
+    seed,
+    winner,
+    victory,
+    turns,
+    lastEra,
+    factions: {},
+  });
 
   it('counts wins by power and kind, and a game settled on score as a stall', () => {
     const summary = summarise(
-      [game(1, 'alpha', 'research', 200), game(2, 'alpha', 'domination', 150), game(3, 'beta', 'score', 400), game(4, null, null, 400), game(5, 'beta', 'wealth', 210)],
+      [game(1, 'alpha', 'research', 200, 150), game(2, 'alpha', 'domination', 120), game(3, 'beta', 'score', 400, 300), game(4, null, null, 400, 330), game(5, 'beta', 'wealth', 210, 190)],
       ['alpha', 'beta'],
     );
     expect(summary).toEqual({
@@ -264,6 +271,9 @@ describe('the balance report', () => {
       wins: { alpha: 2, beta: 2 },
       kinds: { alpha: { research: 1, domination: 1 }, beta: { score: 1, wealth: 1 } },
       medianTurns: 210,
+      // One game ended before turn 150; turns in the last era were 50, 0, 100, 70 and 20.
+      early: 1,
+      lastEraTurns: 50,
     });
   });
 

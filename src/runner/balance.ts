@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { loadContent } from '../data';
-import { coloniesOf, empireScore, sortedKeys, type Content, type GameState } from '../sim';
+import { coloniesOf, empireScore, eraOf, sortedKeys, type Content, type GameState } from '../sim';
 import { runGame } from './runGame';
 
 /**
@@ -17,6 +17,8 @@ export interface BalanceGame {
   winner: string | null;
   victory: GameState['victory'];
   turns: number;
+  /** The turn the first empire reached the last era, or null if nobody did. */
+  lastEra: number | null;
   /** Final standing per faction. */
   factions: Record<string, { colonies: number; score: number; eliminated: boolean }>;
 }
@@ -25,7 +27,20 @@ export interface BalanceGame {
 export function playBalanceGame(content: Content, seed: number, turns: number, preset: string, factions: string[]): BalanceGame {
   const shift = seed % factions.length;
   const seated = [...factions.slice(shift), ...factions.slice(0, shift)];
-  const state = runGame({ content, seed, turns, preset, factions: seated, verify: false });
+  const finalEra = content.research.eraThresholds.length;
+  let lastEra: number | null = null;
+  const state = runGame({
+    content,
+    seed,
+    turns,
+    preset,
+    factions: seated,
+    verify: false,
+    onTurn: (s) => {
+      if (lastEra !== null) return;
+      if (sortedKeys(s.empires).some((id) => eraOf(s.empires[id].research, content) >= finalEra)) lastEra = s.turn - 1;
+    },
+  });
   const standing: BalanceGame['factions'] = {};
   for (const id of sortedKeys(state.empires)) {
     const empire = state.empires[id];
@@ -36,6 +51,7 @@ export function playBalanceGame(content: Content, seed: number, turns: number, p
     winner: state.winner === null ? null : state.empires[state.winner].faction,
     victory: state.victory,
     turns: state.turn - 1,
+    lastEra,
     factions: standing,
   };
 }
@@ -48,7 +64,14 @@ export interface BalanceSummary {
   /** Wins by faction and kind of victory. */
   kinds: Record<string, Record<string, number>>;
   medianTurns: number;
+  /** Games over before EARLY_TURN. */
+  early: number;
+  /** Median turns played after the first empire reached the last era; 0 for a game that never got there. */
+  lastEraTurns: number;
 }
+
+/** A game over before this turn is counted as ending early. */
+export const EARLY_TURN = 150;
 
 export function summarise(games: BalanceGame[], factions: string[]): BalanceSummary {
   const wins: Record<string, number> = {};
@@ -66,11 +89,23 @@ export function summarise(games: BalanceGame[], factions: string[]): BalanceSumm
     kinds[game.winner][kind] = (kinds[game.winner][kind] ?? 0) + 1;
   }
   const lengths = games.map((g) => g.turns).sort((a, b) => a - b);
-  return { games: games.length, stalls, wins, kinds, medianTurns: lengths[Math.floor(lengths.length / 2)] ?? 0 };
+  const lateEra = games.map((g) => (g.lastEra === null ? 0 : g.turns - g.lastEra)).sort((a, b) => a - b);
+  return {
+    games: games.length,
+    stalls,
+    wins,
+    kinds,
+    medianTurns: lengths[Math.floor(lengths.length / 2)] ?? 0,
+    early: games.filter((g) => g.turns < EARLY_TURN).length,
+    lastEraTurns: lateEra[Math.floor(lateEra.length / 2)] ?? 0,
+  };
 }
 
 export function reportText(summary: BalanceSummary, content: Content): string {
-  const lines = [`${summary.games} games, median length ${summary.medianTurns} turns, stalled ${summary.stalls} (${percent(summary.stalls, summary.games)})`];
+  const lines = [
+    `${summary.games} games, median length ${summary.medianTurns} turns, stalled ${summary.stalls} (${percent(summary.stalls, summary.games)})`,
+    `last era played for a median ${summary.lastEraTurns} turns; ${summary.early} (${percent(summary.early, summary.games)}) over before turn ${EARLY_TURN}`,
+  ];
   for (const faction of Object.keys(summary.wins)) {
     const kinds = Object.entries(summary.kinds[faction])
       .sort((a, b) => b[1] - a[1])
