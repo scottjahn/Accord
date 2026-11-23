@@ -77,9 +77,22 @@ describe('FleetPanel', () => {
     expect(status()).toBe('Holding position');
     expect(screen.getByText('2 sectors per turn')).toBeTruthy();
     expect(screen.getByText('2 sectors from a colony')).toBeTruthy();
-    expect(screen.getByText(/Scout · hull 10 \/ 10/)).toBeTruthy();
-    expect(screen.getByText(/Warship · hull 30 \/ 30/)).toBeTruthy();
+    expect(screen.getByText(/Scout · unarmed · hull 10 \/ 10/)).toBeTruthy();
+    expect(screen.getByText(/Warship · attack \d+ · hull 30 \/ 30/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+    // With one gun aboard, every stance is on offer.
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Engage', 'Raid', 'Escort', 'Evade']);
+    expect(screen.queryByTestId('unarmed')).toBeNull();
+  });
+
+  it('says when a fleet is unarmed and offers only hold or evade', () => {
+    const { fleet, now } = setup((s, c) => addFleet(s, c, ALPHA, homeOf(s, ALPHA).sector, ['scout', 'colony_ship']));
+    expect(screen.getByTestId('unarmed').textContent).toMatch(/^Unarmed: none of these ships can fire/);
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Hold', 'Evade']);
+    expect(screen.getByRole('radio', { name: 'Hold' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText(/^Hold: stay put if enemies arrive/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Evade' }));
+    expect(now().fleets[fleet.id].stance).toBe('evade');
   });
 
   it('shows where a moving fleet is going and how long it takes, and can stop it', () => {

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
-  STANCES,
+  fleetIsArmed,
   fleetPlan,
   fleetRange,
   fleetSpeed,
   sameSector,
   sortedKeys,
+  stancesFor,
   systemAt,
   validateCommand,
   type Command,
@@ -27,6 +28,15 @@ const STANCE_HELP: Record<Stance, string> = {
   escort: 'Escort: draw raiders away from the unarmed ships in this sector.',
   evade: 'Evade: hold fire, take one round at half damage, then fall back toward home.',
 };
+
+/** An unarmed fleet cannot fire, so its two stances say what it does when shot at. */
+const UNARMED_LABEL: Partial<Record<Stance, string>> = { engage: 'Hold', evade: 'Evade' };
+const UNARMED_HELP: Partial<Record<Stance, string>> = {
+  engage: 'Hold: stay put if enemies arrive. This fleet is unarmed, so it cannot fire back.',
+  evade: 'Evade: if shot at, take one round at half damage, then fall back toward home.',
+};
+
+const stanceLabel = (stance: Stance) => stance[0].toUpperCase() + stance.slice(1);
 
 interface Props {
   state: GameState;
@@ -76,6 +86,10 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
   const companions = mine ? view.fleets.filter((f) => f.owner === player && f.id !== fleet.id && sameSector(f.sector, fleet.sector)) : [];
 
   const status = fleetOrderText(state, fleet, plan ? plan.turns : null);
+  const armed = fleetIsArmed(fleet, content);
+  const stances = stancesFor(fleet, content);
+  const label = (stance: Stance) => (armed ? stanceLabel(stance) : (UNARMED_LABEL[stance] ?? stanceLabel(stance)));
+  const help = (stance: Stance) => (armed ? STANCE_HELP[stance] : (UNARMED_HELP[stance] ?? STANCE_HELP[stance]));
 
   return (
     <div className="system-panel">
@@ -101,22 +115,27 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
               <dd>{sectors(fleetRange(state, fleet, content))} from a colony</dd>
             </div>
           </dl>
+          {!armed && (
+            <p className="hint" data-testid="unarmed">
+              Unarmed: none of these ships can fire. Armed enemies in the same sector will shoot at them.
+            </p>
+          )}
           <div className="governors" role="radiogroup" aria-label="Stance">
-            {STANCES.map((stance) => (
+            {stances.map((stance) => (
               <button
                 key={stance}
                 type="button"
                 role="radio"
                 aria-checked={fleet.stance === stance}
                 className={`chip${fleet.stance === stance ? ' selected' : ''}`}
-                title={STANCE_HELP[stance]}
+                title={help(stance)}
                 onClick={() => dispatch({ type: 'setStance', empire: player, fleet: fleet.id, stance })}
               >
-                {stance[0].toUpperCase() + stance.slice(1)}
+                {label(stance)}
               </button>
             ))}
           </div>
-          <p className="muted hint">{STANCE_HELP[fleet.stance]}</p>
+          <p className="muted hint">{help(fleet.stance)}</p>
           <div className="fleet-actions">
             <button type="button" className={`btn${moveMode ? ' primary' : ''}`} aria-pressed={moveMode} onClick={onToggleMove}>
               {moveMode ? 'Pick a sector…' : 'Move'}
@@ -174,7 +193,8 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
                     {hull && <HullIcon role={hull.role} tier={hull.tier} color={faction.color} />} {hull?.name ?? ship.hull}
                   </span>
                   <span className="muted">
-                    {hull ? ROLE_LABELS[hull.role] : 'Unknown'} · hull {ship.hp} / {hull?.hp ?? '?'}
+                    {hull ? ROLE_LABELS[hull.role] : 'Unknown'} · {hull && hull.attack > 0 ? `attack ${hull.attack}` : 'unarmed'} · hull {ship.hp} /{' '}
+                    {hull?.hp ?? '?'}
                   </span>
                 </label>
                 {refit && (

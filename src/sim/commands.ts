@@ -4,7 +4,7 @@ import { atWar, invadeBlocker, warKey } from './combat';
 import { buyOutCost, membershipCost, mercenaryCost } from './credits';
 import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
 import { itemCost } from './economy/build';
-import { coloniseBlocker, empireSupport, findPath, fleetOfShip, spawnShip } from './fleets';
+import { coloniseBlocker, empireSupport, findPath, fittingStance, fleetOfShip, spawnShip, stancesFor } from './fleets';
 import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
 import { courtGain, minorOf } from './minors';
@@ -95,6 +95,7 @@ export type CommandErrorCode =
   | 'outOfRange'
   | 'cannotColonise'
   | 'notThere'
+  | 'unarmed'
   | 'cannotInvade'
   | 'badStance'
   | 'badWar'
@@ -341,7 +342,10 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
     case 'setStance': {
       const fleet = ownFleet(state, cmd.empire, cmd.fleet);
       if (isError(fleet)) return fleet;
-      return STANCES.includes(cmd.stance) ? null : fail('badStance', `No stance ${String(cmd.stance)}`);
+      if (!STANCES.includes(cmd.stance)) return fail('badStance', `No stance ${String(cmd.stance)}`);
+      return stancesFor(fleet, content).includes(cmd.stance)
+        ? null
+        : fail('unarmed', 'This fleet has no armed ships: it can only hold its ground or evade');
     }
     case 'declareWar': {
       const other = state.empires[cmd.on];
@@ -654,6 +658,9 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       fleet.ships = fleet.ships.filter((s) => !cmd.ships.includes(s.id));
       const id = `flt-${String(next.nextId++).padStart(5, '0')}` as FleetId;
       next.fleets[id] = { id, owner: fleet.owner, sector: { ...fleet.sector }, ships: leaving, destination: null, order: 'none', stance: fleet.stance };
+      // Whichever half is left without guns cannot go on raiding or escorting.
+      next.fleets[id].stance = fittingStance(next.fleets[id], content);
+      fleet.stance = fittingStance(fleet, content);
       break;
     }
   }

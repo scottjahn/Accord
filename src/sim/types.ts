@@ -102,7 +102,8 @@ export interface MinorState {
 /**
  * How a fleet fights: engage goes for armed enemies; raid goes for unarmed
  * ships; escort draws raiders' fire onto itself; evade does not fire and
- * falls back after one round.
+ * falls back after one round. A fleet with no armed ship may only engage
+ * (hold its ground) or evade: see `stancesFor`.
  */
 export const STANCES = ['engage', 'raid', 'escort', 'evade'] as const;
 export type Stance = (typeof STANCES)[number];

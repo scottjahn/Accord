@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   coloniesOf,
+  fleetIsArmed,
   fleetPlan,
   fleetsOf,
   forecastColony,
@@ -153,7 +154,9 @@ export function EmpireScreen({ state, content, player, onSelectSystem, onSelectF
           shipText: [...counts].map(([name, n]) => (n > 1 ? `${n} ${name}` : name)).join(', '),
           orders: fleetOrderText(state, fleet, plan ? plan.turns : null),
           arrives: plan ? plan.turns : null,
-          stance: fleet.stance[0].toUpperCase() + fleet.stance.slice(1),
+          stance: fleetIsArmed(fleet, content)
+            ? fleet.stance[0].toUpperCase() + fleet.stance.slice(1)
+            : `Unarmed · ${fleet.stance === 'evade' ? 'Evade' : 'Hold'}`,
           needs: idle.filter((item) => 'fleet' in item && item.fleet === fleet.id).map((item) => idleText(item, state)),
         };
       }),

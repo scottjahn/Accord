@@ -5,7 +5,9 @@ import {
   coloniesOf,
   combatBonuses,
   deserialize,
+  fleetIsArmed,
   fleetsOf,
+  stancesFor,
   garrisonStrength,
   getEmpireView,
   processTurn,
@@ -286,6 +288,26 @@ describe('battles', () => {
     expect(fleetsOf(s, ALPHA).map((f) => f.stance)).toEqual(['raid', 'raid']);
     expect(codeOf(state, { type: 'setStance', empire: ALPHA, fleet: fleet.id, stance: 'charge' as never })).toBe('badStance');
     expect(codeOf(state, { type: 'setStance', empire: BETA, fleet: fleet.id, stance: 'raid' })).toBe('notOwner');
+  });
+
+  it('lets an unarmed fleet only hold or evade', () => {
+    const { state, content, home, apply, codeOf } = setup();
+    const convoy = place(state, content, ALPHA, home.sector, ['transport', 'scout']);
+    expect(fleetIsArmed(convoy, content)).toBe(false);
+    expect(stancesFor(convoy, content)).toEqual(['engage', 'evade']);
+    expect(codeOf(state, { type: 'setStance', empire: ALPHA, fleet: convoy.id, stance: 'raid' })).toBe('unarmed');
+    expect(codeOf(state, { type: 'setStance', empire: ALPHA, fleet: convoy.id, stance: 'escort' })).toBe('unarmed');
+    expect(apply(state, { type: 'setStance', empire: ALPHA, fleet: convoy.id, stance: 'evade' }).fleets[convoy.id].stance).toBe('evade');
+  });
+
+  it('puts the unarmed half of a split raiding fleet back to holding', () => {
+    const { state, content, home, apply } = setup();
+    const fleet = place(state, content, ALPHA, home.sector, ['frigate', 'transport'], 'escort');
+    const transport = fleet.ships.find((s) => s.hull === 'transport')!;
+    const s = apply(state, { type: 'splitFleet', empire: ALPHA, fleet: fleet.id, ships: [transport.id] });
+    const [kept, left] = fleetsOf(s, ALPHA).filter((f) => f.id === fleet.id || f.ships.some((x) => x.id === transport.id));
+    expect(kept.stance).toBe('escort');
+    expect(left.stance).toBe('engage');
   });
 
   it('tells only the empires that fought', () => {

@@ -7,7 +7,7 @@ import { addEmpireMorale } from './morale';
 import { inBounds, sameSector, sectorDistance, sectorKey, sectorsAround } from './geometry';
 import { sortedKeys, type EmpireId, type FleetId, type HullId, type ShipId, type SystemId } from './ids';
 import { nextInt } from './rng';
-import type { Fleet, GameState, Sector, StarSystem, TurnEvent } from './types';
+import { STANCES, type Fleet, type GameState, type Sector, type Stance, type StarSystem, type TurnEvent } from './types';
 
 export function systemAt(state: GameState, sector: Sector): StarSystem | null {
   for (const id of sortedKeys(state.systems)) {
@@ -30,6 +30,25 @@ export function fleetsOf(state: GameState, empireId: EmpireId): Fleet[] {
 
 const hullsOf = (fleet: Fleet, content: Content): HullDef[] =>
   fleet.ships.map((s) => content.hulls[s.hull]).filter((h): h is HullDef => h !== undefined);
+
+/** True if at least one ship in the fleet can fire. Scouts, colony ships and transports cannot. */
+export function fleetIsArmed(fleet: Pick<Fleet, 'ships'>, content: Content): boolean {
+  return fleet.ships.some((s) => (content.hulls[s.hull]?.attack ?? 0) > 0);
+}
+
+/**
+ * The stances a fleet may take. An unarmed fleet cannot fire, so it can only
+ * hold its ground ('engage') or evade; raiding and escorting need guns.
+ */
+export function stancesFor(fleet: Pick<Fleet, 'ships'>, content: Content): readonly Stance[] {
+  return fleetIsArmed(fleet, content) ? STANCES : UNARMED_STANCES;
+}
+const UNARMED_STANCES: readonly Stance[] = ['engage', 'evade'];
+
+/** The stance a fleet keeps after its ships change: an unarmed fleet that was raiding or escorting holds. */
+export function fittingStance(fleet: Pick<Fleet, 'ships' | 'stance'>, content: Content): Stance {
+  return stancesFor(fleet, content).includes(fleet.stance) ? fleet.stance : 'engage';
+}
 
 /** Sectors per turn: the speed of the slowest ship. */
 export function fleetSpeed(fleet: Fleet, content: Content): number {
