@@ -1,6 +1,15 @@
 import { runAgent, type Agent } from '../ai/agent';
 import { standardAgent } from '../ai/standardAgent';
-import { processTurn, sortedKeys, submitCommands, type Content, type EmpireId, type GameState, type TurnEvent } from '../sim';
+import {
+  processTurn,
+  sortedKeys,
+  submitCommands,
+  type Content,
+  type EmpireId,
+  type GameState,
+  type TurnEvent,
+  type TurnOptions,
+} from '../sim';
 
 /** Which agent plays an AI empire. Defaults to the standard AI for everyone. */
 export type AgentPicker = (state: GameState, empireId: EmpireId) => Agent;
@@ -16,7 +25,17 @@ export function playTurn(
   state: GameState,
   content: Content,
   pick: AgentPicker = () => standardAgent,
+  options: TurnOptions = {},
 ): { state: GameState; events: TurnEvent[] } {
+  return processTurn(prepareTurn(state, content, pick), content, options);
+}
+
+/**
+ * The first half of `playTurn`: every AI empire issues its commands, and the
+ * state is returned ready for `processTurn`. Lets the session look at the
+ * battles ahead before the turn resolves.
+ */
+export function prepareTurn(state: GameState, content: Content, pick: AgentPicker = () => standardAgent): GameState {
   let current = state;
   for (const empireId of sortedKeys(current.empires)) {
     if (current.empires[empireId].controller !== 'ai') continue;
@@ -29,5 +48,5 @@ export function playTurn(
     current = result.value;
     current.agentMemory[empireId] = memory;
   }
-  return processTurn(current, content);
+  return current;
 }

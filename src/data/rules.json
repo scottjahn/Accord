@@ -99,7 +99,19 @@
     "captureLossPercent": 25,
     "captureBuildingLossPercent": 50,
     "dominationPercent": 70,
-    "dominationHomesPercent": 25
+    "dominationHomesPercent": 25,
+    "tactical": {
+      "arenaWidth": 1600,
+      "arenaHeight": 1000,
+      "ticksPerSecond": 20,
+      "reloadTicks": 30,
+      "baseSpeed": 30,
+      "speedPerHullSpeed": 15,
+      "shipRange": 260,
+      "batteryRange": 340,
+      "withdrawPercent": 25,
+      "maxSeconds": 600
+    }
   },
   "morale": {
     "outputPercent": 50,

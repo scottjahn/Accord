@@ -13,8 +13,8 @@ import {
   writeSlot,
 } from '../src/game/persistence';
 import { createSession, humanEmpire, startNewGame } from '../src/game/session';
-import { serialize, type BuildingId, type SystemId } from '../src/sim';
-import { ALPHA, BETA, colonyOf, fixtureContent, homeOf, newGame } from './fixture';
+import { createTacticalBattle, runTactical, serialize, tacticalOutcome, warKey, type BuildingId, type SystemId } from '../src/sim';
+import { ALPHA, BETA, addFleet, colonyOf, fixtureContent, homeOf, newGame } from './fixture';
 
 const B = (id: string) => id as BuildingId;
 
@@ -223,5 +223,54 @@ describe('persistence', () => {
 
   it('names save files by seed and turn', () => {
     expect(saveFileName(newGame(12).state)).toBe('accord-seed-12-turn-1.json');
+  });
+});
+
+describe('battles that wait on the player', () => {
+  /** A human Alpha at war with an AI Beta, with fleets of both in Beta's home sector. */
+  function sessionWithBattle() {
+    const content = fixtureContent();
+    const state = startNewGame(content, { seed: 3, preset: 'tiny', faction: 'beta' });
+    state.wars[warKey(ALPHA, BETA)] = 0;
+    const home = homeOf(state, BETA).sector;
+    addFleet(state, content, ALPHA, home, ['frigate', 'frigate']);
+    addFleet(state, content, BETA, home, ['frigate']);
+    return { content, session: createSession(content, state), home };
+  }
+
+  it('holds the turn until each battle is fought or auto-resolved', () => {
+    const { session } = sessionWithBattle();
+    const turn = session.getSnapshot().state.turn;
+    session.endTurn();
+    const waiting = session.getSnapshot();
+    expect(waiting.state.turn).toBe(turn);
+    expect(waiting.battles?.setups).toHaveLength(1);
+    // Nothing else can change while the turn waits.
+    expect(session.dispatch({ type: 'setGovernor', empire: ALPHA, system: waiting.state.empires[ALPHA].homeSystem, governor: 'research' })).toBe(false);
+    session.decideBattle(waiting.battles!.setups[0].key, 'auto');
+    const after = session.getSnapshot();
+    expect(after.battles).toBeNull();
+    expect(after.state.turn).toBe(turn + 1);
+    const report = after.lastEvents.find((e) => e.type === 'battle');
+    expect(report?.type === 'battle' && report.report.commanded).toBe(false);
+  });
+
+  it('resolves a fought battle from its outcome', () => {
+    const { session, content } = sessionWithBattle();
+    session.endTurn();
+    const { battles, player } = session.getSnapshot();
+    const setup = battles!.setups[0];
+    expect(battles!.options[setup.key].player).toBe(player);
+    const battle = createTacticalBattle(setup, content, battles!.options[setup.key]);
+    runTactical(battle, content);
+    session.decideBattle(setup.key, tacticalOutcome(battle));
+    const report = session.getSnapshot().lastEvents.find((e) => e.type === 'battle');
+    expect(report?.type === 'battle' && report.report.commanded).toBe(true);
+  });
+
+  it('stops skipping ahead before a battle of the player’s', () => {
+    const { session } = sessionWithBattle();
+    expect(session.skipAhead(10)).toBe(0);
+    expect(session.getSnapshot().battles?.setups).toHaveLength(1);
   });
 });

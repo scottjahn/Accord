@@ -10,11 +10,13 @@ interface Props {
   /** An autosaved game that can be continued, if there is one. */
   saved: GameState | null;
   onStart: (state: GameState) => void;
+  /** Opens a practice battle outside any game. */
+  onPractice?: () => void;
 }
 
 const randomSeed = () => Math.floor(Math.random() * 1_000_000);
 
-export function NewGameScreen({ content, saved, onStart }: Props) {
+export function NewGameScreen({ content, saved, onStart, onPractice }: Props) {
   const factions = sortedKeys(content.factions);
   const presets = Object.values(content.galaxyPresets).sort((a, b) => a.systems - b.systems);
 
@@ -208,6 +210,11 @@ export function NewGameScreen({ content, saved, onStart }: Props) {
             Load save file
             <input type="file" accept="application/json,.json" onChange={importFile} />
           </label>
+          {onPractice && (
+            <button type="button" className="btn" onClick={onPractice}>
+              Practice battle
+            </button>
+          )}
           <button type="submit" className="btn primary">
             Start game
           </button>

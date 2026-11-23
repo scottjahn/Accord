@@ -3,12 +3,15 @@ import { loadContent } from '../data';
 import { browserStorage, readAutosave, writeAutosave } from '../game/persistence';
 import { createSession, humanEmpire, type GameSession } from '../game/session';
 import type { GameState } from '../sim';
+import { PracticeScreen } from './battle/PracticeScreen';
 import { GameScreen } from './screens/GameScreen';
 import { NewGameScreen } from './screens/NewGameScreen';
 
 export function App() {
   const content = useMemo(loadContent, []);
   const [session, setSession] = useState<GameSession | null>(null);
+  // `#battle` in the address opens the practice battle straight away.
+  const [practice, setPractice] = useState(() => typeof location !== 'undefined' && location.hash === '#battle');
 
   // Autosave on every change, including the first state of a new game.
   useEffect(() => {
@@ -19,6 +22,17 @@ export function App() {
     return session.subscribe(save);
   }, [session]);
 
+  if (practice) {
+    return (
+      <PracticeScreen
+        content={content}
+        onClose={() => {
+          setPractice(false);
+          if (location.hash === '#battle') history.replaceState(null, '', location.pathname + location.search);
+        }}
+      />
+    );
+  }
   if (!session) {
     const saved = readAutosave(browserStorage());
     const resumable = saved?.ok && humanEmpire(saved.value) ? saved.value : null;
@@ -27,6 +41,7 @@ export function App() {
         content={content}
         saved={resumable}
         onStart={(state: GameState) => setSession(createSession(content, state))}
+        onPractice={() => setPractice(true)}
       />
     );
   }

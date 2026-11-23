@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { idleText, victoryText } from '../format';
+import { idleText, placeName, victoryText } from '../format';
 import { saveFileName } from '../../game/persistence';
 import type { GameSession } from '../../game/session';
 import { SKIP_LIMIT } from '../../game/skip';
@@ -11,12 +11,16 @@ import {
   sortedKeys,
   systemAt,
   validateCommand,
+  type BattleSetup,
   type Command,
+  type EmpireId,
   type FleetId,
   type Sector,
   type SystemId,
   type TurnEvent,
 } from '../../sim';
+import { BattlePrompt } from '../battle/BattlePrompt';
+import { BattleScreen } from '../battle/BattleScreen';
 import { FleetPanel } from '../fleet/FleetPanel';
 import { HelpScreen } from '../help/HelpScreen';
 import { hotkeyAction } from '../hotkeys';
@@ -71,8 +75,10 @@ function downloadText(name: string, text: string): void {
 }
 
 export function GameScreen({ session, onQuit }: Props) {
-  const { state, player, lastEvents, turnsPlayed, lastError } = useSession(session);
+  const { state, player, lastEvents, turnsPlayed, lastError, battles } = useSession(session);
   const { content } = session;
+  /** The battle the player chose to fight, while its screen is open. */
+  const [fighting, setFighting] = useState<BattleSetup | null>(null);
   const [selection, setSelection] = useState<Selection>({ kind: 'system', id: state.empires[player].homeSystem });
   const [moveMode, setMoveMode] = useState(false);
   const [screen, setScreen] = useState<Screen>(null);
@@ -113,6 +119,15 @@ export function GameScreen({ session, onQuit }: Props) {
     else endTurn(how);
   };
 
+  const battleSides = (setup: BattleSetup): Record<EmpireId, { name: string; color: string }> => {
+    const sides = {} as Record<EmpireId, { name: string; color: string }>;
+    for (const u of setup.units) {
+      const faction = content.factions[state.empires[u.empire].faction];
+      sides[u.empire] = { name: u.empire === player ? `You (${faction.name})` : faction.name, color: faction.color };
+    }
+    return sides;
+  };
+
   const select = (next: Selection) => {
     setSelection(next);
     setMoveMode(false);
@@ -140,6 +155,8 @@ export function GameScreen({ session, onQuit }: Props) {
       targetTag: e.target instanceof Element ? e.target.tagName : null,
     });
     if (!action) return;
+    // A waiting battle has the screen to itself until it is decided.
+    if (battles) return;
     const result = over && !resultSeen;
     if (action === 'close') {
       if (confirmEnd) setConfirmEnd(null);
@@ -351,6 +368,30 @@ export function GameScreen({ session, onQuit }: Props) {
       )}
       {screen === 'research' && (
         <ResearchScreen state={state} content={content} player={player} dispatch={session.dispatch} onClose={() => setScreen(null)} />
+      )}
+      {battles && !fighting && (
+        <BattlePrompt
+          state={state}
+          content={content}
+          player={player}
+          battles={battles}
+          onFight={setFighting}
+          onAuto={(setup) => session.decideBattle(setup.key, 'auto')}
+        />
+      )}
+      {battles && fighting && (
+        <BattleScreen
+          key={fighting.key}
+          content={content}
+          setup={fighting}
+          options={battles.options[fighting.key]}
+          title={`Battle at ${placeName(state, fighting.sector)}`}
+          sides={battleSides(fighting)}
+          onFinish={(outcome) => {
+            setFighting(null);
+            session.decideBattle(fighting.key, outcome);
+          }}
+        />
       )}
     </div>
   );

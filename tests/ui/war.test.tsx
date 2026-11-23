@@ -161,6 +161,35 @@ describe('war through the UI', () => {
     expect(screen.getByText(/No orbital batteries/)).toBeTruthy();
   });
 
+  it('fights a battle in real time instead of auto-resolving it', () => {
+    const { outpost, enemyHome } = resume();
+    declareWar();
+    fireEvent.click(button(outpost.name));
+    fireEvent.click(button(/^Select fleet: Frigate/));
+    fireEvent.click(button(`Send to ${enemyHome.name}`));
+    const turn = autosave().turn;
+    fireEvent.click(button('End turn'));
+
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Battle ahead' })).getByRole('button', { name: 'Fight' }));
+    const field = screen.getByRole('dialog', { name: `Battle at ${enemyHome.name}` });
+    expect(within(field).getByLabelText('Battlefield')).toBeTruthy();
+    // Keys belong to the battle while it is open: Enter does not end the turn underneath it.
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(autosave().turn).toBe(turn);
+
+    fireEvent.click(within(field).getByRole('button', { name: 'Select all' }));
+    expect(within(field).getByRole('heading', { name: 'Selected (6)' })).toBeTruthy();
+    fireEvent.click(within(field).getByRole('button', { name: 'Finish automatically' }));
+    expect(within(field).getByRole('heading', { name: 'Victory' })).toBeTruthy();
+    fireEvent.click(within(field).getByRole('button', { name: 'Continue' }));
+
+    expect(autosave().turn).toBe(turn + 1);
+    fireEvent.click(button(new RegExp(`^Battle at ${enemyHome.name}`)));
+    const report = screen.getByRole('dialog', { name: `Battle at ${enemyHome.name}` });
+    expect(within(report).getByText(/fought under your command/)).toBeTruthy();
+    expect(within(report).queryByRole('heading', { name: 'Round 1' })).toBeNull();
+  });
+
   it('declares war, wins the battle, invades and wins the game', () => {
     const { outpost, enemyHome } = resume();
     declareWar();
@@ -176,6 +205,13 @@ describe('war through the UI', () => {
     // Sending transports to an enemy colony only moves them; landing is ordered on arrival.
     expect(screen.getByTestId('fleet-status').textContent).toMatch(new RegExp(`^Heading to ${enemyHome.name} · 1 turn$`));
     fireEvent.click(button('End turn'));
+
+    // The turn waits on the battle: fight it, or let it be auto-resolved.
+    const ahead = screen.getByRole('dialog', { name: 'Battle ahead' });
+    expect(within(ahead).getByRole('heading', { name: `Battle at ${enemyHome.name}` })).toBeTruthy();
+    expect(within(ahead).getByText(/^6 Frigate, 6 Troop Transport$/)).toBeTruthy();
+    fireEvent.click(within(ahead).getByRole('button', { name: 'Auto-resolve' }));
+    expect(screen.queryByRole('dialog', { name: 'Battle ahead' })).toBeNull();
     expect(autosave().systems[enemyHome.id].colony!.owner).toBe(RIVAL);
 
     // The battle on arrival, shot by shot.
@@ -192,7 +228,10 @@ describe('war through the UI', () => {
     fireEvent.click(button(new RegExp(`^Invade ${enemyHome.name} \\(\\d+%\\)$`)));
     expect(screen.getByTestId('fleet-status').textContent).toBe('Landing troops once the defenders are cleared');
 
-    for (let i = 0; i < 6 && autosave().winner === null; i++) fireEvent.click(button('End turn'));
+    for (let i = 0; i < 6 && autosave().winner === null; i++) {
+      fireEvent.click(button('End turn'));
+      for (const auto of screen.queryAllByRole('button', { name: 'Auto-resolve' })) fireEvent.click(auto);
+    }
     const final = autosave();
     expect(final.winner).toBe(HUMAN);
     expect(final.systems[enemyHome.id].colony!.owner).toBe(HUMAN);

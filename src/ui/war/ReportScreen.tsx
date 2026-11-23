@@ -64,6 +64,7 @@ function Battle({ report, factionName }: { report: CombatReport; factionName: (i
       </ul>
       <p className="muted report-outcome">
         {report.outcome === 'ongoing' ? 'Both sides hold the sector; the battle continues next turn.' : 'The battle is over.'}
+        {report.commanded && ' It was fought under your command, so there are no rounds to list.'}
       </p>
       {report.rounds.map((shots, i) => (
         <section key={i}>

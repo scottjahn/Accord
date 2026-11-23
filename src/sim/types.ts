@@ -347,6 +347,49 @@ export interface CombatReport {
   rounds: CombatShot[][];
   /** 'ongoing' if enemies still face each other and will fight again next turn. */
   outcome: 'ongoing' | 'decided';
+  /** True when a player fought it in real time; such a battle has no rounds to list. */
+  commanded: boolean;
+}
+
+/** One ship or orbital battery as it enters a battle. */
+export interface BattleUnitSetup {
+  id: string;
+  empire: EmpireId;
+  /** The fleet a ship belongs to; null for an orbital battery. */
+  fleet: FleetId | null;
+  /** Null for an orbital battery. */
+  hull: HullId | null;
+  name: string;
+  /** The hull role, or 'battery'. */
+  role: string;
+  tier: number;
+  /** Damage per shot at a full roll, research bonus included. */
+  attack: number;
+  defence: number;
+  /** Percent taken off every hit by research. */
+  shield: number;
+  hp: number;
+  maxHp: number;
+  armed: boolean;
+  stance: Stance;
+}
+
+/** A sector where empires at war will fight this turn, as it stands once fleets have moved. */
+export interface BattleSetup {
+  /** The sector's key, which names the battle. */
+  key: string;
+  sector: Sector;
+  system: SystemId | null;
+  /** Who holds the colony in the sector, if there is one. */
+  colonyOwner: EmpireId | null;
+  units: BattleUnitSetup[];
+}
+
+/** How a commanded battle ended: every unit that started it, with its hull left. */
+export interface BattleOutcome {
+  units: { id: string; hp: number; withdrawn: boolean }[];
+  /** False if the battle hit its time limit with both sides still fighting. */
+  finished: boolean;
 }
 
 export interface InvasionReport {

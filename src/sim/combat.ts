@@ -11,6 +11,9 @@ import { sameSector, sectorDistance, sectorKey } from './geometry';
 import { sortedKeys, type EmpireId, type FleetId } from './ids';
 import { nextInt } from './rng';
 import type {
+  BattleOutcome,
+  BattleSetup,
+  BattleUnitSetup,
   BreakdownLine,
   CombatReport,
   CombatShot,
@@ -19,7 +22,6 @@ import type {
   GameState,
   InvasionReport,
   Sector,
-  Stance,
   StarSystem,
   TurnEvent,
 } from './types';
@@ -67,15 +69,7 @@ export function repairShips(state: GameState, content: Content): void {
   }
 }
 
-interface Fighter extends CombatUnit {
-  attack: number;
-  defence: number;
-  shield: number;
-  hp: number;
-  stance: Stance;
-  armed: boolean;
-  /** The fleet a ship belongs to; null for an orbital battery. */
-  fleet: FleetId | null;
+interface Fighter extends BattleUnitSetup {
   /** True for a ship in an evading fleet: it does not fire and leaves after the first round. */
   evading: boolean;
 }
@@ -99,15 +93,18 @@ function fightersAt(state: GameState, sector: Sector, content: Content): Fighter
       fighters.push({
         id: ship.id,
         empire: fleet.owner,
+        fleet: id,
+        hull: ship.hull,
         name: hull.name,
         role: hull.role,
+        tier: hull.tier,
         attack: Math.floor((hull.attack * (100 + b.attack)) / 100),
         defence: hull.defence,
         shield: b.shield,
         hp: ship.hp,
-        stance: fleet.stance,
+        maxHp: hull.hp,
         armed: hull.attack > 0,
-        fleet: id,
+        stance: fleet.stance,
         evading: fleet.stance === 'evade',
       });
     }
@@ -125,21 +122,42 @@ function fightersAt(state: GameState, sector: Sector, content: Content): Fighter
         fighters.push({
           id: `battery-${++n}`,
           empire: owner,
+          fleet: null,
+          hull: null,
           name: def.name,
           role: 'battery',
+          tier: 1,
           attack: Math.floor((def.combat.attack * (100 + b.attack)) / 100),
           defence: 0,
           shield: b.shield,
           hp: def.combat.hp,
-          stance: 'engage',
+          maxHp: def.combat.hp,
           armed: true,
-          fleet: null,
+          stance: 'engage',
           evading: false,
         });
       }
     }
   }
   return fighters;
+}
+
+/**
+ * Damage from one shot: the roll's share of the attack, less the target's
+ * defence, less its shield percent, never below 1. An evading target takes
+ * `evadeFirePercent` of that. Auto-resolved and commanded battles both use it.
+ */
+export function shotDamage(
+  attack: number,
+  target: { defence: number; shield: number },
+  roll: number,
+  evading: boolean,
+  content: Content,
+): number {
+  let dealt = Math.max(1, Math.floor((attack * roll) / 100) - target.defence);
+  dealt = Math.max(1, Math.floor((dealt * (100 - target.shield)) / 100));
+  if (evading) dealt = Math.max(1, Math.floor((dealt * content.rules.combat.evadeFirePercent) / 100));
+  return dealt;
 }
 
 /**
@@ -176,56 +194,120 @@ function retreatStep(state: GameState, fleet: Fleet, content: Content): Sector |
   return null;
 }
 
+/** Moves a fleet one step towards its owner's nearest other colony, if it has a way there. */
+function fallBack(state: GameState, fleet: Fleet, content: Content): void {
+  const step = retreatStep(state, fleet, content);
+  if (!step) return;
+  fleet.sector = { ...step };
+  fleet.destination = null;
+  fleet.order = 'none';
+}
+
+/** The sectors where empires at war meet and someone can shoot, with who takes part. */
+function contestedSectors(state: GameState, content: Content): { key: string; sector: Sector; fighters: Fighter[] }[] {
+  const sectors = new Map<string, Sector>();
+  for (const id of sortedKeys(state.fleets)) sectors.set(sectorKey(state.fleets[id].sector), state.fleets[id].sector);
+  const found: { key: string; sector: Sector; fighters: Fighter[] }[] = [];
+  for (const key of [...sectors.keys()].sort()) {
+    const sector = sectors.get(key)!;
+    const everyone = fightersAt(state, sector, content);
+    // Only empires with an enemy present take part, and someone has to be able to shoot.
+    const fighters = everyone.filter((f) => everyone.some((o) => atWar(state, f.empire, o.empire)));
+    if (fighters.length === 0 || !fighters.some((f) => f.armed && !f.evading)) continue;
+    found.push({ key, sector, fighters });
+  }
+  return found;
+}
+
+/**
+ * The battles that would be fought in this state, as `resolveBattles` would
+ * start them. Pass a state whose fleets have already moved for the turn;
+ * `battlesAhead` does that for a state at the start of a turn.
+ */
+export function battleSetups(state: GameState, content: Content): BattleSetup[] {
+  return contestedSectors(state, content).map(({ key, sector, fighters }) => {
+    const system = systemAt(state, sector);
+    return {
+      key,
+      sector: { ...sector },
+      system: system?.id ?? null,
+      colonyOwner: system?.colony?.owner ?? null,
+      units: fighters.map(({ evading: _evading, ...unit }) => ({ ...unit })),
+    };
+  });
+}
+
+/** True if a commanded outcome names exactly the units that are fighting, once each. */
+function outcomeFits(outcome: BattleOutcome, fighters: Fighter[]): boolean {
+  if (outcome.units.length !== fighters.length) return false;
+  const ids = new Set(fighters.map((f) => f.id));
+  const named = new Set(outcome.units.map((u) => u.id));
+  return named.size === ids.size && outcome.units.every((u) => ids.has(u.id) && Number.isInteger(u.hp));
+}
+
 /**
  * Fights every sector where empires at war meet. Up to `maxRounds` rounds per
  * turn; all shots in a round are simultaneous. Damage to ships lasts; orbital
  * batteries are restored each turn. Returns the sectors where a colony's
  * batteries were knocked out this turn, which lets an invasion land.
+ *
+ * A sector named in `commanded` was fought in real time by a player, and its
+ * result is taken from there instead of rolled. Hulls can only go down, an
+ * outcome that does not match the units in the sector is ignored (the battle
+ * is auto-resolved), and the fleets of an empire with nothing left on the
+ * field fall back towards its nearest colony, as an evading fleet does.
  * Mutates the state.
  */
-export function resolveBattles(state: GameState, content: Content, events: TurnEvent[]): Set<string> {
+export function resolveBattles(
+  state: GameState,
+  content: Content,
+  events: TurnEvent[],
+  commanded: Record<string, BattleOutcome> = {},
+): Set<string> {
   const rules = content.rules.combat;
   const silenced = new Set<string>();
-  const sectors = new Map<string, Sector>();
-  for (const id of sortedKeys(state.fleets)) sectors.set(sectorKey(state.fleets[id].sector), state.fleets[id].sector);
 
-  for (const key of [...sectors.keys()].sort()) {
-    const sector = sectors.get(key)!;
-    const everyone = fightersAt(state, sector, content);
+  for (const { key, sector, fighters } of contestedSectors(state, content)) {
     const hostile = (f: Fighter, pool: Fighter[]) => pool.some((o) => atWar(state, f.empire, o.empire));
-    // Only empires with an enemy present take part, and someone has to be able to shoot.
-    const fighters = everyone.filter((f) => hostile(f, everyone));
-    if (fighters.length === 0 || !fighters.some((f) => f.armed && !f.evading)) continue;
-
     const units: CombatUnit[] = fighters.map(({ id, empire, name, role }) => ({ id, empire, name, role }));
     const before = new Map<EmpireId, number>();
     for (const f of fighters) before.set(f.empire, (before.get(f.empire) ?? 0) + 1);
 
-    let alive = fighters;
     const rounds: CombatShot[][] = [];
-    for (let round = 0; round < rules.maxRounds; round++) {
-      const shooters = alive.filter((f) => f.armed && !f.evading);
-      const damage = new Map<string, number>();
-      const shots: CombatShot[] = [];
-      for (const shooter of shooters) {
-        const target = chooseTarget(state, shooter, alive);
-        if (!target) continue;
-        const roll = nextInt(state.rng, rules.minRollPercent, 100);
-        let dealt = Math.max(1, Math.floor((shooter.attack * roll) / 100) - target.defence);
-        dealt = Math.max(1, Math.floor((dealt * (100 - target.shield)) / 100));
-        if (target.evading) dealt = Math.max(1, Math.floor((dealt * rules.evadeFirePercent) / 100));
-        damage.set(target.id, (damage.get(target.id) ?? 0) + dealt);
-        shots.push({ attacker: shooter.id, target: target.id, roll, damage: dealt, destroyed: false });
+    const outcome = commanded[key];
+    const isCommanded = outcome !== undefined && outcomeFits(outcome, fighters);
+    /** For a commanded battle: empires with nothing left on the field, whose fleets fall back. */
+    const leaving = new Set<EmpireId>();
+
+    if (isCommanded) {
+      const result = new Map(outcome.units.map((u) => [u.id, u]));
+      for (const f of fighters) f.hp = Math.max(0, Math.min(f.hp, result.get(f.id)!.hp));
+      const holding = new Set(fighters.filter((f) => f.hp > 0 && !result.get(f.id)!.withdrawn).map((f) => f.empire));
+      for (const empire of before.keys()) if (!holding.has(empire)) leaving.add(empire);
+    } else {
+      let alive = fighters;
+      for (let round = 0; round < rules.maxRounds; round++) {
+        const shooters = alive.filter((f) => f.armed && !f.evading);
+        const damage = new Map<string, number>();
+        const shots: CombatShot[] = [];
+        for (const shooter of shooters) {
+          const target = chooseTarget(state, shooter, alive);
+          if (!target) continue;
+          const roll = nextInt(state.rng, rules.minRollPercent, 100);
+          const dealt = shotDamage(shooter.attack, target, roll, target.evading, content);
+          damage.set(target.id, (damage.get(target.id) ?? 0) + dealt);
+          shots.push({ attacker: shooter.id, target: target.id, roll, damage: dealt, destroyed: false });
+        }
+        if (shots.length === 0) break;
+        for (const f of alive) f.hp -= damage.get(f.id) ?? 0;
+        for (const shot of shots) shot.destroyed = alive.find((f) => f.id === shot.target)!.hp <= 0;
+        rounds.push(shots);
+        // Evading ships that survived the first round are away.
+        alive = alive.filter((f) => f.hp > 0 && !(f.evading && round === 0));
+        if (!alive.some((f) => f.armed && hostile(f, alive))) break;
       }
-      if (shots.length === 0) break;
-      for (const f of alive) f.hp -= damage.get(f.id) ?? 0;
-      for (const shot of shots) shot.destroyed = alive.find((f) => f.id === shot.target)!.hp <= 0;
-      rounds.push(shots);
-      // Evading ships that survived the first round are away.
-      alive = alive.filter((f) => f.hp > 0 && !(f.evading && round === 0));
-      if (!alive.some((f) => f.armed && hostile(f, alive))) break;
+      if (rounds.length === 0) continue;
     }
-    if (rounds.length === 0) continue;
 
     // Write the results back: hull damage, losses, and fleets that got away.
     const survivors = new Map(fighters.filter((f) => f.hp > 0).map((f) => [f.id, f.hp]));
@@ -234,16 +316,8 @@ export function resolveBattles(state: GameState, content: Content, events: TurnE
       const fleet = state.fleets[id];
       fleet.ships = fleet.ships.filter((s) => survivors.has(s.id));
       for (const ship of fleet.ships) ship.hp = survivors.get(ship.id)!;
-      if (fleet.ships.length === 0) {
-        delete state.fleets[id];
-      } else if (fleet.stance === 'evade') {
-        const step = retreatStep(state, fleet, content);
-        if (step) {
-          fleet.sector = { ...step };
-          fleet.destination = null;
-          fleet.order = 'none';
-        }
-      }
+      if (fleet.ships.length === 0) delete state.fleets[id];
+      else if (isCommanded ? leaving.has(fleet.owner) : fleet.stance === 'evade') fallBack(state, fleet, content);
     }
 
     const colonyOwner = systemAt(state, sector)?.colony?.owner;
@@ -262,6 +336,7 @@ export function resolveBattles(state: GameState, content: Content, events: TurnE
       })),
       rounds,
       outcome: stillHere.some((f) => f.armed && hostile(f, stillHere)) ? 'ongoing' : 'decided',
+      commanded: isCommanded,
     };
     events.push({ type: 'battle', empires: report.sides.map((s) => s.empire), report });
 

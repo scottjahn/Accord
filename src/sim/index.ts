@@ -18,6 +18,7 @@ export * from './fleets';
 export * from './research';
 export * from './view';
 export * from './combat';
+export * from './tactical';
 export * from './morale';
 export * from './minors';
 export * from './diplomacy';
@@ -32,7 +33,7 @@ export * from './survey';
 export { growthCost } from './economy/growth';
 export { effectivePins, governorAllocation } from './economy/governor';
 export { forecastColony, type ColonyForecast } from './economy/forecast';
-export { processTurn } from './turn/processTurn';
+export { battlesAhead, processTurn, type TurnOptions } from './turn/processTurn';
 export * from './save';
 export { checkInvariants } from './invariants';
 

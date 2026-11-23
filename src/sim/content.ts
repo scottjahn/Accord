@@ -260,6 +260,31 @@ export interface CombatRules {
   dominationPercent: number;
   /** Share of the other empires' home systems a dominant empire must hold, rounded up. */
   dominationHomesPercent: number;
+  /** The real-time battle a player can command instead of auto-resolving. */
+  tactical: TacticalRules;
+}
+
+/**
+ * Numbers for a commanded battle. Distances are arena units, times are ticks.
+ * Damage per shot is worked out exactly as in an auto-resolved round.
+ */
+export interface TacticalRules {
+  arenaWidth: number;
+  arenaHeight: number;
+  /** Simulation steps per second of battle time. */
+  ticksPerSecond: number;
+  /** Ticks between two shots from one gun. */
+  reloadTicks: number;
+  /** Arena units per second for a hull of speed 0, and added per point of hull speed. */
+  baseSpeed: number;
+  speedPerHullSpeed: number;
+  /** How far an armed ship and an orbital battery can shoot. */
+  shipRange: number;
+  batteryRange: number;
+  /** A computer-led side withdraws once its strength falls below this percent of its enemies'. */
+  withdrawPercent: number;
+  /** A battle still going after this many seconds stops, and carries on next turn. */
+  maxSeconds: number;
 }
 
 export interface FleetRules {
@@ -830,6 +855,18 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     }
     if (isNat(combat.minRollPercent) && (combat.minRollPercent as number) < 1) errors.push('rules.combat.minRollPercent: must be at least 1');
     if (!isNat(combat.garrisonPerPopulation)) errors.push('rules.combat.garrisonPerPopulation: must be an integer >= 0');
+    const tactical = combat.tactical;
+    if (!isObj(tactical)) {
+      errors.push('rules.combat.tactical: must be an object');
+    } else {
+      for (const key of ['arenaWidth', 'arenaHeight', 'ticksPerSecond', 'reloadTicks', 'baseSpeed', 'shipRange', 'batteryRange', 'maxSeconds'] as const) {
+        if (!isPos(tactical[key])) errors.push(`rules.combat.tactical.${key}: must be a positive integer`);
+      }
+      if (!isNat(tactical.speedPerHullSpeed)) errors.push('rules.combat.tactical.speedPerHullSpeed: must be an integer >= 0');
+      if (!isNat(tactical.withdrawPercent) || (tactical.withdrawPercent as number) > 100) {
+        errors.push('rules.combat.tactical.withdrawPercent: must be an integer from 0 to 100');
+      }
+    }
   }
 
   const difficulty = isObj(rules) ? rules.difficulty : undefined;

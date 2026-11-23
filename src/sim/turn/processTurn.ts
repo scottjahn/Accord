@@ -1,4 +1,4 @@
-import { atWar, checkVictory, repairShips, resolveBattles, resolveInvasions } from '../combat';
+import { atWar, battleSetups, checkVictory, repairShips, resolveBattles, resolveInvasions } from '../combat';
 import type { Content } from '../content';
 import { creditIncome } from '../credits';
 import { expireDiplomacy, pruneOpinions } from '../diplomacy';
@@ -12,7 +12,7 @@ import { bankIntel, resolveOperations, stepUnrest } from '../intel';
 import { joinEmpire, stepMinors } from '../minors';
 import { addColonyMorale, decayMorale, inUnrest, refreshMorale } from '../morale';
 import { applyResearch } from '../research';
-import type { GameState, TurnEvent } from '../types';
+import type { BattleOutcome, BattleSetup, GameState, TurnEvent } from '../types';
 import { updateKnownSystems } from '../view';
 
 /**
@@ -35,11 +35,42 @@ import { updateKnownSystems } from '../view';
  * 9. Timed morale effects age; a colony too long in unrest declares
  *    independence; and each empire records what it can now see.
  */
-export function processTurn(state: GameState, content: Content): { state: GameState; events: TurnEvent[] } {
+export function processTurn(
+  state: GameState,
+  content: Content,
+  options: TurnOptions = {},
+): { state: GameState; events: TurnEvent[] } {
   const next = structuredClone(state);
   const events: TurnEvent[] = [];
   if (next.winner !== null) return { state: next, events };
+  const empireIds = beginTurn(next, content, events);
+  finishTurn(next, content, events, empireIds, options);
+  next.turn += 1;
+  return { state: next, events };
+}
 
+export interface TurnOptions {
+  /**
+   * Battles a player fought in real time, by sector key (see `battlesAhead`).
+   * Every other battle is auto-resolved.
+   */
+  commandedBattles?: Record<string, BattleOutcome>;
+}
+
+/**
+ * The battles this turn will bring, worked out on a copy of the state: the
+ * turn runs up to the point where fleets have moved, and every contested
+ * sector is listed as it stands then. The state is not modified.
+ */
+export function battlesAhead(state: GameState, content: Content): BattleSetup[] {
+  if (state.winner !== null) return [];
+  const next = structuredClone(state);
+  beginTurn(next, content, []);
+  return battleSetups(next, content);
+}
+
+/** Steps 1 to 4. Mutates the state and returns the empire ids in order. */
+function beginTurn(next: GameState, content: Content, events: TurnEvent[]): EmpireId[] {
   // What commands did this turn (wars declared, treaties proposed, signed or broken) goes in the report.
   events.push(...next.pendingEvents);
   next.pendingEvents = [];
@@ -84,7 +115,12 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
 
   repairShips(next, content);
   moveFleets(next, content, events);
-  const silenced = resolveBattles(next, content, events);
+  return empireIds;
+}
+
+/** Steps 5 to 9. Mutates the state. */
+function finishTurn(next: GameState, content: Content, events: TurnEvent[], empireIds: EmpireId[], options: TurnOptions): void {
+  const silenced = resolveBattles(next, content, events, options.commandedBattles);
   resolveInvasions(next, content, silenced, events);
   resolveColonisation(next, content, events);
   resolveOperations(next, content, events);
@@ -97,7 +133,4 @@ export function processTurn(state: GameState, content: Content): { state: GameSt
   refreshMorale(next, content);
   stepUnrest(next, content, events);
   for (const id of empireIds) updateKnownSystems(next, id, content);
-
-  next.turn += 1;
-  return { state: next, events };
 }
