@@ -110,7 +110,7 @@ describe('the top bar', () => {
     homeOf(state, ALPHA).colony!.buildQueue = [{ kind: 'building', building: 'factory' as BuildingId, progress: 0 }];
     const noop = vi.fn();
     render(
-      <TopBar state={state} content={content} player={ALPHA} onEndTurn={noop} onSkipAhead={noop} onHelp={noop} onResearch={noop} onEmpires={noop} onIntel={noop} onSystems={noop} offers={0} wars={0} over={false} onSave={noop} onQuit={noop} />,
+      <TopBar state={state} content={content} player={ALPHA} onEndTurn={noop} onSkipAhead={noop} onHelp={noop} onResearch={noop} onEmpires={noop} onIntel={noop} onSystems={noop} onEmpire={noop} offers={0} wars={0} over={false} onSave={noop} onQuit={noop} />,
     );
     expect(screen.getByTestId('credits').textContent).toBe('42');
     expect(screen.getByTestId('credit-income').textContent).toBe('(+3)');

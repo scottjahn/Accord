@@ -19,7 +19,7 @@ import {
   type Stance,
 } from '../../sim';
 import { HullIcon } from './HullIcon';
-import { ROLE_LABELS, placeName, sectorLabel, sectors, ships as shipCount, turns } from '../format';
+import { ROLE_LABELS, fleetOrderText, sectorLabel, sectors, ships as shipCount } from '../format';
 
 const STANCE_HELP: Record<Stance, string> = {
   engage: 'Engage: fire on armed enemies first.',
@@ -75,21 +75,7 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
   const hasColonyShip = fleet.ships.some((s) => content.hulls[s.hull]?.role === 'colony');
   const companions = mine ? view.fleets.filter((f) => f.owner === player && f.id !== fleet.id && sameSector(f.sector, fleet.sector)) : [];
 
-  let status = 'Holding position';
-  if (fleet.destination) {
-    const where = placeName(state, fleet.destination);
-    const eta = plan ? ` · ${turns(plan.turns)}` : '';
-    status =
-      fleet.order === 'colonise'
-        ? `Heading to ${where} to colonise${eta}`
-        : fleet.order === 'invade'
-          ? `Heading to ${where} to invade${eta}`
-          : `Heading to ${where}${eta}`;
-  } else if (fleet.order === 'colonise') {
-    status = 'Founding a colony this turn';
-  } else if (fleet.order === 'invade') {
-    status = 'Landing troops once the defenders are cleared';
-  }
+  const status = fleetOrderText(state, fleet, plan ? plan.turns : null);
 
   return (
     <div className="system-panel">

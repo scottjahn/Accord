@@ -779,6 +779,10 @@ h3.spaced {
 .systems-table .num {
   text-align: right;
 }
+.systems-table .needs {
+  color: var(--warn);
+  cursor: help;
+}
 .systems-table tr.own th,
 .systems-table tr.own td {
   background: color-mix(in srgb, var(--accent) 8%, transparent);

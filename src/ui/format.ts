@@ -3,6 +3,7 @@ import {
   type BreakdownLine,
   type BuildingDef,
   type FactionDef,
+  type Fleet,
   type Content,
   type EmpireId,
   type GameState,
@@ -85,6 +86,23 @@ export const sectorLabel = (sector: Sector): string => `${sector.x + 1}, ${secto
 /** The system's name if there is one in the sector, otherwise the sector coordinates. */
 export function placeName(state: GameState, sector: Sector): string {
   return systemAt(state, sector)?.name ?? `sector ${sectorLabel(sector)}`;
+}
+
+/**
+ * A fleet's orders in words. `turnsLeft` is `fleetPlan`'s count to the
+ * destination, or null when the sim has no route.
+ */
+export function fleetOrderText(state: GameState, fleet: Fleet, turnsLeft: number | null): string {
+  if (fleet.destination) {
+    const where = placeName(state, fleet.destination);
+    const eta = turnsLeft !== null ? ` · ${turns(turnsLeft)}` : '';
+    if (fleet.order === 'colonise') return `Heading to ${where} to colonise${eta}`;
+    if (fleet.order === 'invade') return `Heading to ${where} to invade${eta}`;
+    return `Heading to ${where}${eta}`;
+  }
+  if (fleet.order === 'colonise') return 'Founding a colony this turn';
+  if (fleet.order === 'invade') return 'Landing troops once the defenders are cleared';
+  return 'Holding position';
 }
 
 export function lineValue(line: BreakdownLine): string {

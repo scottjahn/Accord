@@ -26,6 +26,7 @@ import { GalaxyMap } from '../map/GalaxyMap';
 import { ResearchScreen } from '../research/ResearchScreen';
 import { SystemPanel } from '../system/SystemPanel';
 import { SystemsScreen } from '../system/SystemsScreen';
+import { EmpireScreen } from './EmpireScreen';
 import { SaveScreen } from './SaveScreen';
 import { useSession } from '../useSession';
 import { EmpiresScreen } from '../war/EmpiresScreen';
@@ -39,7 +40,7 @@ interface Props {
 
 type Selection = { kind: 'system'; id: SystemId } | { kind: 'fleet'; id: FleetId } | null;
 /** The full-screen page that is open, if any. */
-type Screen = 'research' | 'empires' | 'intel' | 'systems' | 'help' | 'save' | null;
+type Screen = 'empire' | 'research' | 'empires' | 'intel' | 'systems' | 'help' | 'save' | null;
 
 const SKIP_IDLE_KEY = 'accord.skipIdleWarning';
 
@@ -209,6 +210,7 @@ export function GameScreen({ session, onQuit }: Props) {
         onEmpires={() => setScreen('empires')}
         onIntel={() => setScreen('intel')}
         onSystems={() => setScreen('systems')}
+        onEmpire={() => setScreen('empire')}
         onHelp={() => setScreen('help')}
         offers={offers}
         wars={wars}
@@ -311,6 +313,16 @@ export function GameScreen({ session, onQuit }: Props) {
       )}
       {screen === 'empires' && (
         <EmpiresScreen state={state} content={content} player={player} view={view} dispatch={session.dispatch} onClose={() => setScreen(null)} />
+      )}
+      {screen === 'empire' && (
+        <EmpireScreen
+          state={state}
+          content={content}
+          player={player}
+          onSelectSystem={(id) => select({ kind: 'system', id })}
+          onSelectFleet={(id) => select({ kind: 'fleet', id })}
+          onClose={() => setScreen(null)}
+        />
       )}
       {screen === 'systems' && (
         <SystemsScreen state={state} content={content} player={player} onSelect={(id) => select({ kind: 'system', id })} onClose={() => setScreen(null)} />

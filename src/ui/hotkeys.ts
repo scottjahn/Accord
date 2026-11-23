@@ -4,6 +4,7 @@ export type HotkeyAction =
   | 'nextIdle'
   | 'move'
   | 'research'
+  | 'empire'
   | 'empires'
   | 'intel'
   | 'systems'
@@ -17,6 +18,7 @@ export const HOTKEYS: { keys: string; action: HotkeyAction; does: string }[] = [
   { keys: 'Shift + Enter', action: 'skipAhead', does: 'Skip ahead until something needs you' },
   { keys: 'N', action: 'nextIdle', does: 'Jump to the next idle colony or ship' },
   { keys: 'M', action: 'move', does: 'Move the selected fleet (then click a sector)' },
+  { keys: 'O', action: 'empire', does: 'Open Your empire: every colony and fleet' },
   { keys: 'R', action: 'research', does: 'Open Research' },
   { keys: 'E', action: 'empires', does: 'Open Empires' },
   { keys: 'I', action: 'intel', does: 'Open Intel' },
@@ -29,6 +31,7 @@ export const HOTKEYS: { keys: string; action: HotkeyAction; does: string }[] = [
 const LETTERS: Record<string, HotkeyAction> = {
   n: 'nextIdle',
   m: 'move',
+  o: 'empire',
   r: 'research',
   e: 'empires',
   i: 'intel',
