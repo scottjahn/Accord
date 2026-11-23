@@ -124,13 +124,25 @@ describe('attitude', () => {
     ]);
   });
 
-  it('fades back toward the starting attitude without attention', () => {
+  it('fades back toward the starting attitude when none of its wants are met', () => {
     const { state, content, system, at } = setup('sages');
     system.minor!.attitude[ALPHA] = 50;
-    expect(attitudeChange(state, system, ALPHA, content).lines).toContainEqual({ source: 'Interest fades without attention', kind: 'flat', value: -1 });
+    expect(attitudeChange(state, system, ALPHA, content).lines).toEqual([
+      { source: 'Interest fades: none of their wants are met', kind: 'flat', value: -1 },
+    ]);
     expect(at(processTurn(state, content).state).minor!.attitude[ALPHA]).toBe(49);
     system.minor!.attitude[ALPHA] = 30;
     expect(attitudeChange(state, system, ALPHA, content).total).toBe(0);
+  });
+
+  it('does not fade while any one of its wants is met', () => {
+    const { state, content, system } = setup('sages'); // technology + influence
+    system.minor!.attitude[ALPHA] = 50;
+    state.empires[ALPHA].research.levels.computing = 1;
+    expect(attitudeChange(state, system, ALPHA, content)).toEqual({
+      total: 3,
+      lines: [{ source: 'Technology: Computing level 1 or better', kind: 'flat', value: 3 }],
+    });
   });
 
   it('stays within 0 and 100', () => {

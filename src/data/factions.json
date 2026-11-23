@@ -64,7 +64,7 @@
     "name": "Kessic Union",
     "color": "#d9a441",
     "outputModifiers": {
-      "industry": 20,
+      "industry": 14,
       "research": -3
     },
     "morale": {

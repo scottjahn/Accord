@@ -44,8 +44,8 @@ export function attitudeChange(state: GameState, system: StarSystem, empireId: E
     });
     if (near) lines.push({ source: 'Neighbours: you have a colony close by', kind: 'flat', value: rules.neighbours });
   }
-  if ((minor.attitude[empireId] ?? rules.startAttitude) > rules.startAttitude) {
-    lines.push({ source: 'Interest fades without attention', kind: 'flat', value: -1 });
+  if (lines.length === 0 && (minor.attitude[empireId] ?? rules.startAttitude) > rules.startAttitude) {
+    lines.push({ source: 'Interest fades: none of their wants are met', kind: 'flat', value: -1 });
   }
   return { total: sum(lines), lines };
 }

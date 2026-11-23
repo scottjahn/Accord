@@ -155,6 +155,6 @@ describe('choosing opponents', () => {
     render(<NewGameScreen content={content} saved={null} onStart={vi.fn()} />);
     expect(screen.getByText('-20% research, +50% credits, can buy the loyalty of minor races, can hire warships for credits')).toBeTruthy();
     expect(screen.getByText('+100% intel, +10% research, cloaked ships from era 3')).toBeTruthy();
-    expect(screen.getByText('+20% industry, -3% research, +12% attack, +50% garrison, morale never above 110')).toBeTruthy();
+    expect(screen.getByText('+14% industry, -3% research, +12% attack, +50% garrison, morale never above 110')).toBeTruthy();
   });
 });

@@ -4,7 +4,7 @@ Requests noted for later.
 
 ## Open
 
-Nothing requested is outstanding.
+- **Battles you can watch and command (parked until the minor-race tuning pass is done).** Show a battle playing out in real time instead of only the after-action report, with orders for each ship during the fight: attack, retreat, ram (sacrifice the ship for heavy damage) and similar. This must stay deterministic and seeded, and the AI needs the same orders. It will likely change combat from one resolution per turn into rounds the player can step through.
 
 ## Done
 
