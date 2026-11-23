@@ -335,9 +335,10 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const owner = seen ? (system.colony?.owner ?? null) : empire.knownSystems[cmd.system];
       const blocker = invadeBlocker(state, fleet, system, owner, content);
       if (blocker) return fail('cannotInvade', blocker);
-      return findPath(state, fleet, system.sector, content)
-        ? null
-        : fail('outOfRange', `${system.name} is outside supply range`);
+      if (!findPath(state, fleet, system.sector, content)) return fail('outOfRange', `${system.name} is outside supply range`);
+      // Like founding a colony, landing troops is its own step: the transports travel there
+      // first. Checked last, so 'notThere' also says the fleet could invade on arrival.
+      return sameSector(fleet.sector, system.sector) ? null : fail('notThere', `Move the fleet to ${system.name} first`);
     }
     case 'setStance': {
       const fleet = ownFleet(state, cmd.empire, cmd.fleet);
@@ -578,8 +579,7 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
     }
     case 'invadeSystem': {
       const fleet = next.fleets[cmd.fleet];
-      const target = next.systems[cmd.system].sector;
-      fleet.destination = sameSector(fleet.sector, target) ? null : { ...target };
+      fleet.destination = null;
       fleet.order = 'invade';
       break;
     }

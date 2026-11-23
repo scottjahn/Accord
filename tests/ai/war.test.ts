@@ -183,11 +183,16 @@ describe('waging war', () => {
 
     // The strike fleet has arrived: population 10 is visible, and 20 troops x 75% beats it.
     state.fleets[strike.id].sector = { ...target.sector };
-    expect(war(state).state.fleets[troops.id]).toMatchObject({ order: 'invade', destination: target.sector });
+    // They sail in as an ordinary move; landing is not ordered from a distance.
+    expect(war(state).state.fleets[troops.id]).toMatchObject({ order: 'none', destination: target.sector });
 
     // A bigger garrison keeps them waiting for reinforcements.
     colonyOf(state, BETA).population = 20;
-    expect(war(state).state.fleets[troops.id].order).toBe('none');
+    expect(war(state).state.fleets[troops.id]).toMatchObject({ order: 'none', destination: null });
+
+    // Once there, they land.
+    state.fleets[troops.id].sector = { ...target.sector };
+    expect(war(state).state.fleets[troops.id]).toMatchObject({ order: 'invade', destination: null });
   });
 
   it('sends a badly damaged fleet home to the shipyard and keeps it there until repaired', () => {

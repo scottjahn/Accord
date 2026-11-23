@@ -155,7 +155,7 @@ export function wageWar(plan: Planner, empireId: EmpireId, content: Content, str
     }
   }
 
-  // Transports wait at the staging colony until warships are on their way, then land.
+  // Transports wait at the staging colony until warships are on their way, then sail in and land.
   const striking = warFleets().some((f) => sameSector(f.destination ?? f.sector, target.sector));
   const waiting = transportFleets().filter((f) => idle(f) && sameSector(f.sector, staging.sector));
   const troops = waiting.reduce((sum, f) => sum + f.ships.reduce((n, s) => n + (content.hulls[s.hull]?.troops ?? 0), 0), 0);
@@ -166,8 +166,11 @@ export function wageWar(plan: Planner, empireId: EmpireId, content: Content, str
   for (const { id } of transportFleets()) {
     const fleet = plan.state.fleets[id];
     if (!fleet || !idle(fleet)) continue;
-    if (sameSector(fleet.sector, staging.sector)) {
-      if (striking && enough) plan.attempt({ type: 'invadeSystem', empire: empireId, fleet: id, system: target.id });
+    if (sameSector(fleet.sector, target.sector)) {
+      // Landing is a step of its own, taken once the transports are there.
+      plan.attempt({ type: 'invadeSystem', empire: empireId, fleet: id, system: target.id });
+    } else if (sameSector(fleet.sector, staging.sector)) {
+      if (striking && enough) plan.attempt({ type: 'moveFleet', empire: empireId, fleet: id, to: target.sector });
     } else {
       plan.attempt({ type: 'moveFleet', empire: empireId, fleet: id, to: staging.sector });
     }

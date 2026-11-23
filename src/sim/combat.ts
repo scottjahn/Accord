@@ -327,6 +327,46 @@ export function invadeBlocker(state: GameState, fleet: Fleet, system: StarSystem
   return null;
 }
 
+/** What landing troops on a system now would come to, for the player to judge before ordering it. */
+export interface InvasionOdds {
+  attack: { total: number; lines: BreakdownLine[] };
+  defence: { total: number; lines: BreakdownLine[] };
+  /** Percent chance the landing takes the system, over every equally likely roll. */
+  chance: number;
+  /** Why the troops cannot land yet even once ordered, or null if nothing stands in the way. */
+  waitingFor: string | null;
+}
+
+/**
+ * The chance that these fleets' troops take the system, worked out over the
+ * same roll `resolveInvasions` makes. Defending warships or working batteries
+ * hold the landing back until a battle clears them; `waitingFor` says so.
+ */
+export function invasionOdds(state: GameState, fleets: Fleet[], system: StarSystem, content: Content): InvasionOdds {
+  const rules = content.rules.combat;
+  const attack = troopStrength(state, fleets, content);
+  const defence = system.minor ? minorGarrison(system, content) : garrisonStrength(system, content, state);
+  let wins = 0;
+  for (let roll = rules.minRollPercent; roll <= 100; roll++) {
+    if (Math.floor((attack.total * roll) / 100) > defence.total) wins++;
+  }
+  const chance = Math.floor((wins * 100) / (101 - rules.minRollPercent));
+
+  let waitingFor: string | null = null;
+  const defender = system.colony?.owner ?? null;
+  if (defender !== null) {
+    const guarded = fleetsOf(state, defender).some(
+      (f) => sameSector(f.sector, system.sector) && f.ships.some((s) => (content.hulls[s.hull]?.attack ?? 0) > 0),
+    );
+    const batteries = sortedKeys(system.colony!.buildings).some(
+      (b) => (content.buildings[b]?.combat.attack ?? 0) > 0 && system.colony!.buildings[b] > 0,
+    );
+    if (guarded) waitingFor = 'Enemy warships in orbit must be cleared first';
+    else if (batteries) waitingFor = 'The orbital batteries must be knocked out in battle first: bring warships';
+  }
+  return { attack, defence, chance, waitingFor };
+}
+
 /**
  * Lands troops for fleets that have arrived with an invade order. Defending
  * warships or working batteries in the sector stop the landing. Troops are

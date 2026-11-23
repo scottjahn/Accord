@@ -8,6 +8,10 @@ Requests noted for later.
 
 ## Done
 
+- **Invading is its own order, with the odds shown.** Transports sent to an enemy colony or a minor race only travel there. Once there, the fleet panel offers "Invade ... (n%)", with the chance worked out over the landing's own roll and the troops and garrison broken down. It also says when warships or batteries must be cleared first. The AI moves its transports in first, then lands.
+- **Unarmed fleets.** Each ship shows its attack or "unarmed"; a fleet with no guns can only Hold or Evade.
+- **Empire overview.** Every colony and fleet on one screen (Empire, or O).
+
 - **The AI founds colonies the way the player does.** A colony ship must travel to the system first; founding is a second order there, for every empire. The one-step order is gone from the rules.
 - **Lowering a slider under a governor.** Lowering a slider sets a limit on that output: a fixed number that does not grow with the colony. The governor places the workers it turns away elsewhere. "Clear adjustments" lifts it.
 - **Idle scouts.** A scout with no orders is in the idle list and the End Turn warning while there are unscanned systems it could reach. Warships are still left alone: standing guard is not idleness.

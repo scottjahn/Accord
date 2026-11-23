@@ -10,7 +10,9 @@ import {
   stancesFor,
   garrisonStrength,
   getEmpireView,
+  invasionOdds,
   processTurn,
+  sameSector,
   sectorKey,
   serialize,
   submitCommand,
@@ -353,6 +355,28 @@ describe('invasion', () => {
     });
   });
 
+  it('gives the chance of taking the system over the same roll the landing makes', () => {
+    const { state, content, target, fleet } = siege(['transport', 'transport']);
+    // 20 troops against 10: at full-strength rolls it always wins.
+    expect(invasionOdds(state, [fleet], target, content)).toMatchObject({ chance: 100, waitingFor: null });
+    expect(invasionOdds(state, [fleet], target, content).attack.total).toBe(20);
+    expect(invasionOdds(state, [fleet], target, content).defence.total).toBe(10);
+    // Rolls of 50-100: floor(20 x roll / 100) beats 10 from 55 up, so 46 of 51 rolls win.
+    content.rules.combat.minRollPercent = 50;
+    expect(invasionOdds(state, [fleet], target, content).chance).toBe(90);
+    // A garrison of 22 can never be beaten by 20 troops.
+    colonyOf(state, BETA).buildings['barracks' as BuildingId] = 1;
+    expect(invasionOdds(state, [fleet], target, content).chance).toBe(0);
+  });
+
+  it('says what holds a landing back', () => {
+    const { state, content, target, fleet } = siege(['transport', 'transport']);
+    colonyOf(state, BETA).buildings['battery' as BuildingId] = 1;
+    expect(invasionOdds(state, [fleet], target, content).waitingFor).toMatch(/^The orbital batteries must be knocked out/);
+    place(state, content, BETA, target.sector, ['destroyer']);
+    expect(invasionOdds(state, [fleet], target, content).waitingFor).toBe('Enemy warships in orbit must be cleared first');
+  });
+
   it('captures an undefended colony when the troops outnumber the garrison', () => {
     const { state, content, apply, target, fleet, order } = siege(['transport', 'transport']);
     colonyOf(state, BETA).buildings = { farm: 2, reactor: 1, lab: 1 } as never;
@@ -429,11 +453,21 @@ describe('invasion', () => {
     expect(fleet.order).toBe('none');
   });
 
-  it('travels to the target before landing', () => {
-    const { state, content, apply, home, target } = siege(['frigate']);
+  it('lands only once ordered where the transports are, never from a distance', () => {
+    const { state, content, apply, codeOf, home, target } = siege(['frigate']);
     const transports = place(state, content, ALPHA, home.sector, ['transport', 'transport']);
-    let s = apply(state, { type: 'invadeSystem', empire: ALPHA, fleet: transports.id, system: target.id });
-    expect(s.fleets[transports.id]).toMatchObject({ order: 'invade', destination: target.sector });
+    const invade: Command = { type: 'invadeSystem', empire: ALPHA, fleet: transports.id, system: target.id };
+    expect(codeOf(state, invade)).toBe('notThere');
+    // Sailing into the enemy's sector is only a move: nothing lands until the order is given.
+    let s = apply(state, { type: 'moveFleet', empire: ALPHA, fleet: transports.id, to: target.sector });
+    for (let i = 0; i < 6 && !sameSector(s.fleets[transports.id].sector, target.sector); i++) {
+      const step = processTurn(s, content);
+      expect(invasions(step.events)).toEqual([]);
+      s = step.state;
+    }
+    expect(s.fleets[transports.id]).toMatchObject({ order: 'none', destination: null });
+    s = apply(s, invade);
+    expect(s.fleets[transports.id]).toMatchObject({ order: 'invade', destination: null });
     let captured = false;
     for (let i = 0; i < 6 && !captured; i++) {
       const step = processTurn(s, content);

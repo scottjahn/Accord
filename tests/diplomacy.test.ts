@@ -198,7 +198,7 @@ describe('what treaties do', () => {
     const { state, content, apply, why } = setup();
     let s = apply(state, { type: 'declareWar', empire: ALPHA, on: BETA });
     content.rules.fleets.baseRange = 20;
-    const troops = addFleet(s, content, ALPHA, homeOf(s, ALPHA).sector, ['transport']);
+    const troops = addFleet(s, content, ALPHA, homeOf(s, BETA).sector, ['transport']);
     s = apply(s, { type: 'invadeSystem', empire: ALPHA, fleet: troops.id, system: homeOf(s, BETA).id });
     expect(why(s, { type: 'proposeTreaty', empire: ALPHA, to: BETA, treaty: 'nonAggression' })).toBe('Make peace first');
 

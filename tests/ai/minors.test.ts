@@ -121,6 +121,11 @@ describe('the AI and minor races', () => {
     delete state.fleets[sortedKeys(state.fleets).filter((id) => id !== few.id)[0]];
     p = plan();
     conquerMinors(p, ALPHA, content, conquering, look());
+    // Enough now: it sails there first, and lands only on arrival.
+    expect(p.issued).toEqual([{ type: 'moveFleet', empire: ALPHA, fleet: few.id, to: wardens.sector }]);
+    state.fleets[few.id].sector = { ...wardens.sector };
+    p = plan();
+    conquerMinors(p, ALPHA, content, conquering, look());
     expect(p.issued).toEqual([{ type: 'invadeSystem', empire: ALPHA, fleet: few.id, system: wardens.id }]);
 
     const courting = plan();

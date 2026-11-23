@@ -165,20 +165,12 @@ export function GameScreen({ session, onQuit }: Props) {
   }, []);
 
   /**
-   * Sends the selected fleet to a sector. Transports sent to an enemy colony
-   * invade it. A colony ship only travels; founding the colony is its own action.
+   * Sends the selected fleet to a sector. It only travels: founding a colony
+   * and landing troops are their own orders, given once the fleet is there.
    */
   const sendFleet = (sector: Sector) => {
     if (!ownFleet) return;
     setMoveMode(false);
-    const target = systemAt(state, sector);
-    if (target && view.systems[target.id]?.known) {
-      const invade: Command = { type: 'invadeSystem', empire: player, fleet: ownFleet.id, system: target.id };
-      if (!validateCommand(state, invade, content)) {
-        session.dispatch(invade);
-        return;
-      }
-    }
     session.dispatch({ type: 'moveFleet', empire: player, fleet: ownFleet.id, to: sector });
   };
 

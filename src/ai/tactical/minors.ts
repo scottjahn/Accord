@@ -1,6 +1,7 @@
 import {
   fleetsOf,
   minorGarrison,
+  sameSector,
   sectorDistance,
   type Content,
   type EmpireId,
@@ -73,6 +74,9 @@ export function conquerMinors(plan: Planner, empireId: EmpireId, content: Conten
     const target = [...targets]
       .sort((a, b) => sectorDistance(a.sector, fleet.sector) - sectorDistance(b.sector, fleet.sector) || (a.id < b.id ? -1 : 1))
       .find((s) => Math.floor((troops * TROOP_MARGIN_PERCENT) / 100) > minorGarrison(s, content).total);
-    if (target) plan.attempt({ type: 'invadeSystem', empire: empireId, fleet: fleet.id, system: target.id });
+    if (!target) continue;
+    // Landing is a step of its own: sail there, then invade on arrival.
+    if (sameSector(fleet.sector, target.sector)) plan.attempt({ type: 'invadeSystem', empire: empireId, fleet: fleet.id, system: target.id });
+    else plan.attempt({ type: 'moveFleet', empire: empireId, fleet: fleet.id, to: target.sector });
   }
 }

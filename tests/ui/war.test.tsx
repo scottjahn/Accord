@@ -173,7 +173,24 @@ describe('war through the UI', () => {
     fireEvent.click(button(outpost.name));
     fireEvent.click(button(/^Select fleet: Troop Transport/));
     fireEvent.click(button(`Send to ${enemyHome.name}`));
-    expect(screen.getByTestId('fleet-status').textContent).toMatch(new RegExp(`^Heading to ${enemyHome.name} to invade · 1 turn$`));
+    // Sending transports to an enemy colony only moves them; landing is ordered on arrival.
+    expect(screen.getByTestId('fleet-status').textContent).toMatch(new RegExp(`^Heading to ${enemyHome.name} · 1 turn$`));
+    fireEvent.click(button('End turn'));
+    expect(autosave().systems[enemyHome.id].colony!.owner).toBe(RIVAL);
+
+    // The battle on arrival, shot by shot.
+    fireEvent.click(button(new RegExp(`^Battle at ${enemyHome.name}`)));
+    const battle = screen.getByRole('dialog', { name: `Battle at ${enemyHome.name}` });
+    expect(within(battle).getByRole('heading', { name: 'Round 1' })).toBeTruthy();
+    expect(within(battle).getAllByText(/Frigate \(You\) hit Frigate \(The Concord\) for \d+/).length).toBeGreaterThan(0);
+    expect(within(battle).getByText(/1 in the fight, 1 lost/)).toBeTruthy();
+    fireEvent.click(within(battle).getByRole('button', { name: 'Close' }));
+
+    fireEvent.click(button(enemyHome.name));
+    fireEvent.click(button(/^Select fleet: Troop Transport/));
+    expect(screen.getByTestId('invasion-odds').textContent).toMatch(/^\d+% chance to take /);
+    fireEvent.click(button(new RegExp(`^Invade ${enemyHome.name} \\(\\d+%\\)$`)));
+    expect(screen.getByTestId('fleet-status').textContent).toBe('Landing troops once the defenders are cleared');
 
     for (let i = 0; i < 6 && autosave().winner === null; i++) fireEvent.click(button('End turn'));
     const final = autosave();
@@ -187,14 +204,6 @@ describe('war through the UI', () => {
     expect(screen.queryByRole('dialog', { name: 'Game over' })).toBeNull();
     expect(button('End turn').disabled).toBe(true);
     expect(screen.getByText('Vashran Dominate has won the game')).toBeTruthy();
-
-    // The battle, shot by shot.
-    fireEvent.click(button(new RegExp(`^Battle at ${enemyHome.name}`)));
-    const battle = screen.getByRole('dialog', { name: `Battle at ${enemyHome.name}` });
-    expect(within(battle).getByRole('heading', { name: 'Round 1' })).toBeTruthy();
-    expect(within(battle).getAllByText(/Frigate \(You\) hit Frigate \(The Concord\) for \d+/).length).toBeGreaterThan(0);
-    expect(within(battle).getByText(/1 in the fight, 1 lost/)).toBeTruthy();
-    fireEvent.click(within(battle).getByRole('button', { name: 'Close' }));
 
     // The invasion, with both strengths explained.
     fireEvent.click(button(`Vashran Dominate captured ${enemyHome.name}`));

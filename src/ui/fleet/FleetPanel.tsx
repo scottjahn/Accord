@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   fleetIsArmed,
   fleetPlan,
+  invasionOdds,
   fleetRange,
   fleetSpeed,
   sameSector,
@@ -20,7 +21,7 @@ import {
   type Stance,
 } from '../../sim';
 import { HullIcon } from './HullIcon';
-import { ROLE_LABELS, fleetOrderText, sectorLabel, sectors, ships as shipCount } from '../format';
+import { ROLE_LABELS, fleetOrderText, lineValue, sectorLabel, sectors, ships as shipCount } from '../format';
 
 const STANCE_HELP: Record<Stance, string> = {
   engage: 'Engage: fire on armed enemies first.',
@@ -82,6 +83,16 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
       ? { type: 'invadeSystem', empire: player, fleet: fleet.id, system: here.id }
       : null;
   const invadeError = invade ? validateCommand(state, invade, content) : null;
+  // The landing joins every fleet of ours here that is already set to invade.
+  const odds =
+    invade && !invadeError
+      ? invasionOdds(
+          state,
+          [fleet, ...view.fleets.filter((f) => f.owner === player && f.id !== fleet.id && f.order === 'invade' && sameSector(f.sector, fleet.sector))],
+          here!,
+          content,
+        )
+      : null;
   const hasColonyShip = fleet.ships.some((s) => content.hulls[s.hull]?.role === 'colony');
   const companions = mine ? view.fleets.filter((f) => f.owner === player && f.id !== fleet.id && sameSector(f.sector, fleet.sector)) : [];
 
@@ -148,6 +159,7 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
             {invade && fleet.order !== 'invade' && (
               <button type="button" className="btn danger" disabled={invadeError !== null} title={invadeError?.message} onClick={() => dispatch(invade)}>
                 Invade {here!.name}
+                {odds && ` (${odds.chance}%)`}
               </button>
             )}
             {colonise && hasColonyShip && fleet.order !== 'colonise' && (
@@ -162,10 +174,37 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
               </button>
             )}
           </div>
+          {odds && (
+            <div className="invasion-odds" data-testid="invasion-odds">
+              <p>
+                <strong>{odds.chance}%</strong> chance to take {here!.name}: your troops {odds.attack.total} against a garrison of{' '}
+                {odds.defence.total}. The troops land whatever happens, and the transports are used up.
+              </p>
+              <table className="breakdown">
+                <tbody>
+                  {odds.attack.lines.map((line) => (
+                    <tr key={`a-${line.source}`}>
+                      <td>Troops: {line.source}</td>
+                      <td className="num">{lineValue(line)}</td>
+                    </tr>
+                  ))}
+                  {odds.defence.lines.map((line) => (
+                    <tr key={`d-${line.source}`}>
+                      <td>Garrison: {line.source}</td>
+                      <td className="num">{lineValue(line)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {odds.waitingFor && <p className="muted hint">{odds.waitingFor}. Until then the troops wait in orbit.</p>}
+            </div>
+          )}
           <p className="muted hint">
             Right-click the map, or press Move and click, to send this fleet. The highlighted sectors are in supply
             range.{hasColonyShip && ' Move it to an unclaimed system, then choose Found colony there.'}
-            {invade === null && fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) && ' Send transports to an enemy colony to invade it.'}
+            {invade === null &&
+              fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) &&
+              ' Move transports to an enemy colony or a minor race, then choose Invade there.'}
           </p>
         </section>
       )}
