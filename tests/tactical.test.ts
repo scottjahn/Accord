@@ -21,8 +21,9 @@ import {
   type Sector,
   type TacticalBattle,
   type TurnEvent,
+  validateContent,
 } from '../src/sim';
-import { ALPHA, BETA, addFleet, fixtureContent, homeOf, newGame } from './fixture';
+import { ALPHA, BETA, addFleet, fixtureContent, homeOf, newGame, rawFixture } from './fixture';
 
 const content = fixtureContent();
 const options = (player: EmpireId | null = null, seed = 7) => ({ wars: [[ALPHA, BETA]] as [EmpireId, EmpireId][], player, seed });
@@ -146,6 +147,135 @@ describe('a commanded battle on its own', () => {
     expect(battle.tick).toBe(2 * battle.ticksPerSecond);
     expect(battle.finished).toBe(false);
     expect(tacticalResult(battle, ALPHA)).toBe('unfinished');
+  });
+});
+
+/** The fixture with one hull carrying other weapons. */
+function armedWith(hull: string, weapons: string[]): Content {
+  const changed = structuredClone(content) as Content;
+  changed.rules.combat.tactical.loadouts[hull] = weapons;
+  return changed;
+}
+
+function duel(withContent: Content, a: string[], b: string[]): TacticalBattle {
+  const battle = createTacticalBattle(
+    practiceSetup(withContent, [
+      { empire: ALPHA, hulls: a, batteries: 0 },
+      { empire: BETA, hulls: b, batteries: 0 },
+    ]),
+    withContent,
+    options(ALPHA),
+  );
+  battle.sides[1].commander = 'player';
+  return battle;
+}
+
+describe('a commanded battle in motion', () => {
+  it('keeps every ship moving, whether fighting or holding', () => {
+    const battle = practice(['frigate', 'frigate', 'destroyer'], ['frigate', 'frigate'], 0, ALPHA);
+    const holder = unitsOf(battle, ALPHA)[2];
+    orderTactical(battle, ALPHA, [holder.id], { kind: 'hold' });
+    for (let window = 0; window < 8 && !battle.over; window++) {
+      const before = new Map(battle.units.map((u) => [u.id, [u.x, u.y]]));
+      for (let i = 0; i < 20; i++) stepTactical(battle, content);
+      for (const u of battle.units) {
+        if (u.status !== 'active') continue;
+        const [x, y] = before.get(u.id)!;
+        expect(Math.hypot(u.x - x, u.y - y)).toBeGreaterThan(5);
+      }
+    }
+    // Holding means circling its spot, not wandering off.
+    expect(Math.hypot(holder.x - holder.ax, holder.y - holder.ay)).toBeLessThan(80);
+  });
+
+  it('flies bolts that land a share of a full hit, and miss a target that has moved', () => {
+    const pulse = armedWith('frigate', ['pulse']);
+    const battle = duel(pulse, ['frigate'], ['frigate']);
+    const [mine] = unitsOf(battle, ALPHA);
+    const [theirs] = unitsOf(battle, BETA);
+    orderTactical(battle, BETA, [theirs.id], { kind: 'hold' });
+    theirs.guns = [];
+    theirs.armed = true;
+    // Put them in range and wait for the first bolt.
+    theirs.x = mine.x + 200;
+    theirs.y = mine.y;
+    theirs.ax = theirs.x;
+    theirs.ay = theirs.y;
+    for (let i = 0; i < 40 && battle.projectiles.length === 0; i++) stepTactical(battle, pulse);
+    expect(battle.projectiles).toHaveLength(1);
+    expect(battle.shots).toEqual([]);
+    // Dodge it, and stop the gun firing again.
+    mine.guns[0].reload = 10_000;
+    theirs.y += 150;
+    theirs.ay = theirs.y;
+    for (let i = 0; i < 40 && battle.projectiles.length > 0; i++) stepTactical(battle, pulse);
+    expect(battle.projectiles).toHaveLength(0);
+    expect(theirs.hp).toBe(theirs.maxHp);
+
+    // A bolt that does arrive: 40% of the 8 a laser would do.
+    const hits: number[] = [];
+    const again = duel(pulse, ['frigate'], ['frigate']);
+    for (let i = 0; i < 400 && hits.length === 0; i++) {
+      stepTactical(again, pulse);
+      hits.push(...again.shots.map((s) => s.damage));
+      expect(again.shots.every((s) => s.delivery === 'bolt')).toBe(true);
+    }
+    expect(hits[0]).toBe(3);
+  });
+
+  it('sends missiles after a target that turns away, and shares damage between weapons', () => {
+    const missiles = armedWith('frigate', ['missile', 'laser']);
+    const battle = duel(missiles, ['frigate'], ['frigate']);
+    const [mine] = unitsOf(battle, ALPHA);
+    const [theirs] = unitsOf(battle, BETA);
+    orderTactical(battle, BETA, [theirs.id], { kind: 'hold' });
+    theirs.guns = [];
+    theirs.x = mine.x + 400; // beyond the laser, inside the missile's reach
+    theirs.y = mine.y;
+    theirs.ax = theirs.x;
+    theirs.ay = theirs.y;
+    orderTactical(battle, ALPHA, [mine.id], { kind: 'hold' });
+    for (let i = 0; i < 80 && battle.projectiles.length === 0; i++) stepTactical(battle, missiles);
+    expect(battle.projectiles.map((p) => p.delivery)).toEqual(['homing']);
+    mine.guns.forEach((g) => (g.reload = 10_000));
+    theirs.y += 200;
+    theirs.ay = theirs.y;
+    const hits: number[] = [];
+    for (let i = 0; i < 200 && battle.projectiles.length > 0; i++) {
+      stepTactical(battle, missiles);
+      hits.push(...battle.shots.map((s) => s.damage));
+    }
+    // 200% of a full hit of 8, shared between two weapons.
+    expect(hits).toEqual([8]);
+    expect(theirs.hp).toBe(theirs.maxHp - 8);
+  });
+
+  it('plays out the same way with projectiles in flight across a JSON round trip', () => {
+    const mixed = armedWith('frigate', ['pulse', 'missile', 'laser']);
+    const a = duel(mixed, ['frigate', 'frigate'], ['destroyer']);
+    const b = duel(mixed, ['frigate', 'frigate'], ['destroyer']);
+    let i = 0;
+    while (b.projectiles.length === 0 || i < 60) {
+      stepTactical(b, mixed);
+      i++;
+    }
+    const copy = JSON.parse(JSON.stringify(b)) as TacticalBattle;
+    runTactical(a, mixed);
+    runTactical(copy, mixed);
+    expect(tacticalOutcome(copy)).toEqual(tacticalOutcome(a));
+    expect(copy.tick).toBe(a.tick);
+  });
+
+  it('rejects a loadout naming an unknown weapon or hull', () => {
+    const errorsFor = (mutate: (raw: any) => void) => {
+      const raw = structuredClone(rawFixture) as any;
+      mutate(raw);
+      const result = validateContent(raw);
+      return result.ok ? [] : result.error;
+    };
+    expect(errorsFor((r) => (r.rules.combat.tactical.loadouts.frigate = ['plasma'])).join()).toMatch(/loadouts.frigate/);
+    expect(errorsFor((r) => (r.rules.combat.tactical.loadouts.dreadnought = ['laser'])).join()).toMatch(/no such hull/);
+    expect(errorsFor((r) => (r.rules.combat.tactical.weapons.pulse.delivery = 'rail')).join()).toMatch(/delivery/);
   });
 });
 

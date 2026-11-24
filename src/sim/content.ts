@@ -265,26 +265,50 @@ export interface CombatRules {
 }
 
 /**
- * Numbers for a commanded battle. Distances are arena units, times are ticks.
- * Damage per shot is worked out exactly as in an auto-resolved round.
+ * Numbers for a commanded battle. Distances are arena units, times are ticks
+ * unless a field says seconds. Each hit is worked out by `shotDamage`, as in
+ * an auto-resolved round, then scaled by the weapon's damage percent and
+ * shared among the weapons the unit carries.
  */
 export interface TacticalRules {
   arenaWidth: number;
   arenaHeight: number;
   /** Simulation steps per second of battle time. */
   ticksPerSecond: number;
-  /** Ticks between two shots from one gun. */
-  reloadTicks: number;
   /** Arena units per second for a hull of speed 0, and added per point of hull speed. */
   baseSpeed: number;
   speedPerHullSpeed: number;
-  /** How far an armed ship and an orbital battery can shoot. */
-  shipRange: number;
-  batteryRange: number;
+  /** How much of its top speed a ship can add or shed in one tick, as a percent. */
+  accelPercent: number;
   /** A computer-led side withdraws once its strength falls below this percent of its enemies'. */
   withdrawPercent: number;
   /** A battle still going after this many seconds stops, and carries on next turn. */
   maxSeconds: number;
+  weapons: Record<string, TacticalWeapon>;
+  /**
+   * What each armed unit carries, by hull id; `battery` for orbital batteries
+   * and `default` for any hull not listed. A unit's damage is shared evenly
+   * among the weapons it carries.
+   */
+  loadouts: Record<string, string[]>;
+}
+
+export interface TacticalWeapon {
+  name: string;
+  /**
+   * beam: hits the moment it fires. bolt: flies straight at where the target
+   * will be, and misses if the target turns away. homing: steers after its
+   * target until it hits or runs out of fuel.
+   */
+  delivery: 'beam' | 'bolt' | 'homing';
+  /** A hit's share of a full shot, as a percent; 100 is one auto-resolved hit. */
+  damagePercent: number;
+  reloadTicks: number;
+  range: number;
+  /** Arena units per second for a bolt or homing shot; 0 for a beam. */
+  speed: number;
+  /** How hard a homing shot turns towards its target each tick, as a percent. */
+  agility: number;
 }
 
 export interface FleetRules {
@@ -859,12 +883,40 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (!isObj(tactical)) {
       errors.push('rules.combat.tactical: must be an object');
     } else {
-      for (const key of ['arenaWidth', 'arenaHeight', 'ticksPerSecond', 'reloadTicks', 'baseSpeed', 'shipRange', 'batteryRange', 'maxSeconds'] as const) {
+      for (const key of ['arenaWidth', 'arenaHeight', 'ticksPerSecond', 'baseSpeed', 'accelPercent', 'maxSeconds'] as const) {
         if (!isPos(tactical[key])) errors.push(`rules.combat.tactical.${key}: must be a positive integer`);
       }
       if (!isNat(tactical.speedPerHullSpeed)) errors.push('rules.combat.tactical.speedPerHullSpeed: must be an integer >= 0');
       if (!isNat(tactical.withdrawPercent) || (tactical.withdrawPercent as number) > 100) {
         errors.push('rules.combat.tactical.withdrawPercent: must be an integer from 0 to 100');
+      }
+      const weapons = tactical.weapons;
+      if (!isObj(weapons) || Object.keys(weapons).length === 0) {
+        errors.push('rules.combat.tactical.weapons: must name at least one weapon');
+      } else {
+        for (const [id, w] of Object.entries(weapons)) {
+          const at = `rules.combat.tactical.weapons.${id}`;
+          if (!isObj(w)) {
+            errors.push(`${at}: must be an object`);
+            continue;
+          }
+          if (typeof w.name !== 'string' || w.name === '') errors.push(`${at}.name: must be a name`);
+          if (w.delivery !== 'beam' && w.delivery !== 'bolt' && w.delivery !== 'homing') errors.push(`${at}.delivery: must be beam, bolt or homing`);
+          for (const key of ['damagePercent', 'reloadTicks', 'range'] as const) if (!isPos(w[key])) errors.push(`${at}.${key}: must be a positive integer`);
+          if (w.delivery === 'beam' ? !isNat(w.speed) : !isPos(w.speed)) errors.push(`${at}.speed: must be a positive integer for a bolt or homing shot`);
+          if (!isNat(w.agility) || (w.agility as number) > 100) errors.push(`${at}.agility: must be an integer from 0 to 100`);
+        }
+      }
+      const loadouts = tactical.loadouts;
+      if (!isObj(loadouts) || !Array.isArray(loadouts.default) || !Array.isArray(loadouts.battery)) {
+        errors.push('rules.combat.tactical.loadouts: needs at least default and battery');
+      } else {
+        for (const [id, list] of Object.entries(loadouts)) {
+          if (id !== 'default' && id !== 'battery' && !(id in hulls)) errors.push(`rules.combat.tactical.loadouts.${id}: no such hull`);
+          if (!Array.isArray(list) || list.length === 0 || !list.every((w) => typeof w === 'string' && isObj(weapons) && w in weapons)) {
+            errors.push(`rules.combat.tactical.loadouts.${id}: must list known weapons`);
+          }
+        }
       }
     }
   }

@@ -147,7 +147,25 @@ export const rawFixture = {
     intel: {"decayPercent":5,"defaultSplit":0,"baseChance":70,"defencePerPercent":4,"catchBase":15,"stealPoints":40,"revealTurns":10,"operations":{"stealResearch":{"cost":40,"label":"Steal research"},"sabotage":{"cost":30,"label":"Sabotage"},"inciteUnrest":{"cost":50,"label":"Incite unrest"},"gatherIntel":{"cost":20,"label":"Gather intel"}}},
     minors: { minPopulation: 6, startAttitude: 30, joinAt: 80, joinTurns: 3, protection: 4, technology: 3, neighbours: 2, neighbourRange: 2, influenceCost: 5, conquestPenalty: 15 },
     combat: { maxRounds: 4, minRollPercent: 100, evadeFirePercent: 50, repairPercent: 25, garrisonPerPopulation: 1, captureLossPercent: 25, captureBuildingLossPercent: 50, dominationPercent: 67, dominationHomesPercent: 100,
-      tactical: { arenaWidth: 1600, arenaHeight: 1000, ticksPerSecond: 20, reloadTicks: 30, baseSpeed: 30, speedPerHullSpeed: 15, shipRange: 260, batteryRange: 340, withdrawPercent: 25, maxSeconds: 600 } },
+      tactical: {
+        arenaWidth: 1600,
+        arenaHeight: 1000,
+        ticksPerSecond: 20,
+        baseSpeed: 30,
+        speedPerHullSpeed: 15,
+        accelPercent: 8,
+        withdrawPercent: 25,
+        maxSeconds: 600,
+        weapons: {
+          laser: { name: 'Laser', delivery: 'beam', damagePercent: 100, reloadTicks: 30, range: 260, speed: 0, agility: 0 },
+          battery: { name: 'Battery', delivery: 'beam', damagePercent: 100, reloadTicks: 30, range: 340, speed: 0, agility: 0 },
+          pulse: { name: 'Pulse', delivery: 'bolt', damagePercent: 40, reloadTicks: 10, range: 300, speed: 760, agility: 0 },
+          missile: { name: 'Missile', delivery: 'homing', damagePercent: 200, reloadTicks: 60, range: 480, speed: 340, agility: 14 },
+        },
+        // Every ship carries one laser, so a commanded hit matches an auto-resolved one.
+        loadouts: { default: ['laser'], battery: ['battery'] },
+      },
+    },
     fleets: {
       baseRange: 2,
       propulsionLevelsPerRange: 2,

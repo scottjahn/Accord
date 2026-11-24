@@ -104,13 +104,30 @@
       "arenaWidth": 1600,
       "arenaHeight": 1000,
       "ticksPerSecond": 20,
-      "reloadTicks": 30,
       "baseSpeed": 30,
       "speedPerHullSpeed": 15,
-      "shipRange": 260,
-      "batteryRange": 340,
+      "accelPercent": 8,
       "withdrawPercent": 25,
-      "maxSeconds": 600
+      "maxSeconds": 600,
+      "weapons": {
+        "laser": { "name": "Laser", "delivery": "beam", "damagePercent": 100, "reloadTicks": 30, "range": 260, "speed": 0, "agility": 0 },
+        "pulse": { "name": "Pulse cannon", "delivery": "bolt", "damagePercent": 40, "reloadTicks": 10, "range": 300, "speed": 760, "agility": 0 },
+        "missile": { "name": "Missiles", "delivery": "homing", "damagePercent": 200, "reloadTicks": 60, "range": 480, "speed": 340, "agility": 14 },
+        "torpedo": { "name": "Torpedo", "delivery": "homing", "damagePercent": 420, "reloadTicks": 120, "range": 380, "speed": 190, "agility": 6 },
+        "battery": { "name": "Battery cannon", "delivery": "beam", "damagePercent": 100, "reloadTicks": 30, "range": 340, "speed": 0, "agility": 0 }
+      },
+      "loadouts": {
+        "default": ["laser"],
+        "battery": ["battery", "missile"],
+        "frigate": ["pulse", "laser"],
+        "destroyer": ["laser", "missile"],
+        "cruiser": ["laser", "pulse", "torpedo"],
+        "peacekeeper": ["laser", "missile"],
+        "raider": ["pulse", "missile"],
+        "shade": ["laser", "torpedo"],
+        "bulwark": ["laser", "pulse"],
+        "privateer": ["pulse"]
+      }
     }
   },
   "morale": {

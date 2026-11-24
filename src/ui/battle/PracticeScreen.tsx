@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  loadoutOf,
   practiceSetup,
   sortedKeys,
   type BattleOutcome,
@@ -116,6 +117,10 @@ export function PracticeScreen({ content, onClose }: Props) {
   );
 }
 
+/** The weapons a hull carries into a commanded battle, as "Laser, Missiles". */
+const weaponsOf = (content: Content, hull: HullId) =>
+  [...new Set(loadoutOf({ armed: true, role: 'warship', hull }, content))].map((w) => content.rules.combat.tactical.weapons[w].name).join(', ');
+
 const clampCount = (value: string, max: number) => Math.max(0, Math.min(max, Math.floor(Number(value) || 0)));
 
 function SidePicker({
@@ -154,6 +159,7 @@ function SidePicker({
               <span className="muted">
                 {' '}
                 {hull.attack > 0 ? `attack ${hull.attack}, ` : 'unarmed, '}hull {hull.hp}
+                {hull.attack > 0 && `, ${weaponsOf(content, hull.id)}`}
               </span>
             </span>
             <input

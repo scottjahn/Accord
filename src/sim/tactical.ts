@@ -4,8 +4,11 @@
  * A `TacticalBattle` starts from a `BattleSetup` (see `battlesAhead`), runs in
  * fixed ticks and ends when no armed unit has an enemy left on the field. Its
  * result, `tacticalOutcome`, goes back into `processTurn` as a commanded
- * battle. Damage per shot is worked out by `shotDamage`, exactly as in an
- * auto-resolved round; what changes is who shoots whom, and when.
+ * battle. Each hit is worked out by `shotDamage`, exactly as in an
+ * auto-resolved round, then scaled by the weapon (see `TacticalWeapon`); what
+ * changes is who shoots whom, and when. Ships never sit still: they circle
+ * their targets and jink at seeded moments, and bolts and missiles fly, so a
+ * ship that turns at the right time can make a bolt miss.
  *
  * Unlike the game state, a battle is a working object that is stepped many
  * times a second, so `stepTactical` and `orderTactical` change it in place
@@ -14,7 +17,7 @@
  * setup, seed and orders always play out the same way.
  */
 import { atWar, shotDamage } from './combat';
-import type { Content } from './content';
+import type { Content, TacticalWeapon } from './content';
 import { sortedKeys, type BuildingId, type EmpireId, type HullId } from './ids';
 import { nextInt, seedRng, type RngState } from './rng';
 import type { BattleOutcome, BattleSetup, BattleUnitSetup, GameState, Sector } from './types';
@@ -41,31 +44,74 @@ export interface TacticalSide {
   edge: TacticalEdge;
 }
 
+export interface TacticalGun {
+  weapon: string;
+  /** Ticks until it can fire again. */
+  reload: number;
+}
+
 export interface TacticalUnit extends BattleUnitSetup {
   x: number;
   y: number;
+  /** Velocity, in arena units per tick. */
+  vx: number;
+  vy: number;
   /** The way the unit faces, as a unit vector. */
   hx: number;
   hy: number;
-  /** Arena units per tick; 0 for an orbital battery. */
+  /** Top speed in arena units per tick; 0 for an orbital battery. */
   speed: number;
-  /** How far it can shoot; 0 if unarmed. */
+  /** How far its longest-reaching gun shoots, and its shortest; 0 if unarmed. */
   range: number;
+  closeRange: number;
   radius: number;
-  /** Ticks until it can fire again. */
-  reload: number;
+  guns: TacticalGun[];
+  /** The point it circles while holding or idle. */
+  ax: number;
+  ay: number;
+  /** Which way it circles (1 or -1), its current jink as percents, and ticks until it jinks again. */
+  orbit: number;
+  jx: number;
+  jy: number;
+  jinkTicks: number;
   order: TacticalOrder;
   status: 'active' | 'destroyed' | 'withdrawn';
   /** What it is closing on or shooting at, if anything. */
   target: string | null;
 }
 
-/** One shot fired during the last step, for drawing. */
+/** One hit that landed during the last step, for drawing: a beam firing, or a bolt or missile arriving. */
 export interface TacticalShot {
   from: string;
   to: string;
+  weapon: string;
+  delivery: TacticalWeapon['delivery'];
   damage: number;
   destroyed: boolean;
+  /** Where it struck. */
+  x: number;
+  y: number;
+}
+
+/** A bolt or missile in flight. */
+export interface TacticalProjectile {
+  id: number;
+  weapon: string;
+  delivery: 'bolt' | 'homing';
+  from: string;
+  empire: EmpireId;
+  /** What a homing shot steers after; a bolt hits any enemy in its path. */
+  target: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** The firer's attack and the seeded roll, both fixed when it was fired, and how many weapons the firer shares damage between. */
+  attack: number;
+  roll: number;
+  share: number;
+  /** Ticks of flight left. */
+  life: number;
 }
 
 export interface TacticalBattle {
@@ -82,8 +128,10 @@ export interface TacticalBattle {
   units: TacticalUnit[];
   /** The planet a colony battle is fought over, if any. */
   planet: { x: number; y: number; radius: number } | null;
-  /** Shots fired during the last step. */
+  /** Hits that landed during the last step. */
   shots: TacticalShot[];
+  projectiles: TacticalProjectile[];
+  nextProjectile: number;
   over: boolean;
   /** False if the battle stopped at its time limit with both sides still fighting. */
   finished: boolean;
@@ -195,6 +243,8 @@ export function createTacticalBattle(setup: BattleSetup, content: Content, optio
     units,
     planet,
     shots: [],
+    projectiles: [],
+    nextProjectile: 1,
     over: false,
     finished: false,
   };
@@ -218,20 +268,39 @@ function speedOf(unit: BattleUnitSetup, content: Content): number {
   return (rules.baseSpeed + rules.speedPerHullSpeed * hull.speed) / rules.ticksPerSecond;
 }
 
+/** The weapons a unit carries, from the rules' loadouts. */
+export function loadoutOf(unit: { armed: boolean; role: string; hull: HullId | null }, content: Content): string[] {
+  if (!unit.armed) return [];
+  const loadouts = content.rules.combat.tactical.loadouts;
+  if (unit.role === 'battery') return loadouts.battery;
+  return (unit.hull && loadouts[unit.hull]) || loadouts.default;
+}
+
 function makeUnit(unit: BattleUnitSetup, side: TacticalSide, x: number, y: number, speed: number, content: Content, rng: RngState): TacticalUnit {
-  const rules = content.rules.combat.tactical;
+  const weapons = content.rules.combat.tactical.weapons;
   const [hx, hy] = inwardOf(side.edge);
+  const loadout = loadoutOf(unit, content);
+  const ranges = loadout.map((w) => weapons[w].range);
   return {
     ...unit,
     x,
     y,
+    vx: hx * speed * 0.5,
+    vy: hy * speed * 0.5,
     hx,
     hy,
     speed,
-    range: !unit.armed ? 0 : unit.role === 'battery' ? rules.batteryRange : rules.shipRange,
+    range: ranges.length ? Math.max(...ranges) : 0,
+    closeRange: ranges.length ? Math.min(...ranges) : 0,
     radius: unitRadius(unit.role, unit.tier),
     // Guns start staggered so a whole line does not fire on the same tick.
-    reload: nextInt(rng, Math.floor(rules.reloadTicks / 3), rules.reloadTicks),
+    guns: loadout.map((weapon) => ({ weapon, reload: nextInt(rng, Math.floor(weapons[weapon].reloadTicks / 3), weapons[weapon].reloadTicks) })),
+    ax: x,
+    ay: y,
+    orbit: nextInt(rng, 0, 1) === 0 ? 1 : -1,
+    jx: 0,
+    jy: 0,
+    jinkTicks: nextInt(rng, 5, 30),
     order: unit.stance === 'evade' ? { kind: 'withdraw' } : { kind: 'auto' },
     status: 'active',
     target: null,
@@ -285,6 +354,10 @@ export function orderTactical(battle: TacticalBattle, empire: EmpireId, unitIds:
       };
     } else {
       unit.order = { ...order };
+      if (order.kind === 'hold') {
+        unit.ax = unit.x;
+        unit.ay = unit.y;
+      }
     }
     given++;
   }
@@ -314,27 +387,64 @@ function computerThinks(battle: TacticalBattle, content: Content): void {
   }
 }
 
-/** Where a unit wants to be this tick, and what it is after. */
-function goalOf(battle: TacticalBattle, unit: TacticalUnit, active: TacticalUnit[]): { x: number; y: number; stopAt: number } | null {
+/** Which way a unit wants to go this tick, as a direction of any length, and how hard, as a fraction of top speed. */
+interface Wish {
+  x: number;
+  y: number;
+  throttle: number;
+}
+
+/**
+ * Circles a point at the given distance: pulled in from further out, pushed
+ * back from closer in, and swinging round it fastest at the right distance.
+ */
+function circle(unit: TacticalUnit, cx: number, cy: number, radius: number, throttle: number): Wish {
+  const dx = unit.x - cx;
+  const dy = unit.y - cy;
+  const d = Math.sqrt(dx * dx + dy * dy) || 1;
+  const rx = dx / d;
+  const ry = dy / d;
+  const off = (d - radius) / radius;
+  const pull = -Math.max(-1, Math.min(1, off));
+  const swirl = Math.max(0.3, 1 - Math.abs(off));
+  return { x: rx * pull - ry * unit.orbit * swirl, y: ry * pull + rx * unit.orbit * swirl, throttle };
+}
+
+/** How close a ship likes to stay to what it is fighting: inside its shortest-reaching gun. */
+const fightingDistance = (unit: TacticalUnit) => Math.max(unit.radius * 3, unit.closeRange * 0.7);
+
+/** Where a unit wants to go this tick, and what it is after. Null for a unit that cannot move. */
+function wishOf(battle: TacticalBattle, unit: TacticalUnit, active: TacticalUnit[]): Wish | null {
   const enemies = active.filter((o) => tacticalHostile(battle, unit.empire, o.empire));
   const order = unit.order;
 
   if (order.kind === 'withdraw') {
     const [ix, iy] = inwardOf(sideOf(battle, unit.empire).edge);
     unit.target = null;
-    // Straight out through the side's own edge, well past it.
-    const out = 200;
-    const x = ix === 0 ? unit.x : ix > 0 ? -out : battle.width + out;
-    const y = iy === 0 ? unit.y : iy > 0 ? -out : battle.height + out;
-    return { x, y, stopAt: 0 };
+    return { x: -ix, y: -iy, throttle: 1 };
   }
-  if (order.kind === 'hold') return null;
-  if (order.kind === 'move') return { x: order.x, y: order.y, stopAt: 2 };
+  if (order.kind === 'hold') {
+    const inRange = enemies.filter((e) => dist2(unit, e) <= unit.range * unit.range);
+    unit.target = nearest(unit, inRange)?.id ?? null;
+    return circle(unit, unit.ax, unit.ay, 30, 0.4);
+  }
+  if (order.kind === 'move') {
+    const dx = order.x - unit.x;
+    const dy = order.y - unit.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 12) {
+      unit.order = { kind: 'hold' };
+      unit.ax = order.x;
+      unit.ay = order.y;
+      return circle(unit, unit.ax, unit.ay, 30, 0.4);
+    }
+    return { x: dx / d, y: dy / d, throttle: Math.min(1, 0.3 + d / 80) };
+  }
   if (order.kind === 'attack') {
     const target = active.find((o) => o.id === order.target);
     if (target) {
       unit.target = target.id;
-      return { x: target.x, y: target.y, stopAt: unit.range * 0.85 };
+      return circle(unit, target.x, target.y, fightingDistance(unit), 1);
     }
     unit.order = { kind: 'auto' };
   }
@@ -344,15 +454,22 @@ function goalOf(battle: TacticalBattle, unit: TacticalUnit, active: TacticalUnit
     const friendsArmed = active.some((o) => o.empire === unit.empire && o.armed && o.order.kind !== 'withdraw');
     if (!friendsArmed) {
       unit.order = { kind: 'withdraw' };
-      return goalOf(battle, unit, active);
+      return wishOf(battle, unit, active);
     }
-    // Keep clear of the nearest armed enemy.
+    // Keep clear of the nearest armed enemy, and loiter wherever it got to.
     const threat = nearest(unit, enemies.filter((e) => e.armed));
-    if (!threat || dist2(unit, threat) > (threat.range + 120) ** 2) return null;
-    const d = Math.sqrt(dist2(unit, threat)) || 1;
-    return { x: unit.x + ((unit.x - threat.x) / d) * 100, y: unit.y + ((unit.y - threat.y) / d) * 100, stopAt: 0 };
+    if (threat && dist2(unit, threat) < (threat.range + 120) ** 2) {
+      const d = Math.sqrt(dist2(unit, threat)) || 1;
+      unit.ax = unit.x;
+      unit.ay = unit.y;
+      return { x: (unit.x - threat.x) / d, y: (unit.y - threat.y) / d, throttle: 1 };
+    }
+    return circle(unit, unit.ax, unit.ay, 50, 0.35);
   }
-  if (enemies.length === 0) return null;
+  if (enemies.length === 0) {
+    unit.target = null;
+    return circle(unit, unit.ax, unit.ay, 40, 0.4);
+  }
 
   const current = unit.target ? enemies.find((e) => e.id === unit.target) : undefined;
   let target: TacticalUnit | null = current ?? null;
@@ -365,12 +482,80 @@ function goalOf(battle: TacticalBattle, unit: TacticalUnit, active: TacticalUnit
       target = ward ? nearest(ward, enemies) : nearest(unit, armed) ?? nearest(unit, soft);
       if (ward && target && dist2(ward, target) > (unit.range + 160) ** 2) {
         unit.target = null;
-        return { x: ward.x, y: ward.y, stopAt: 60 };
+        return circle(unit, ward.x, ward.y, 70, 1);
       }
     } else target = nearest(unit, armed) ?? nearest(unit, soft);
   }
   unit.target = target?.id ?? null;
-  return target ? { x: target.x, y: target.y, stopAt: unit.range * 0.85 } : null;
+  if (!target) return circle(unit, unit.ax, unit.ay, 40, 0.4);
+  unit.ax = unit.x;
+  unit.ay = unit.y;
+  return circle(unit, target.x, target.y, fightingDistance(unit), 1);
+}
+
+/** Now and then a ship throws in a new sideways jink, and sometimes turns the way it circles. */
+function jink(battle: TacticalBattle, unit: TacticalUnit): void {
+  if (--unit.jinkTicks > 0) return;
+  unit.jinkTicks = nextInt(battle.rng, 12, 40);
+  unit.jx = nextInt(battle.rng, -100, 100);
+  unit.jy = nextInt(battle.rng, -100, 100);
+  if (nextInt(battle.rng, 0, 3) === 0) unit.orbit = -unit.orbit;
+}
+
+/** Turns a wish into a change of velocity, as fast as the ship can turn, and moves it. */
+function steer(battle: TacticalBattle, unit: TacticalUnit, wish: Wish, accelPercent: number): void {
+  const withdrawing = unit.order.kind === 'withdraw';
+  let wx = wish.x + (unit.jx / 100) * (withdrawing ? 0.2 : 0.45);
+  let wy = wish.y + (unit.jy / 100) * (withdrawing ? 0.2 : 0.45);
+  // A ship that is staying in the fight turns back from the edge of the field.
+  if (!withdrawing) {
+    const edge = 60;
+    if (unit.x < edge) wx += 1.5;
+    if (unit.x > battle.width - edge) wx -= 1.5;
+    if (unit.y < edge) wy += 1.5;
+    if (unit.y > battle.height - edge) wy -= 1.5;
+  }
+  const len = Math.sqrt(wx * wx + wy * wy);
+  const top = unit.speed * wish.throttle;
+  const want = len > 0 ? { x: (wx / len) * top, y: (wy / len) * top } : { x: 0, y: 0 };
+  let dvx = want.x - unit.vx;
+  let dvy = want.y - unit.vy;
+  const dv = Math.sqrt(dvx * dvx + dvy * dvy);
+  const most = (unit.speed * accelPercent) / 100;
+  if (dv > most) {
+    dvx = (dvx / dv) * most;
+    dvy = (dvy / dv) * most;
+  }
+  unit.vx += dvx;
+  unit.vy += dvy;
+  const v = Math.sqrt(unit.vx * unit.vx + unit.vy * unit.vy);
+  if (v > unit.speed) {
+    unit.vx = (unit.vx / v) * unit.speed;
+    unit.vy = (unit.vy / v) * unit.speed;
+  }
+  unit.x += unit.vx;
+  unit.y += unit.vy;
+}
+
+/** A hit's damage: an auto-resolved hit, scaled by the weapon and shared among the firer's weapons. */
+function hitDamage(attack: number, target: TacticalUnit, roll: number, weapon: TacticalWeapon, share: number, content: Content): number {
+  const base = shotDamage(attack, target, roll, target.order.kind === 'withdraw', content);
+  return Math.max(1, Math.floor((base * weapon.damagePercent) / (100 * share)));
+}
+
+/** How far along the segment from (x0, y0) by (dx, dy) it first comes within r of the point, from 0 to 1, or null. */
+function sweep(x0: number, y0: number, dx: number, dy: number, px: number, py: number, r: number): number | null {
+  const fx = x0 - px;
+  const fy = y0 - py;
+  const a = dx * dx + dy * dy;
+  const c = fx * fx + fy * fy - r * r;
+  if (c <= 0) return 0;
+  if (a === 0) return null;
+  const b = 2 * (fx * dx + fy * dy);
+  const disc = b * b - 4 * a * c;
+  if (disc < 0) return null;
+  const t = (-b - Math.sqrt(disc)) / (2 * a);
+  return t >= 0 && t <= 1 ? t : null;
 }
 
 /** Plays one tick of the battle. Changes it in place; does nothing once it is over. */
@@ -378,33 +563,21 @@ export function stepTactical(battle: TacticalBattle, content: Content): void {
   battle.shots = [];
   if (battle.over) return;
   const rules = content.rules.combat;
+  const weapons = rules.tactical.weapons;
   if (battle.tick % RETHINK_TICKS === 0) computerThinks(battle, content);
 
-  // Movement.
+  // Movement: everyone who can move keeps moving.
   let active = battle.units.filter((u) => u.status === 'active');
   for (const unit of active) {
-    const goal = goalOf(battle, unit, active);
-    if (unit.speed === 0) {
+    const wish = wishOf(battle, unit, active);
+    if (unit.speed === 0 || !wish) {
       const target = unit.target ? active.find((o) => o.id === unit.target) : undefined;
       if (target) face(unit, target.x - unit.x, target.y - unit.y);
       continue;
     }
-    if (goal) {
-      const dx = goal.x - unit.x;
-      const dy = goal.y - unit.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d > goal.stopAt) {
-        const step = Math.min(unit.speed, d - goal.stopAt);
-        unit.x += (dx / d) * step;
-        unit.y += (dy / d) * step;
-        face(unit, dx, dy);
-      } else if (unit.order.kind === 'move') {
-        unit.order = { kind: 'hold' };
-      } else if (unit.target) {
-        const target = active.find((o) => o.id === unit.target);
-        if (target) face(unit, target.x - unit.x, target.y - unit.y);
-      }
-    }
+    jink(battle, unit);
+    steer(battle, unit, wish, rules.tactical.accelPercent);
+    face(unit, unit.vx, unit.vy);
   }
   // Keep ships from sitting on top of each other.
   for (let i = 0; i < active.length; i++) {
@@ -438,23 +611,110 @@ export function stepTactical(battle: TacticalBattle, content: Content): void {
   }
   active = active.filter((u) => u.status === 'active');
 
-  // Fire. Everyone who is ready picks a target in range, then all hits land together.
+  // Everything that lands this tick lands together.
   const damage = new Map<string, number>();
   const shots: TacticalShot[] = [];
+  const land = (from: string, target: TacticalUnit, weapon: string, dealt: number, x: number, y: number) => {
+    damage.set(target.id, (damage.get(target.id) ?? 0) + dealt);
+    shots.push({ from, to: target.id, weapon, delivery: weapons[weapon].delivery, damage: dealt, destroyed: false, x, y });
+  };
+
+  // Bolts and missiles in flight.
+  const flying: TacticalProjectile[] = [];
+  for (const p of battle.projectiles) {
+    const weapon = weapons[p.weapon];
+    const hostiles = active.filter((o) => tacticalHostile(battle, p.empire, o.empire));
+    const step = weapon.speed / battle.ticksPerSecond;
+    if (p.delivery === 'homing') {
+      let target = hostiles.find((o) => o.id === p.target);
+      if (!target) {
+        target = nearest(p, hostiles) ?? undefined;
+        if (target) p.target = target.id;
+      }
+      if (target) {
+        const dx = target.x - p.x;
+        const dy = target.y - p.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        p.vx += ((dx / d) * step - p.vx) * (weapon.agility / 100);
+        p.vy += ((dy / d) * step - p.vy) * (weapon.agility / 100);
+        const v = Math.sqrt(p.vx * p.vx + p.vy * p.vy) || 1;
+        p.vx = (p.vx / v) * step;
+        p.vy = (p.vy / v) * step;
+      }
+    }
+    let struck: TacticalUnit | null = null;
+    let at = 2;
+    for (const o of hostiles) {
+      const t = sweep(p.x, p.y, p.vx, p.vy, o.x, o.y, o.radius * 0.9 + 2);
+      if (t !== null && t < at) {
+        at = t;
+        struck = o;
+      }
+    }
+    if (struck) {
+      const x = p.x + p.vx * at;
+      const y = p.y + p.vy * at;
+      land(p.from, struck, p.weapon, hitDamage(p.attack, struck, p.roll, weapon, p.share, content), x, y);
+      continue;
+    }
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    const out = 200;
+    if (p.life > 0 && p.x > -out && p.y > -out && p.x < battle.width + out && p.y < battle.height + out) flying.push(p);
+  }
+  battle.projectiles = flying;
+
+  // Guns: each one that is ready picks a target in its own range.
   for (const unit of active) {
     if (!unit.armed || unit.order.kind === 'withdraw') continue;
-    if (unit.reload > 0) unit.reload--;
-    if (unit.reload > 0) continue;
-    const reach = unit.range * unit.range;
-    const inRange = active.filter((o) => tacticalHostile(battle, unit.empire, o.empire) && dist2(unit, o) <= reach);
-    if (inRange.length === 0) continue;
-    const preferred = unit.target ? inRange.find((o) => o.id === unit.target) : undefined;
-    const target = preferred ?? nearest(unit, inRange)!;
-    const roll = nextInt(battle.rng, rules.minRollPercent, 100);
-    const dealt = shotDamage(unit.attack, target, roll, target.order.kind === 'withdraw', content);
-    damage.set(target.id, (damage.get(target.id) ?? 0) + dealt);
-    shots.push({ from: unit.id, to: target.id, damage: dealt, destroyed: false });
-    unit.reload = rules.tactical.reloadTicks;
+    for (const gun of unit.guns) {
+      if (gun.reload > 0) gun.reload--;
+      if (gun.reload > 0) continue;
+      const weapon = weapons[gun.weapon];
+      const reach = weapon.range * weapon.range;
+      const inRange = active.filter((o) => tacticalHostile(battle, unit.empire, o.empire) && dist2(unit, o) <= reach);
+      if (inRange.length === 0) continue;
+      const preferred = unit.target ? inRange.find((o) => o.id === unit.target) : undefined;
+      const target = preferred ?? nearest(unit, inRange)!;
+      const roll = nextInt(battle.rng, rules.minRollPercent, 100);
+      gun.reload = weapon.reloadTicks;
+      if (weapon.delivery === 'beam') {
+        land(unit.id, target, gun.weapon, hitDamage(unit.attack, target, roll, weapon, unit.guns.length, content), target.x, target.y);
+        continue;
+      }
+      const step = weapon.speed / battle.ticksPerSecond;
+      let dx = target.x - unit.x;
+      let dy = target.y - unit.y;
+      if (weapon.delivery === 'bolt') {
+        // Aimed where the target will be if it keeps its course.
+        const flight = Math.sqrt(dx * dx + dy * dy) / step;
+        dx += target.vx * flight;
+        dy += target.vy * flight;
+      } else {
+        // Missiles leave along the ship's heading and curve round onto the target.
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        dx = dx / d + unit.hx * 1.2;
+        dy = dy / d + unit.hy * 1.2;
+      }
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      battle.projectiles.push({
+        id: battle.nextProjectile++,
+        weapon: gun.weapon,
+        delivery: weapon.delivery,
+        from: unit.id,
+        empire: unit.empire,
+        target: target.id,
+        x: unit.x + unit.hx * unit.radius,
+        y: unit.y + unit.hy * unit.radius,
+        vx: (dx / d) * step,
+        vy: (dy / d) * step,
+        attack: unit.attack,
+        roll,
+        share: unit.guns.length,
+        life: Math.ceil((weapon.range * (weapon.delivery === 'bolt' ? 1.3 : 2)) / step),
+      });
+    }
   }
   for (const unit of active) {
     const hit = damage.get(unit.id);
@@ -472,9 +732,11 @@ export function stepTactical(battle: TacticalBattle, content: Content): void {
   if (!fighting) {
     battle.over = true;
     battle.finished = true;
+    battle.projectiles = [];
   } else if (battle.tick >= rules.tactical.maxSeconds * battle.ticksPerSecond) {
     battle.over = true;
     battle.finished = false;
+    battle.projectiles = [];
   }
 }
 

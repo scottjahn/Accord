@@ -19,7 +19,7 @@ import {
   type TacticalResult,
 } from '../../sim';
 import { HullIcon } from '../fleet/HullIcon';
-import { bakeBackdrop, drawBattle, effectsForShots, fitView, toWorld, unitAt, type BattleView, type Effect } from './battleRenderer';
+import { bakeBackdrop, drawBattle, driftWrecks, effectsForStep, fitView, toWorld, unitAt, type BattleView, type Effect, type Wreck } from './battleRenderer';
 
 interface Props {
   content: Content;
@@ -71,6 +71,9 @@ export function BattleScreen({ content, setup, options, title, sides, onFinish }
   const [over, setOver] = useState(false);
 
   const effects = useRef<Effect[]>([]);
+  const wrecks = useRef<Wreck[]>([]);
+  const memory = useRef({ lastProjectile: 0 });
+  const weapons = content.rules.combat.tactical.weapons;
   const view = useRef<BattleView>({ scale: 1, ox: 0, oy: 0 });
   const backdrop = useRef<HTMLCanvasElement | null>(null);
   const size = useRef({ width: 0, height: 0 });
@@ -115,7 +118,7 @@ export function BattleScreen({ content, setup, options, title, sides, onFinish }
         let n = 0;
         while (carry >= 1 && n < MAX_TICKS_PER_FRAME && !battle.over) {
           stepTactical(battle, content);
-          effects.current.push(...effectsForShots(battle, colors));
+          effects.current.push(...effectsForStep(battle, colors, weapons, memory.current, wrecks.current));
           carry -= 1;
           n++;
         }
@@ -124,6 +127,7 @@ export function BattleScreen({ content, setup, options, title, sides, onFinish }
       }
       const visualDt = dt * Math.max(1, speedRef.current);
       for (const e of effects.current) e.age += speedRef.current === 0 ? 0 : visualDt;
+      if (speedRef.current > 0) driftWrecks(wrecks.current, visualDt);
       effects.current = effects.current.filter((e) => e.age < e.life);
 
       const canvas = canvasRef.current;
@@ -133,6 +137,8 @@ export function BattleScreen({ content, setup, options, title, sides, onFinish }
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
         drawBattle(ctx, battle, view.current, backdrop.current, size.current.width, size.current.height, {
           colors,
+          weapons,
+          wrecks: wrecks.current,
           player,
           selected: selectedRef.current,
           effects: effects.current,
@@ -152,7 +158,7 @@ export function BattleScreen({ content, setup, options, title, sides, onFinish }
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [battle, content, colors, player]);
+  }, [battle, content, colors, player, weapons]);
 
   const mine = player ? battle.units.filter((u) => u.empire === player && u.status === 'active') : [];
   const chosen = mine.filter((u) => selected.has(u.id));

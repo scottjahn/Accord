@@ -3,7 +3,7 @@
  * the battle and never changes it. The space backdrop, hull silhouettes and
  * effects follow the look of World of War's space edition.
  */
-import type { EmpireId, TacticalBattle, TacticalUnit } from '../../sim';
+import type { EmpireId, TacticalBattle, TacticalUnit, TacticalWeapon } from '../../sim';
 
 /** How arena units map to canvas pixels. */
 export interface BattleView {
@@ -12,9 +12,9 @@ export interface BattleView {
   oy: number;
 }
 
-/** Short-lived things that are only drawn: shots and explosions. */
+/** Short-lived things that are only drawn: shots, explosions, smoke and embers. */
 export interface Effect {
-  kind: 'beam' | 'boom' | 'spark';
+  kind: 'beam' | 'boom' | 'spark' | 'ring' | 'flash' | 'smoke' | 'ember';
   x: number;
   y: number;
   tx: number;
@@ -25,6 +25,28 @@ export interface Effect {
   age: number;
   life: number;
 }
+
+/**
+ * What is left of a lost ship: a broken piece of hull drifting and turning
+ * across the field. Only drawn; it stays until the battle screen closes.
+ */
+export interface Wreck {
+  x: number;
+  y: number;
+  /** Drift, in arena units per second, and turn, in radians per second. */
+  vx: number;
+  vy: number;
+  angle: number;
+  spin: number;
+  /** The piece's outline, as points around its centre in arena units. */
+  points: number[];
+  color: string;
+  /** Seconds it has been drifting; it glows hot for the first few. */
+  age: number;
+}
+
+/** Wreckage on the field never grows past this many pieces; the oldest go first. */
+const MAX_WRECKS = 400;
 
 const TAU = Math.PI * 2;
 
@@ -429,6 +451,8 @@ export function drawHull(ctx: CanvasRenderingContext2D, role: string, tier: numb
 
 export interface DrawOptions {
   colors: Record<EmpireId, string>;
+  weapons: Record<string, TacticalWeapon>;
+  wrecks: Wreck[];
   player: EmpireId | null;
   selected: Set<string>;
   effects: Effect[];
@@ -453,6 +477,27 @@ export function drawBattle(
   const sx = (x: number) => view.ox + x * view.scale;
   const sy = (y: number) => view.oy + y * view.scale;
   const byId = new Map(battle.units.map((u) => [u.id, u]));
+
+  // Wreckage drifts under everything still fighting.
+  for (const w of opts.wrecks) {
+    ctx.save();
+    ctx.translate(sx(w.x), sy(w.y));
+    ctx.rotate(w.angle);
+    const k = Math.max(view.scale, 0.35);
+    ctx.beginPath();
+    for (let i = 0; i < w.points.length; i += 2) {
+      if (i === 0) ctx.moveTo(w.points[i] * k, w.points[i + 1] * k);
+      else ctx.lineTo(w.points[i] * k, w.points[i + 1] * k);
+    }
+    ctx.closePath();
+    ctx.fillStyle = shade(w.color, -0.72);
+    ctx.fill();
+    const hot = Math.max(0, 1 - w.age / 4);
+    ctx.strokeStyle = hot > 0 ? `rgba(255,${Math.round(120 + 80 * hot)},60,${0.25 + 0.6 * hot})` : rgba(w.color, 0.28);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // Orders of the selected ships: where they are going and what they are after.
   ctx.save();
@@ -511,16 +556,17 @@ export function drawBattle(
     const y = sy(u.y);
     const r = Math.max(6, u.radius * view.scale);
     const color = opts.colors[u.empire] ?? '#aaaaaa';
-    // Engine glow behind moving ships.
+    // Engine glow behind moving ships, brighter the harder they burn.
     if (u.speed > 0) {
+      const burn = Math.min(1, Math.hypot(u.vx, u.vy) / u.speed);
       const gx = x - u.hx * r * 1.6;
       const gy = y - u.hy * r * 1.6;
-      const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, r * 1.1);
-      glow.addColorStop(0, 'rgba(160,210,255,0.35)');
+      const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, r * (0.6 + 0.8 * burn));
+      glow.addColorStop(0, `rgba(160,210,255,${0.15 + 0.4 * burn})`);
       glow.addColorStop(1, 'rgba(160,210,255,0)');
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(gx, gy, r * 1.1, 0, TAU);
+      ctx.arc(gx, gy, r * (0.6 + 0.8 * burn), 0, TAU);
       ctx.fill();
     }
     ctx.save();
@@ -554,12 +600,93 @@ export function drawBattle(
     ctx.globalAlpha = 1;
   }
 
+  // Smoke from missile trails sits under the glow.
+  for (const e of opts.effects) {
+    if (e.kind !== 'smoke') continue;
+    const k = Math.min(1, e.age / e.life);
+    ctx.fillStyle = `rgba(170,180,200,${(1 - k) * 0.22})`;
+    ctx.beginPath();
+    ctx.arc(sx(e.x), sy(e.y), Math.max(1, e.size * view.scale * (0.6 + k * 1.6)), 0, TAU);
+    ctx.fill();
+  }
+
+  // Bolts, missiles and torpedoes in flight.
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (const p of battle.projectiles) {
+    const color = opts.colors[p.empire] ?? '#ffffff';
+    const x = sx(p.x);
+    const y = sy(p.y);
+    const weapon = opts.weapons[p.weapon];
+    if (p.delivery === 'bolt') {
+      ctx.strokeStyle = rgba(color, 0.9);
+      ctx.lineWidth = Math.max(2, 4 * view.scale);
+      ctx.beginPath();
+      ctx.moveTo(x - p.vx * 1.4 * view.scale, y - p.vy * 1.4 * view.scale);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = Math.max(1, 1.6 * view.scale);
+      ctx.stroke();
+    } else if (weapon && weapon.damagePercent >= 300) {
+      // A torpedo: a pulsing ball of light.
+      const r = Math.max(3, 7 * view.scale) * (0.85 + 0.15 * Math.sin(p.life * 0.7));
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6);
+      g.addColorStop(0, 'rgba(255,255,255,0.95)');
+      g.addColorStop(0.3, rgba(color, 0.8));
+      g.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 2.6, 0, TAU);
+      ctx.fill();
+    } else {
+      // A missile: a dart with a hot exhaust.
+      const v = Math.hypot(p.vx, p.vy) || 1;
+      const ux = p.vx / v;
+      const uy = p.vy / v;
+      const len = Math.max(4, 9 * view.scale);
+      ctx.strokeStyle = 'rgba(255,190,110,0.85)';
+      ctx.lineWidth = Math.max(1.5, 2.5 * view.scale);
+      ctx.beginPath();
+      ctx.moveTo(x - ux * len * 1.8, y - uy * len * 1.8);
+      ctx.lineTo(x - ux * len * 0.5, y - uy * len * 0.5);
+      ctx.stroke();
+      ctx.strokeStyle = shade(color, 0.5);
+      ctx.lineWidth = Math.max(1.5, 2.2 * view.scale);
+      ctx.beginPath();
+      ctx.moveTo(x - ux * len * 0.5, y - uy * len * 0.5);
+      ctx.lineTo(x + ux * len * 0.5, y + uy * len * 0.5);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
   // Effects on top.
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const e of opts.effects) {
     const k = Math.min(1, e.age / e.life);
-    if (e.kind === 'beam') {
+    if (e.kind === 'smoke') continue;
+    if (e.kind === 'ring') {
+      ctx.strokeStyle = `rgba(255,220,170,${(1 - k) * 0.7})`;
+      ctx.lineWidth = Math.max(1, 3 * (1 - k));
+      ctx.beginPath();
+      ctx.arc(sx(e.x), sy(e.y), e.size * view.scale * (0.2 + k), 0, TAU);
+      ctx.stroke();
+    } else if (e.kind === 'flash') {
+      const r = Math.max(2, e.size * view.scale * (1 - k * 0.5));
+      ctx.fillStyle = rgba(e.color, (1 - k) * 0.9);
+      ctx.beginPath();
+      ctx.arc(sx(e.x), sy(e.y), r, 0, TAU);
+      ctx.fill();
+    } else if (e.kind === 'ember') {
+      // Flung outward from a kill: tx, ty is its velocity in arena units per second.
+      const x = sx(e.x + e.tx * e.age);
+      const y = sy(e.y + e.ty * e.age);
+      ctx.fillStyle = `rgba(255,${Math.round(200 - 120 * k)},80,${1 - k})`;
+      ctx.fillRect(x - 1, y - 1, 2.2, 2.2);
+    } else if (e.kind === 'beam') {
       ctx.strokeStyle = rgba(e.color, (1 - k) * 0.95);
       ctx.lineWidth = Math.max(1, e.size * view.scale * (1 - k * 0.5));
       ctx.lineCap = 'round';
@@ -604,19 +731,118 @@ export function drawBattle(
   }
 }
 
-/** Effects for the shots fired in the last step: a beam for each, a spark on the hit, a fireball for a kill. */
-export function effectsForShots(battle: TacticalBattle, colors: Record<EmpireId, string>): Effect[] {
+/** What the battle screen remembers between steps, to know which shots are new. */
+export interface EffectMemory {
+  lastProjectile: number;
+}
+
+/**
+ * Effects for the last step: a beam or an impact for each hit, a flash for
+ * each bolt or missile fired, smoke behind missiles, and for each kill a
+ * fireball, a shock ring, embers and the wreckage it leaves.
+ */
+export function effectsForStep(
+  battle: TacticalBattle,
+  colors: Record<EmpireId, string>,
+  weapons: Record<string, TacticalWeapon>,
+  memory: EffectMemory,
+  wrecks: Wreck[],
+): Effect[] {
   const byId = new Map(battle.units.map((u) => [u.id, u]));
   const out: Effect[] = [];
+  const effect = (kind: Effect['kind'], x: number, y: number, color: string, size: number, life: number, tx = 0, ty = 0) =>
+    out.push({ kind, x, y, tx, ty, color, size, age: 0, life });
+
+  let newest = memory.lastProjectile;
+  for (const p of battle.projectiles) {
+    const color = colors[p.empire] ?? '#ffffff';
+    if (p.id > memory.lastProjectile) {
+      effect('flash', p.x, p.y, p.delivery === 'bolt' ? color : '#ffd28a', p.delivery === 'bolt' ? 4 : 6, 0.12);
+    } else if (p.delivery === 'homing' && battle.tick % 2 === 0) {
+      const heavy = (weapons[p.weapon]?.damagePercent ?? 0) >= 300;
+      effect('smoke', p.x, p.y, '#aab4c8', heavy ? 5 : 3, heavy ? 0.5 : 0.8);
+    }
+    newest = Math.max(newest, p.id);
+  }
+  memory.lastProjectile = newest;
+
+  const killed = new Set<string>();
   for (const shot of battle.shots) {
     const from = byId.get(shot.from);
     const to = byId.get(shot.to);
-    if (!from || !to) continue;
-    const color = colors[from.empire] ?? '#ffffff';
-    const reach = from.radius * 0.6;
-    out.push({ kind: 'beam', x: from.x + from.hx * reach, y: from.y + from.hy * reach, tx: to.x, ty: to.y, color, size: from.role === 'battery' ? 3 : 2, age: 0, life: 0.22 });
-    out.push({ kind: 'spark', x: to.x, y: to.y, tx: 0, ty: 0, color, size: 6, age: 0, life: 0.25 });
-    if (shot.destroyed) out.push({ kind: 'boom', x: to.x, y: to.y, tx: 0, ty: 0, color, size: to.radius * 2.4, age: 0, life: 0.9 });
+    if (!to) continue;
+    const color = colors[from?.empire ?? to.empire] ?? '#ffffff';
+    const heavy = (weapons[shot.weapon]?.damagePercent ?? 0) >= 300;
+    if (shot.delivery === 'beam' && from) {
+      const reach = from.radius * 0.6;
+      effect('beam', from.x + from.hx * reach, from.y + from.hy * reach, color, from.role === 'battery' ? 3 : 2, 0.22, to.x, to.y);
+      effect('spark', to.x, to.y, color, 6, 0.25);
+    } else if (shot.delivery === 'bolt') {
+      effect('spark', shot.x, shot.y, color, 5, 0.18);
+    } else {
+      effect('boom', shot.x, shot.y, color, heavy ? 34 : 16, heavy ? 0.7 : 0.45);
+      if (heavy) effect('ring', shot.x, shot.y, color, 70, 0.6);
+    }
+    if (shot.destroyed && !killed.has(to.id)) {
+      killed.add(to.id);
+      effect('boom', to.x, to.y, color, to.radius * 2.6, 0.95);
+      effect('ring', to.x, to.y, color, to.radius * 5, 0.7);
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * TAU;
+        const v = 40 + Math.random() * 140;
+        effect('ember', to.x, to.y, color, 2, 0.5 + Math.random() * 0.9, Math.cos(a) * v + to.vx * 20, Math.sin(a) * v + to.vy * 20);
+      }
+      wrecks.push(...wreckOf(to, colors[to.empire] ?? '#888888'));
+      if (wrecks.length > MAX_WRECKS) wrecks.splice(0, wrecks.length - MAX_WRECKS);
+    }
   }
   return out;
+}
+
+/** Breaks a lost unit into a large hulk and a few shards, carrying on its way. */
+function wreckOf(unit: TacticalUnit, color: string): Wreck[] {
+  const pieces: Wreck[] = [];
+  const count = 4 + Math.floor(unit.radius / 5);
+  // The ship's velocity is per tick; wreckage keeps some of it, per second.
+  const carry = 20 * 0.4;
+  for (let i = 0; i < count; i++) {
+    const big = i === 0;
+    const size = unit.radius * (big ? 0.9 : 0.22 + Math.random() * 0.3);
+    const corners = big ? 7 : 3 + Math.floor(Math.random() * 3);
+    const points: number[] = [];
+    for (let c = 0; c < corners; c++) {
+      const a = (c / corners) * TAU + Math.random() * 0.5;
+      const r = size * (0.55 + Math.random() * 0.45) * (big && c % 2 === 0 ? 1.4 : 1);
+      points.push(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    const a = Math.random() * TAU;
+    const kick = big ? 4 + Math.random() * 6 : 15 + Math.random() * 45;
+    pieces.push({
+      x: unit.x + (big ? 0 : Math.cos(a) * unit.radius * 0.5),
+      y: unit.y + (big ? 0 : Math.sin(a) * unit.radius * 0.5),
+      vx: unit.vx * carry + Math.cos(a) * kick,
+      vy: unit.vy * carry + Math.sin(a) * kick,
+      angle: Math.atan2(unit.hy, unit.hx),
+      spin: (Math.random() - 0.5) * (big ? 0.6 : 3),
+      points,
+      color,
+      age: 0,
+    });
+  }
+  return pieces;
+}
+
+/** Moves wreckage on by some seconds of battle time: it drifts, turns and slowly comes to rest. */
+export function driftWrecks(wrecks: Wreck[], seconds: number): void {
+  const drag = Math.exp(-0.35 * seconds);
+  const slow = Math.exp(-0.1 * seconds);
+  for (const w of wrecks) {
+    w.x += w.vx * seconds;
+    w.y += w.vy * seconds;
+    w.angle += w.spin * seconds;
+    w.vx *= drag;
+    w.vy *= drag;
+    w.spin *= slow;
+    w.age += seconds;
+  }
 }
