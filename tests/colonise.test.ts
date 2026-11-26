@@ -12,6 +12,7 @@ import {
   submitCommand,
   visibleSectors,
   type Command,
+  type EmpireId,
   type GameState,
   type StarSystem,
   type SystemId,
@@ -238,14 +239,27 @@ describe('fog of war', () => {
 describe('expansion', () => {
   const content = loadContent();
 
-  it.each([1, 2, 3])('seed %i: by turn 150 each empire holds 4+ systems and 3+ warships', (seed) => {
-    const state = runGame({ content, seed, turns: 150, preset: 'small', factions: ['concord', 'vashran'] });
-    for (const empire of Object.values(state.empires)) {
-      const warships = fleetsOf(state, empire.id)
+  it.each([1, 2, 3])('seed %i: by turn 150 each empire holds 4+ systems and has fielded 3+ warships', (seed) => {
+    const warshipsOf = (state: GameState, empire: EmpireId) =>
+      fleetsOf(state, empire)
         .flatMap((f) => f.ships)
-        .filter((s) => content.hulls[s.hull].role === 'warship');
+        .filter((s) => content.hulls[s.hull].role === 'warship').length;
+    // The navy is judged over the last ten turns, so a battle lost on turn 150 itself does not count as having none.
+    const navy: Record<string, number> = {};
+    const state = runGame({
+      content,
+      seed,
+      turns: 150,
+      preset: 'small',
+      factions: ['concord', 'vashran'],
+      onTurn: (s) => {
+        if (s.turn <= 140) return;
+        for (const id of Object.keys(s.empires) as EmpireId[]) navy[id] = Math.max(navy[id] ?? 0, warshipsOf(s, id));
+      },
+    });
+    for (const empire of Object.values(state.empires)) {
       expect(coloniesOf(state, empire.id).length).toBeGreaterThanOrEqual(4);
-      expect(warships.length).toBeGreaterThanOrEqual(3);
+      expect(navy[empire.id]).toBeGreaterThanOrEqual(3);
       expect(Object.values(empire.research.levels).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
     }
   });

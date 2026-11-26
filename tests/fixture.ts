@@ -170,6 +170,8 @@ export const rawFixture = {
       baseRange: 2,
       propulsionLevelsPerRange: 2,
       colonyScanRange: 1,
+      // Borders are off so movement tests are not about them; tests/territory.test.ts switches them on.
+      borderRange: 0,
       supportBase: 4,
       populationPerSupport: 5,
       colonyStartPopulation: 2,

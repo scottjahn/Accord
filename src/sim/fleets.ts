@@ -7,6 +7,7 @@ import { addEmpireMorale } from './morale';
 import { inBounds, sameSector, sectorDistance, sectorKey, sectorsAround } from './geometry';
 import { sortedKeys, type EmpireId, type FleetId, type HullId, type ShipId, type SystemId } from './ids';
 import { nextInt } from './rng';
+import { closedSectors, crossesBorders, foreignClaimant } from './territory';
 import { STANCES, type Fleet, type GameState, type Sector, type Stance, type StarSystem, type TurnEvent } from './types';
 
 export function systemAt(state: GameState, sector: Sector): StarSystem | null {
@@ -74,9 +75,14 @@ export function fleetRange(state: GameState, fleet: Fleet, content: Content): nu
 /** Keys of every sector within `range` of one of the empire's colonies. */
 export function suppliedSectors(state: GameState, empireId: EmpireId, range: number): Set<string> {
   const supplied = new Set<string>();
-  // Open borders and alliances let an empire draw supply from its partner's colonies too.
-  for (const owner of [empireId, ...borderPartners(state, empireId)]) {
-    for (const system of coloniesOf(state, owner)) sectorsAround(state.galaxy, system.sector, range, supplied);
+  for (const system of coloniesOf(state, empireId)) sectorsAround(state.galaxy, system.sector, range, supplied);
+  // Open borders and alliances let an empire draw supply from its partners' colonies too: the ones
+  // it knows of, so the real state and the redacted one agree on where its fleets may go.
+  const partners = borderPartners(state, empireId);
+  const known = state.empires[empireId]?.knownSystems ?? {};
+  for (const id of sortedKeys(known)) {
+    const owner = known[id];
+    if (owner !== null && partners.includes(owner)) sectorsAround(state.galaxy, state.systems[id].sector, range, supplied);
   }
   return supplied;
 }
@@ -94,7 +100,9 @@ const NEIGHBOURS: Sector[] = [
 
 /**
  * Shortest route for a fleet to a sector, moving one sector at a time in any of
- * eight directions and only through sectors inside the fleet's supply range.
+ * eight directions and only through sectors inside the fleet's supply range
+ * and outside territory closed to it (see territory.ts). A fleet already inside
+ * closed territory may cross it on the way out but may not stop in it.
  * Returns the sectors to step through (ending at `to`), [] if already there,
  * or null if `to` is off the map, out of range or cut off.
  */
@@ -105,6 +113,12 @@ export function findPath(state: GameState, fleet: Fleet, to: Sector, content: Co
   if (!supplied.has(sectorKey(to))) return null;
   // A fleet left outside supply (a treaty lapsed, a colony fell) may cross open space to get back.
   const stranded = !supplied.has(sectorKey(fleet.sector));
+  const closed = crossesBorders(fleet, content) ? new Set<string>() : closedSectors(state, fleet.owner, content);
+  if (closed.has(sectorKey(to))) return null;
+  // Caught inside a border (it grew, or a war ended): the fleet may cross it to get out.
+  const trespassing = closed.has(sectorKey(fleet.sector));
+  const allowed = (s: Sector): boolean =>
+    (stranded ? inBounds(state.galaxy, s) : supplied.has(sectorKey(s))) && (trespassing || !closed.has(sectorKey(s)));
 
   const cameFrom = new Map<string, Sector | null>([[sectorKey(fleet.sector), null]]);
   let frontier: Sector[] = [fleet.sector];
@@ -112,7 +126,7 @@ export function findPath(state: GameState, fleet: Fleet, to: Sector, content: Co
     const next: Sector[] = [];
     for (const current of frontier) {
       const steps = NEIGHBOURS.map((d) => ({ x: current.x + d.x, y: current.y + d.y }))
-        .filter((s) => (stranded ? inBounds(state.galaxy, s) : supplied.has(sectorKey(s))) && !cameFrom.has(sectorKey(s)))
+        .filter((s) => allowed(s) && !cameFrom.has(sectorKey(s)))
         // Head toward the goal first so routes look direct.
         .sort(
           (a, b) =>
@@ -233,6 +247,14 @@ export function coloniseBlocker(
   return null;
 }
 
+/** Why this empire cannot settle this system because it lies inside another empire's border, or null. */
+export function borderBlocker(state: GameState, empireId: EmpireId, system: StarSystem, content: Content): string | null {
+  const owner = foreignClaimant(state, empireId, system.sector, content);
+  if (owner === null) return null;
+  const name = content.factions[state.empires[owner]?.faction]?.name ?? 'another power';
+  return `${system.name} lies inside ${name}'s border`;
+}
+
 /**
  * True if the fleet is outside its supply range, as happens when a treaty
  * lapses or a colony is lost. It may stay where it is, and may cross open
@@ -274,7 +296,7 @@ export function resolveColonisation(state: GameState, content: Content, events: 
     const fleet = state.fleets[id];
     if (fleet.order !== 'colonise' || fleet.destination) continue;
     const system = systemAt(state, fleet.sector);
-    if (!system || coloniseBlocker(fleet, system, content)) {
+    if (!system || coloniseBlocker(fleet, system, content) || borderBlocker(state, fleet.owner, system, content)) {
       fleet.order = 'none';
       events.push({ type: 'coloniseFailed', empire: fleet.owner, system: system?.id ?? null });
       continue;

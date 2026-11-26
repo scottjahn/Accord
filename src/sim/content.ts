@@ -318,6 +318,8 @@ export interface FleetRules {
   propulsionLevelsPerRange: number;
   /** Sectors around a colony that it reveals. */
   colonyScanRange: number;
+  /** Sectors around a colony that are its empire's territory, closed to rivals at peace; 0 for no borders. */
+  borderRange: number;
   /** Fleet support cap = supportBase + total population / populationPerSupport. */
   supportBase: number;
   populationPerSupport: number;
@@ -737,7 +739,7 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
   if (!isObj(fleetRules)) {
     errors.push('rules.fleets: must be an object');
   } else {
-    for (const key of ['baseRange', 'colonyScanRange', 'supportBase'] as const) {
+    for (const key of ['baseRange', 'colonyScanRange', 'borderRange', 'supportBase'] as const) {
       if (!isNat(fleetRules[key])) errors.push(`rules.fleets.${key}: must be an integer >= 0`);
     }
     for (const key of ['propulsionLevelsPerRange', 'populationPerSupport', 'colonyStartPopulation', 'refitCostPercent'] as const) {

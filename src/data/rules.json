@@ -75,6 +75,7 @@
     "baseRange": 3,
     "propulsionLevelsPerRange": 2,
     "colonyScanRange": 2,
+    "borderRange": 2,
     "supportBase": 6,
     "populationPerSupport": 5,
     "colonyStartPopulation": 2,

@@ -78,6 +78,19 @@ export class MapRenderer {
     }
 
     this.territory.clear();
+    // Borders: a faint wash over each empire's territory, with a line where it meets anyone else's.
+    for (const cell of scene.territory) {
+      const x0 = cell.sector.x * S;
+      const y0 = cell.sector.y * S;
+      this.territory.rect(x0, y0, S, S).fill({ color: cell.color, alpha: cell.own ? 0.05 : 0.08 });
+      if (cell.edges.top) this.territory.moveTo(x0, y0).lineTo(x0 + S, y0);
+      if (cell.edges.right) this.territory.moveTo(x0 + S, y0).lineTo(x0 + S, y0 + S);
+      if (cell.edges.bottom) this.territory.moveTo(x0, y0 + S).lineTo(x0 + S, y0 + S);
+      if (cell.edges.left) this.territory.moveTo(x0, y0).lineTo(x0, y0 + S);
+      // A stroke straight after a fill would outline the filled square, so only stroke real edges.
+      const { top, right, bottom, left } = cell.edges;
+      if (top || right || bottom || left) this.territory.stroke({ width: 2, color: cell.color, alpha: 0.7 });
+    }
     this.stars.clear();
     this.selection.clear();
     const seen = new Set<string>();

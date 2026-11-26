@@ -140,8 +140,11 @@ describe('war through the UI', () => {
     fireEvent.click(button(outpost.name));
     fireEvent.click(button(/^Select fleet: Troop Transport/));
     fireEvent.click(button(`Send to ${enemyHome.name}`));
-    // At peace the click is an ordinary move, not an invasion.
-    expect(screen.getByTestId('fleet-status').textContent).toMatch(new RegExp(`^Heading to ${enemyHome.name} · `));
+    // At peace the click is an ordinary move, not an invasion, and the Concord border keeps it out.
+    expect(screen.getByTestId('fleet-status').textContent).toBe('Holding position');
+    expect(screen.getByRole('alert').textContent).toBe(
+      "That sector lies inside The Concord's border: it takes open borders, an alliance or war to enter",
+    );
   });
 
   it('sets a fleet stance', () => {

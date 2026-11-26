@@ -30,6 +30,7 @@ export { itemCost, itemName } from './economy/build';
 export { computeColonyEconomy, maxPopulationOf, systemSummary, totalOf, type ColonyEconomy } from './economy/outputs';
 export * from './idle';
 export * from './survey';
+export * from './territory';
 export { growthCost } from './economy/growth';
 export { effectivePins, governorAllocation } from './economy/governor';
 export { forecastColony, type ColonyForecast } from './economy/forecast';

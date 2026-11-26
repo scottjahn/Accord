@@ -7,6 +7,7 @@ import {
   sectorKey,
   sortedKeys,
   suppliedSectors,
+  territoryAsKnown,
   type Content,
   type EmpireId,
   type GameState,
@@ -68,8 +69,12 @@ export function survey(known: GameState, empireId: EmpireId, content: Content): 
     rivals,
   };
 
+  const territory = territoryAsKnown(known, empireId, content);
   for (const id of sortedKeys(me.knownSystems)) {
     const system = known.systems[id];
+    // Another empire's territory cannot be settled.
+    const claimant = territory[sectorKey(system.sector)];
+    if (claimant !== undefined && claimant !== empireId) continue;
     // A minor race's home cannot be settled; it is courted or conquered instead.
     if (me.knownSystems[id] !== null || system.colony || system.minor) continue;
     const capacity = maxPopulationOf(system);

@@ -4,6 +4,7 @@ import { maxPopulationOf } from './economy/outputs';
 import { coloniesOf, empireRange, fleetRange, fleetsOf, suppliedSectors, systemAt } from './fleets';
 import { sectorDistance, sectorKey } from './geometry';
 import { sortedKeys, type EmpireId, type FleetId, type SystemId } from './ids';
+import { territoryAsKnown } from './territory';
 import { OUTPUT_KINDS, type GameState } from './types';
 
 /**
@@ -67,6 +68,7 @@ export function idleReport(state: GameState, empireId: EmpireId, content: Conten
 
   // Free systems the empire knows of and could reach, less the ones a colony ship is already bound for.
   const reach = suppliedSectors(state, empireId, empireRange(state, empireId, content));
+  const territory = territoryAsKnown(state, empireId, content);
   const claimed = new Set(settlers.filter((f) => f.destination || f.order === 'colonise').map((f) => sectorKey(f.destination ?? f.sector)));
   const open = sortedKeys(empire.knownSystems).filter((id) => {
     const system = state.systems[id];
@@ -75,6 +77,7 @@ export function idleReport(state: GameState, empireId: EmpireId, content: Conten
       !system.minor &&
       maxPopulationOf(system) >= content.rules.fleets.colonyStartPopulation &&
       reach.has(sectorKey(system.sector)) &&
+      (territory[sectorKey(system.sector)] ?? empireId) === empireId &&
       !claimed.has(sectorKey(system.sector))
     );
   }).length;

@@ -4,7 +4,8 @@ import { atWar, invadeBlocker, warKey } from './combat';
 import { buyOutCost, membershipCost, mercenaryCost } from './credits';
 import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
 import { itemCost } from './economy/build';
-import { coloniseBlocker, empireSupport, findPath, fittingStance, fleetOfShip, spawnShip, stancesFor } from './fleets';
+import { borderBlocker, coloniseBlocker, empireSupport, findPath, fittingStance, fleetOfShip, spawnShip, stancesFor } from './fleets';
+import { bordersOpen, crossesBorders, foreignClaimant } from './territory';
 import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
 import { courtGain, minorOf } from './minors';
@@ -93,6 +94,7 @@ export type CommandErrorCode =
   | 'queueFull'
   | 'badIndex'
   | 'outOfRange'
+  | 'closedBorder'
   | 'cannotColonise'
   | 'notThere'
   | 'unarmed'
@@ -302,7 +304,13 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const fleet = ownFleet(state, cmd.empire, cmd.fleet);
       if (isError(fleet)) return fleet;
       if (!cmd.to || !inBounds(state.galaxy, cmd.to)) return fail('outOfRange', 'That sector is off the map');
-      return findPath(state, fleet, cmd.to, content) ? null : fail('outOfRange', 'That sector is outside supply range');
+      if (findPath(state, fleet, cmd.to, content)) return null;
+      const owner = foreignClaimant(state, cmd.empire, cmd.to, content);
+      if (owner && !crossesBorders(fleet, content) && !bordersOpen(state, cmd.empire, owner)) {
+        const name = content.factions[state.empires[owner]?.faction]?.name ?? 'another power';
+        return fail('closedBorder', `That sector lies inside ${name}'s border: it takes open borders, an alliance or war to enter`);
+      }
+      return fail('outOfRange', 'That sector is outside supply range');
     }
     case 'stopFleet': {
       const fleet = ownFleet(state, cmd.empire, cmd.fleet);
@@ -320,6 +328,8 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const occupied = seen ? system.colony !== null : empire.knownSystems[cmd.system] !== null;
       const blocker = coloniseBlocker(fleet, system, content, occupied);
       if (blocker) return fail('cannotColonise', blocker);
+      const border = borderBlocker(state, cmd.empire, system, content);
+      if (border) return fail('cannotColonise', border);
       if (!findPath(state, fleet, system.sector, content)) return fail('outOfRange', `${system.name} is outside supply range`);
       // Founding is its own step for every empire: the fleet travels there first. This is checked
       // last, so 'notThere' also says the system is one this fleet could settle on arrival.

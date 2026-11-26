@@ -1,6 +1,8 @@
 import {
   atWar,
   fleetPlan,
+  closedSectors,
+  crossesBorders,
   fleetRange,
   maxPopulationOf,
   sectorKey,
@@ -52,6 +54,15 @@ export interface MapFleet {
   slot: number;
 }
 
+/** One sector of an empire's territory, and which of its sides are on the border. */
+export interface MapTerritory {
+  sector: Sector;
+  color: number;
+  own: boolean;
+  /** Draw a border line on this side: the neighbour there is not the same empire's. */
+  edges: { top: boolean; right: boolean; bottom: boolean; left: boolean };
+}
+
 export interface MapScene {
   width: number;
   height: number;
@@ -59,6 +70,8 @@ export interface MapScene {
   fleets: MapFleet[];
   /** Keys of sectors the player can see right now; everything else is fogged. */
   visible: Set<string>;
+  /** Every empire's territory as the player knows it. */
+  territory: MapTerritory[];
   /** Sectors the selected fleet can reach, or null if the player has none selected. */
   range: Set<string> | null;
   /** World points of the selected fleet's route, starting where it is now. */
@@ -127,9 +140,25 @@ export function buildScene(
   let route: Point[] | null = null;
   if (selectedFleet && selectedFleet.owner === view.empire) {
     range = suppliedSectors(state, selectedFleet.owner, fleetRange(state, selectedFleet, content));
+    if (!crossesBorders(selectedFleet, content)) for (const key of closedSectors(state, selectedFleet.owner, content)) range.delete(key);
     const plan = selectedFleet.destination ? fleetPlan(state, selectedFleet, selectedFleet.destination, content) : null;
     if (plan) route = [selectedFleet.sector, ...plan.path].map(sectorCenter);
   }
+
+  const owners = view.territory;
+  const differs = (x: number, y: number, owner: string) => owners[`${x},${y}`] !== owner;
+  const territory = Object.keys(owners)
+    .sort()
+    .map((key): MapTerritory => {
+      const [x, y] = key.split(',').map(Number);
+      const owner = owners[key];
+      return {
+        sector: { x, y },
+        color: factionColor(owner),
+        own: owner === view.empire,
+        edges: { top: differs(x, y - 1, owner), right: differs(x + 1, y, owner), bottom: differs(x, y + 1, owner), left: differs(x - 1, y, owner) },
+      };
+    });
 
   return {
     width: state.galaxy.width,
@@ -137,6 +166,7 @@ export function buildScene(
     systems,
     fleets: [...groups.values()],
     visible: view.visible,
+    territory,
     range,
     route,
   };

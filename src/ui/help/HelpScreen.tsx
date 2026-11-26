@@ -42,6 +42,10 @@ export function HelpScreen({ state, content, player, onClose }: Props) {
                 <strong>Expanding.</strong> Send a colony ship to a free system and choose Found colony. Scouts reveal what is out there.
               </li>
               <li>
+                <strong>Borders.</strong> The sectors near your colonies are your territory, outlined on the map. No one may settle inside another
+                empire&apos;s border, and only scouts may cross it unless you are at war or have open borders or an alliance.
+              </li>
+              <li>
                 <strong>Minor races.</strong> Independent peoples can be courted until they join you, bought if your power can, or conquered.
               </li>
               <li>
