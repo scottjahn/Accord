@@ -133,34 +133,10 @@ describe('the systems list', () => {
     expect(cells('Rivalhome')[3]).toBe('10');
   });
 
-  it('lists the planets one by one, with each planet’s own figures', () => {
-    const { onSelect, bleak } = setup();
-    fireEvent.click(screen.getByRole('radio', { name: 'Planets' }));
-    const table = screen.getAllByRole('table').find((t) => !t.closest('[hidden]'))!;
-    const planetNames = () =>
-      within(table)
-        .getAllByRole('rowheader')
-        .map((cell) => within(cell).getByRole('button').textContent);
-    const row = (name: string) =>
-      within(within(table).getByRole('button', { name }).closest('tr')!)
-        .getAllByRole('cell')
-        .map((c) => c.textContent);
-    // Home has two planets, Bleak two, Ample and Sageholm one each.
-    expect(planetNames()).toHaveLength(6);
-    expect(screen.getByText('6 of 6 planets in systems you have scanned. Click a column to sort, or a planet to go to its system.')).toBeTruthy();
-    // Type, status, room, food, energy.
-    expect(row('Ample 1').slice(0, 5)).toEqual(['Terran', 'Free', '30', '+20%', '0%']);
-    expect(row('Bleak 1').slice(0, 5)).toEqual(['Barren', 'Free', '5', '-5%', '+5%']);
-    expect(row('Bleak 2').slice(0, 5)).toEqual(['Barren', 'Free', '3', '-5%', '+10%']);
-    expect(row('Sageholm 1').slice(0, 3)).toEqual(['Terran', 'Sages', '12']);
-    // Roomiest first to begin with; sorting and filtering work as for systems.
-    expect(planetNames()[0]).toBe('Ample 1');
-    fireEvent.click(within(within(table).getByRole('columnheader', { name: /^Energy/ })).getByRole('button'));
-    expect(planetNames()[0]).toBe('Bleak 2');
-    fireEvent.click(screen.getByRole('radio', { name: 'Free to settle' }));
-    expect(planetNames().sort()).toEqual(['Ample 1', 'Bleak 1', 'Bleak 2']);
-    fireEvent.click(within(table).getByRole('button', { name: 'Bleak 2' }));
-    expect(onSelect).toHaveBeenCalledWith(bleak.id);
+  it('lists systems only, with no separate planet list', () => {
+    setup();
+    expect(screen.queryByRole('radio', { name: 'Planets' })).toBeNull();
+    expect(screen.getAllByRole('table')).toHaveLength(1);
   });
 
   it('jumps to a system when its name is clicked', () => {

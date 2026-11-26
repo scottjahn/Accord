@@ -68,7 +68,7 @@ describe('keyboard', () => {
   it('opens each page by its letter and closes it with Escape', () => {
     startGame();
     for (const [letter, name] of [
-      ['e', 'Empires'],
+      ['d', 'Diplomacy'],
       ['i', 'Intelligence'],
       ['s', 'Systems'],
       ['g', 'Save game'],

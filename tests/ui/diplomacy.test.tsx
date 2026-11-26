@@ -226,8 +226,8 @@ describe('winning without a war', () => {
 
     render(<App />);
     fireEvent.click(button('Continue game'));
-    fireEvent.click(button('Empires'));
-    const dialog = screen.getByRole('dialog', { name: 'Empires' });
+    fireEvent.click(button('Diplomacy'));
+    const dialog = screen.getByRole('dialog', { name: 'Diplomacy' });
     expect(text(`opinion-${RIVAL}`)).toBe('+40');
     expect(within(dialog).getByText('Long friendship')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Propose alliance' }));

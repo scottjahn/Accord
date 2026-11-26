@@ -159,7 +159,7 @@ describe('morale in the system panel', () => {
   });
 });
 
-describe('minor races in the Empires dialog', () => {
+describe('minor races in the Diplomacy dialog', () => {
   it('lists the peoples the player has found with attitude, standing and bonus', () => {
     const content = fixtureContent();
     const state = startNewGame(content, { seed: 3, preset: 'tiny', faction: 'alpha' });

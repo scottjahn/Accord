@@ -105,8 +105,8 @@ function resume() {
 }
 
 function declareWar() {
-  fireEvent.click(button('Empires'));
-  const dialog = screen.getByRole('dialog', { name: 'Empires' });
+  fireEvent.click(button('Diplomacy'));
+  const dialog = screen.getByRole('dialog', { name: 'Diplomacy' });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Declare war' }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm war on The Concord' }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
@@ -115,8 +115,8 @@ function declareWar() {
 describe('war through the UI', () => {
   it('starts at peace and needs a confirmation to declare war', () => {
     resume();
-    fireEvent.click(button('Empires'));
-    const dialog = screen.getByRole('dialog', { name: 'Empires' });
+    fireEvent.click(button('Diplomacy'));
+    const dialog = screen.getByRole('dialog', { name: 'Diplomacy' });
     expect(screen.getByTestId(`relation-${RIVAL}`).textContent).toBe('At peace');
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Declare war' }));
@@ -132,7 +132,7 @@ describe('war through the UI', () => {
     expect(within(dialog).queryByRole('button', { name: 'Declare war' })).toBeNull();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
-    expect(button('Empires (at war)')).toBeTruthy();
+    expect(button('Diplomacy (at war)')).toBeTruthy();
   });
 
   it('will not invade at peace', () => {

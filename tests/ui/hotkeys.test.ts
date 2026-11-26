@@ -17,7 +17,7 @@ describe('hotkeys', () => {
     expect(hotkeyAction(press('Enter', { shiftKey: true }))).toBe('skipAhead');
     expect(hotkeyAction(press('r'))).toBe('research');
     expect(hotkeyAction(press('R', { shiftKey: true }))).toBe('research');
-    expect(hotkeyAction(press('e'))).toBe('empires');
+    expect(hotkeyAction(press('d'))).toBe('empires');
     expect(hotkeyAction(press('i'))).toBe('intel');
     expect(hotkeyAction(press('s'))).toBe('systems');
     expect(hotkeyAction(press('g'))).toBe('save');

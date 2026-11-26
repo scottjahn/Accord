@@ -93,8 +93,8 @@ export function TopBar({ state, content, player, onEndTurn, onSkipAhead, onHelp,
         <button type="button" className="btn" onClick={onIntel}>
           Intel
         </button>
-        <button type="button" className={`btn${wars > 0 ? ' danger' : offers > 0 ? ' primary' : ''}`} onClick={onEmpires}>
-          {wars > 0 ? 'Empires (at war)' : offers > 0 ? `Empires (${offers} ${offers === 1 ? 'offer' : 'offers'})` : 'Empires'}
+        <button type="button" className={`btn${wars > 0 ? ' danger' : offers > 0 ? ' primary' : ''}`} onClick={onEmpires} title="Treaties, offers, gifts and war with other powers (D)">
+          {wars > 0 ? 'Diplomacy (at war)' : offers > 0 ? `Diplomacy (${offers} ${offers === 1 ? 'offer' : 'offers'})` : 'Diplomacy'}
         </button>
         <button
           type="button"

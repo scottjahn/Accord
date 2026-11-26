@@ -45,7 +45,7 @@ export function HelpScreen({ state, content, player, onClose }: Props) {
                 <strong>Minor races.</strong> Independent peoples can be courted until they join you, bought if your power can, or conquered.
               </li>
               <li>
-                <strong>Other empires.</strong> The Empires page holds treaties, offers, gifts and war. The Intel page runs covert operations.
+                <strong>Other empires.</strong> The Diplomacy page holds treaties, offers, gifts and war. The Intel page runs covert operations.
               </li>
               <li>
                 <strong>War.</strong> Warships fight when hostile fleets share a sector. Send troop transports to a colony to invade it.
@@ -72,7 +72,7 @@ export function HelpScreen({ state, content, player, onClose }: Props) {
                 </li>
               ))}
             </ul>
-            <p className="muted hint">Your progress on each is on the Empires page.</p>
+            <p className="muted hint">Your progress on each is on the Diplomacy page.</p>
 
             <h3 className="spaced">Keys</h3>
             <table className="keys">

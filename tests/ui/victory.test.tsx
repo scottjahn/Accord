@@ -9,7 +9,7 @@ import { ALPHA, fixtureContent } from '../fixture';
 
 afterEach(cleanup);
 
-describe('ways to win on the Empires screen', () => {
+describe('ways to win on the Diplomacy screen', () => {
   it('shows each open path with the player’s own progress and its rule', () => {
     const content = fixtureContent();
     content.rules.victory.researchLevels = 60;

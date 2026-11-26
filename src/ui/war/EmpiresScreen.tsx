@@ -51,10 +51,10 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Empires" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Diplomacy" onClick={(e) => e.stopPropagation()}>
         <header className="modal-head">
           <div>
-            <h2>Empires</h2>
+            <h2>Diplomacy</h2>
             <p className="muted">
               You hold {mine} {mine === 1 ? 'colony' : 'colonies'}.
               {state.minorsPlaced > 0 && rules.accordMemberPercent > 0 && (
