@@ -7,6 +7,7 @@ import {
   atWar,
   getEmpireView,
   idleReport,
+  type IdleItem,
   sameSector,
   sortedKeys,
   systemAt,
@@ -96,6 +97,11 @@ export function GameScreen({ session, onQuit }: Props) {
 
   const idle = useMemo(() => idleReport(state, player, content), [state, player, content]);
   const waiting = idle.filter((item) => item.blocking);
+  // An idle scout that is selected rings the unexplored systems it could reach.
+  const scoutTargets = useMemo(() => {
+    const item = idle.find((i): i is Extract<IdleItem, { kind: 'scout' }> => i.kind === 'scout' && i.fleet === ownFleet?.id);
+    return item ? item.unexplored : [];
+  }, [idle, ownFleet?.id]);
   /** Set while the idle warning is up: which way of ending the turn is waiting on the answer. */
   const [confirmEnd, setConfirmEnd] = useState<'turn' | 'skip' | null>(null);
   const [skipIdleWarning, setSkipIdleWarning] = useState(readSkipIdleWarning);
@@ -235,6 +241,7 @@ export function GameScreen({ session, onQuit }: Props) {
             view={view}
             selectedSystem={system?.id ?? null}
             selectedFleet={fleet ?? null}
+            targets={scoutTargets}
             onSectorClick={onSectorClick}
           />
           <EventLog
@@ -277,6 +284,7 @@ export function GameScreen({ session, onQuit }: Props) {
               fleet={fleet}
               moveMode={moveMode}
               onToggleMove={() => setMoveMode(!moveMode)}
+              unexplored={scoutTargets}
               dispatch={session.dispatch}
             />
           ) : (

@@ -15,7 +15,7 @@ import {
   type Camera,
 } from '../src/ui/map/camera';
 import { NEUTRAL_COLOR, buildScene } from '../src/ui/map/scene';
-import { getEmpireView } from '../src/sim';
+import { getEmpireView, sortedKeys } from '../src/sim';
 import { ALPHA, BETA, addFleet, homeOf, newGame } from './fixture';
 
 const camera: Camera = { x: 100, y: 40, zoom: 1.5 };
@@ -124,6 +124,16 @@ describe('map scene', () => {
     const scene = buildScene(state, content, getEmpireView(state, ALPHA, content));
     const betaHome = scene.systems.find((s) => s.id === homeOf(state, BETA).id)!;
     expect(betaHome).toMatchObject({ color: 0xe5533d, owned: true, isHome: true, known: true });
+  });
+
+  it('marks the systems it is given as targets and no others', () => {
+    const { state, content } = newGame(2);
+    const view = getEmpireView(state, ALPHA, content);
+    const unseen = sortedKeys(state.systems).filter((id) => !view.systems[id].known);
+    const picked = unseen.slice(0, 2);
+    const scene = buildScene(state, content, view, null, picked);
+    expect(scene.systems.filter((s) => s.target).map((s) => s.id).sort()).toEqual([...picked].sort());
+    expect(buildScene(state, content, view).systems.some((s) => s.target)).toBe(false);
   });
 
   it('draws one fleet marker per owner per sector and marks the selection', () => {

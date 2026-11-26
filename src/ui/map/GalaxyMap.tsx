@@ -11,19 +11,22 @@ interface Props {
   view: EmpireView;
   selectedSystem: SystemId | null;
   selectedFleet: Fleet | null;
+  /** Systems to ring on the map, such as the unexplored ones an idle scout could reach. */
+  targets?: readonly SystemId[];
   /** A click on a sector: primary selects, secondary (right-click) gives an order. */
   onSectorClick: (sector: Sector, button: 'primary' | 'secondary') => void;
 }
 
 /** Pointer travel in pixels before a press counts as a drag instead of a click. */
 const DRAG_THRESHOLD = 5;
+const NO_TARGETS: readonly SystemId[] = [];
 
 /**
  * The galaxy map: drag to pan, wheel or buttons to zoom, click a sector to
  * select what is there, right-click to send the selected fleet.
  * React owns the camera and input; MapRenderer owns the PixiJS canvas.
  */
-export function GalaxyMap({ state, content, view, selectedSystem, selectedFleet, onSectorClick }: Props) {
+export function GalaxyMap({ state, content, view, selectedSystem, selectedFleet, targets = NO_TARGETS, onSectorClick }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapRenderer | null>(null);
   const cameraRef = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
@@ -31,7 +34,7 @@ export function GalaxyMap({ state, content, view, selectedSystem, selectedFleet,
   const [ready, setReady] = useState(false);
   const [hovering, setHovering] = useState(false);
 
-  const scene = useMemo(() => buildScene(state, content, view, selectedFleet), [state, content, view, selectedFleet]);
+  const scene = useMemo(() => buildScene(state, content, view, selectedFleet, targets), [state, content, view, selectedFleet, targets]);
   const sceneRef = useRef<MapScene>(scene);
   sceneRef.current = scene;
 

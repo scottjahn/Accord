@@ -8,12 +8,14 @@ import {
   evenAllocation,
   fleetsOf,
   getEmpireView,
+  idleReport,
   sectorKey,
   type BuildingId,
   type Fleet,
   type FleetId,
   type GameState,
   type Sector,
+  type SystemId,
 } from '../../src/sim';
 import { FleetPanel } from '../../src/ui/fleet/FleetPanel';
 import { ResearchScreen } from '../../src/ui/research/ResearchScreen';
@@ -29,6 +31,8 @@ function FleetHarness({ session, fleetId }: { session: GameSession; fleetId: Fle
   const { state, player } = useSession(session);
   const fleet = state.fleets[fleetId];
   if (!fleet) return <p>Fleet gone</p>;
+  // As the game screen does: an idle scout gets the unexplored systems from the idle report.
+  const scout = idleReport(state, player, session.content).find((i) => i.kind === 'scout' && i.fleet === fleetId);
   return (
     <FleetPanel
       state={state}
@@ -38,6 +42,7 @@ function FleetHarness({ session, fleetId }: { session: GameSession; fleetId: Fle
       fleet={fleet}
       moveMode={false}
       onToggleMove={onToggleMove}
+      unexplored={scout?.kind === 'scout' ? scout.unexplored : []}
       dispatch={session.dispatch}
     />
   );
@@ -93,6 +98,26 @@ describe('FleetPanel', () => {
     expect(screen.getByText(/^Hold: stay put if enemies arrive/)).toBeTruthy();
     fireEvent.click(screen.getByRole('radio', { name: 'Evade' }));
     expect(now().fleets[fleet.id].stance).toBe('evade');
+  });
+
+  it('lists the unexplored systems an idle scout could reach and sends it to one', () => {
+    const { fleet, now } = setup((s, c) => addFleet(s, c, ALPHA, homeOf(s, ALPHA).sector, ['scout']));
+    const unexplored = (idleReport(now(), ALPHA, fixtureContent()).find((i) => i.kind === 'scout') as { unexplored: SystemId[] }).unexplored;
+    expect(unexplored.length).toBeGreaterThan(0);
+    const list = screen.getByTestId('scout-targets');
+    const sends = list.querySelectorAll('button');
+    expect(sends).toHaveLength(Math.min(5, unexplored.length));
+    const nearest = now().systems[unexplored[0]].sector;
+    expect(sends[0].getAttribute('aria-label')).toBe(`Send to sector ${nearest.x + 1}, ${nearest.y + 1}`);
+    fireEvent.click(sends[0]);
+    expect(now().fleets[fleet.id].destination).toEqual(nearest);
+    // Under way, it is no longer idle, so the list goes.
+    expect(screen.queryByTestId('scout-targets')).toBeNull();
+  });
+
+  it('lists no targets for a fleet that is not an idle scout', () => {
+    setup((s, c) => addFleet(s, c, ALPHA, homeOf(s, ALPHA).sector, ['frigate']));
+    expect(screen.queryByTestId('scout-targets')).toBeNull();
   });
 
   it('shows where a moving fleet is going and how long it takes, and can stop it', () => {

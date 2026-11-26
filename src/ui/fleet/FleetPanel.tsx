@@ -19,9 +19,13 @@ import {
   type HullId,
   type ShipId,
   type Stance,
+  type SystemId,
 } from '../../sim';
 import { HullIcon } from './HullIcon';
-import { ROLE_LABELS, fleetOrderText, lineValue, sectorLabel, sectors, ships as shipCount } from '../format';
+import { ROLE_LABELS, fleetOrderText, lineValue, sectorLabel, sectors, ships as shipCount, turns } from '../format';
+
+/** How many unexplored systems the panel lists before leaving the rest to the map. */
+const SCOUT_TARGETS_SHOWN = 5;
 
 const STANCE_HELP: Record<Stance, string> = {
   engage: 'Engage: fire on armed enemies first.',
@@ -48,10 +52,12 @@ interface Props {
   /** True while the next map click sets this fleet's destination. */
   moveMode: boolean;
   onToggleMove: () => void;
+  /** Unexplored systems this fleet could scout, nearest first; empty when it is busy or not a scout. */
+  unexplored?: readonly SystemId[];
   dispatch: (command: Command) => boolean;
 }
 
-export function FleetPanel({ state, content, player, view, fleet, moveMode, onToggleMove, dispatch }: Props) {
+export function FleetPanel({ state, content, player, view, fleet, moveMode, onToggleMove, unexplored = [], dispatch }: Props) {
   const [picked, setPicked] = useState<ShipId[]>([]);
   const mine = fleet.owner === player;
   const faction = content.factions[state.empires[fleet.owner].faction];
@@ -174,6 +180,33 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
               </button>
             )}
           </div>
+          {unexplored.length > 0 && (
+            <div className="scout-targets" data-testid="scout-targets">
+              <h4>Unexplored in range</h4>
+              <p className="muted hint">Ringed on the map. Nearest first.</p>
+              <ul className="planet-list">
+                {unexplored.slice(0, SCOUT_TARGETS_SHOWN).map((id) => {
+                  const to = state.systems[id].sector;
+                  const trip = fleetPlan(state, fleet, to, content);
+                  return (
+                    <li key={id}>
+                      Sector {sectorLabel(to)}
+                      {trip && <span className="muted"> · {turns(trip.turns)}</span>}{' '}
+                      <button
+                        type="button"
+                        className="btn small"
+                        aria-label={`Send to sector ${sectorLabel(to)}`}
+                        onClick={() => dispatch({ type: 'moveFleet', empire: player, fleet: fleet.id, to })}
+                      >
+                        Send
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {unexplored.length > SCOUT_TARGETS_SHOWN && <p className="muted hint">and {unexplored.length - SCOUT_TARGETS_SHOWN} more on the map</p>}
+            </div>
+          )}
           {odds && (
             <div className="invasion-odds" data-testid="invasion-odds">
               <p>

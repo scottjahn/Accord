@@ -209,6 +209,21 @@ describe('SystemPanel: own colony', () => {
     expect(button('Build Reactor').title).toBe('Build queue holds at most 4 items');
   });
 
+  it('says what each building does, not only what it adds to outputs', () => {
+    setup();
+    const row = (name: string) => button(`Build ${name}`).closest('li')!.textContent;
+    expect(row('Barracks')).toContain('+12 garrison');
+    expect(row('Forum')).toContain('+10 morale');
+  });
+
+  it('shows a building’s description when the content gives one', () => {
+    const content = fixtureContent();
+    content.buildings['lab' as BuildingId].description = 'Adds research.';
+    const session = createSession(content, startNewGame(content, { seed: 3, preset: 'tiny', faction: 'alpha' }));
+    render(<Harness session={session} systemId={session.getSnapshot().state.empires[ALPHA].homeSystem} />);
+    expect(button('Build Lab').closest('li')!.textContent).toContain('Adds research.');
+  });
+
   it('locks buildings that need research and names the requirement', () => {
     setup();
     expect(button('Build Vault').disabled).toBe(true);

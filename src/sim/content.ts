@@ -389,6 +389,8 @@ export interface BuildingEffect {
 export interface BuildingDef {
   id: BuildingId;
   name: string;
+  /** What the building is for, in a sentence for the build list. Empty if none is given. */
+  description: string;
   /** Industry points to build one. */
   cost: number;
   /** Energy needed per building each turn; unpowered buildings do nothing. */
@@ -555,6 +557,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (b.combat === undefined) b.combat = { attack: 0, hp: 0, garrison: 0 };
     if (b.morale === undefined) b.morale = 0;
     if (b.credits === undefined) b.credits = 0;
+    if (b.description === undefined) b.description = '';
+    if (typeof b.description !== 'string') errors.push(`buildings.${id}: description must be a string`);
     if (!isNat(b.credits)) errors.push(`buildings.${id}: credits must be an integer >= 0`);
     if (b.faction === undefined) b.faction = null;
     if (b.faction !== null && (typeof b.faction !== 'string' || !factions[b.faction])) errors.push(`buildings.${id}: faction must be a known faction or null`);

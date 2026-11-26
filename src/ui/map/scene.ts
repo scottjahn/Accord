@@ -34,6 +34,8 @@ export interface MapSystem {
   isHome: boolean;
   /** Dot radius in world units, larger for systems that can hold more people. */
   radius: number;
+  /** Marked as somewhere worth sending the selected fleet, such as an unexplored system in a scout's range. */
+  target: boolean;
 }
 
 export interface MapFleet {
@@ -69,7 +71,13 @@ const hex = (color: string | undefined): number => (color ? parseInt(color.slice
  * Everything the renderer needs to draw the galaxy for one player. Built from
  * the player's view, so nothing hidden by fog of war reaches the screen.
  */
-export function buildScene(state: GameState, content: Content, view: EmpireView, selectedFleet: Fleet | null = null): MapScene {
+export function buildScene(
+  state: GameState,
+  content: Content,
+  view: EmpireView,
+  selectedFleet: Fleet | null = null,
+  targets: readonly SystemId[] = [],
+): MapScene {
   const factionColor = (empire: keyof typeof state.empires) => hex(content.factions[state.empires[empire].faction]?.color);
 
   const systems = sortedKeys(state.systems).map((id): MapSystem => {
@@ -87,6 +95,7 @@ export function buildScene(state: GameState, content: Content, view: EmpireView,
       owned: owner !== null,
       isHome: owner !== null && state.empires[owner].homeSystem === id,
       radius: sight.known ? 4 + Math.min(5, Math.floor(maxPopulationOf(system) / 12)) : 3,
+      target: targets.includes(id),
     };
   });
 

@@ -26,6 +26,11 @@ describe('content validation', () => {
     }
   });
 
+  it('describes every shipped building, and rejects a description that is not text', () => {
+    for (const b of Object.values(loadContent().buildings)) expect(b.description, b.id).not.toBe('');
+    expect(errorsFor((raw) => (raw.buildings[0].description = 5))).toContainEqual(expect.stringMatching(/description must be a string/));
+  });
+
   it('rejects non-objects', () => {
     expect(validateContent(null).ok).toBe(false);
     expect(validateContent([]).ok).toBe(false);

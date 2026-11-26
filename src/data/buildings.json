@@ -2,6 +2,7 @@
   {
     "id": "farm",
     "name": "Farm",
+    "description": "Grows food, so the colony can feed more people and keep growing.",
     "cost": 40,
     "energyUpkeep": 1,
     "maxPerSystem": 5,
@@ -17,6 +18,7 @@
   {
     "id": "factory",
     "name": "Factory",
+    "description": "Adds industry, which builds everything in the queue faster.",
     "cost": 60,
     "energyUpkeep": 2,
     "maxPerSystem": 6,
@@ -32,6 +34,7 @@
   {
     "id": "reactor",
     "name": "Reactor",
+    "description": "Makes energy. Other buildings need energy to run; unpowered ones do nothing.",
     "cost": 50,
     "energyUpkeep": 0,
     "maxPerSystem": 6,
@@ -47,6 +50,7 @@
   {
     "id": "lab",
     "name": "Research Lab",
+    "description": "Adds research, which unlocks new techs, buildings and hulls.",
     "cost": 80,
     "energyUpkeep": 2,
     "maxPerSystem": 5,
@@ -62,6 +66,7 @@
   {
     "id": "listening_post",
     "name": "Listening Post",
+    "description": "Gathers intel, the pool that pays for covert operations against rivals.",
     "cost": 80,
     "energyUpkeep": 2,
     "maxPerSystem": 4,
@@ -77,6 +82,7 @@
   {
     "id": "foundry",
     "name": "Orbital Foundry",
+    "description": "Raises all of this colony’s industry by a share, so it pays off most in big industrial colonies.",
     "cost": 150,
     "energyUpkeep": 3,
     "maxPerSystem": 2,
@@ -94,6 +100,7 @@
   {
     "id": "university",
     "name": "University",
+    "description": "Raises all of this colony’s research by a share.",
     "cost": 180,
     "energyUpkeep": 3,
     "maxPerSystem": 1,
@@ -111,6 +118,7 @@
   {
     "id": "shipyard",
     "name": "Shipyard",
+    "description": "Lets this colony build ships. Without one, the Ships list stays closed.",
     "cost": 120,
     "energyUpkeep": 2,
     "maxPerSystem": 1,
@@ -120,6 +128,7 @@
   {
     "id": "orbital_battery",
     "name": "Orbital Battery",
+    "description": "Guns in orbit that fire on enemy ships in this colony’s sector.",
     "cost": 100,
     "energyUpkeep": 2,
     "maxPerSystem": 3,
@@ -136,6 +145,7 @@
   {
     "id": "barracks",
     "name": "Barracks",
+    "description": "Trains troops who defend the colony against invasion: a bigger garrison is harder to take.",
     "cost": 70,
     "energyUpkeep": 1,
     "maxPerSystem": 2,
@@ -150,6 +160,7 @@
   {
     "id": "forum",
     "name": "Forum",
+    "description": "A public meeting place that makes the colony happier. Higher morale means better output and less risk of revolt.",
     "cost": 90,
     "energyUpkeep": 1,
     "maxPerSystem": 1,
@@ -165,6 +176,7 @@
   {
     "id": "assembly_hall",
     "name": "Assembly Hall",
+    "description": "Concord self-government: a happier colony that also does a little more research.",
     "cost": 100,
     "energyUpkeep": 1,
     "maxPerSystem": 1,
@@ -182,6 +194,7 @@
   {
     "id": "academy",
     "name": "Concord Academy",
+    "description": "The Concord’s great school: a large boost to this colony’s research.",
     "cost": 180,
     "energyUpkeep": 3,
     "maxPerSystem": 1,
@@ -200,6 +213,7 @@
   {
     "id": "war_shrine",
     "name": "War Shrine",
+    "description": "A Vashran temple of war that lifts morale and stiffens the colony’s defenders.",
     "cost": 90,
     "energyUpkeep": 1,
     "maxPerSystem": 1,
@@ -216,6 +230,7 @@
   {
     "id": "proving_grounds",
     "name": "Proving Grounds",
+    "description": "Vashran training fields: more industry, and many more defenders against invasion.",
     "cost": 160,
     "energyUpkeep": 2,
     "maxPerSystem": 1,
@@ -239,6 +254,7 @@
   {
     "id": "shadow_bureau",
     "name": "Shadow Bureau",
+    "description": "The Veiled spy office: a lot of intel from one building.",
     "cost": 100,
     "energyUpkeep": 2,
     "maxPerSystem": 1,
@@ -255,6 +271,7 @@
   {
     "id": "silent_archive",
     "name": "Silent Archive",
+    "description": "Veiled records of every secret: raises all of this colony’s intel by a share.",
     "cost": 180,
     "energyUpkeep": 3,
     "maxPerSystem": 1,
@@ -273,6 +290,7 @@
   {
     "id": "forge_complex",
     "name": "Forge Complex",
+    "description": "Kessic heavy industry: more industry per building than a factory.",
     "cost": 80,
     "energyUpkeep": 2,
     "maxPerSystem": 2,
@@ -289,6 +307,7 @@
   {
     "id": "bastion",
     "name": "Bastion",
+    "description": "A Kessic fortress that shoots at enemy ships in orbit and holds off invasions.",
     "cost": 150,
     "energyUpkeep": 2,
     "maxPerSystem": 1,
@@ -306,6 +325,7 @@
   {
     "id": "trade_hub",
     "name": "Trade Hub",
+    "description": "An Orrin market that earns credits every turn.",
     "cost": 90,
     "energyUpkeep": 1,
     "maxPerSystem": 2,
@@ -317,6 +337,7 @@
   {
     "id": "bourse",
     "name": "Bourse",
+    "description": "The Orrin exchange: a large income in credits every turn.",
     "cost": 200,
     "energyUpkeep": 2,
     "maxPerSystem": 1,

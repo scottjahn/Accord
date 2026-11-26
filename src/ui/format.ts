@@ -67,7 +67,7 @@ export function idleText(item: IdleItem, state: GameState): string {
     case 'colonyShip':
       return item.canFound ? `Colony ship at ${state.systems[item.canFound].name} can found a colony` : 'Colony ship has no orders';
     case 'scout':
-      return `Scout has no orders: ${item.unexplored} unexplored ${item.unexplored === 1 ? 'system' : 'systems'} in range`;
+      return `Scout has no orders: ${item.unexplored.length} unexplored ${item.unexplored.length === 1 ? 'system' : 'systems'} in range, nearest at sector ${sectorLabel(state.systems[item.unexplored[0]].sector)}`;
     case 'unsettled':
       return `${item.count} free ${item.count === 1 ? 'system' : 'systems'} in range with no colony ship on the way`;
   }
@@ -110,9 +110,13 @@ export function lineValue(line: BreakdownLine): string {
 }
 
 export function effectsText(def: BuildingDef): string {
+  const { attack, hp, garrison } = def.combat;
   return [
     ...def.effects.map((e) => `${signed(e.value)}${e.kind === 'percent' ? '%' : ''} ${OUTPUT_LABELS[e.output].toLowerCase()}`),
     ...(def.credits > 0 ? [`${signed(def.credits)} credits`] : []),
+    ...(def.morale !== 0 ? [`${signed(def.morale)} morale`] : []),
+    ...(garrison > 0 ? [`${signed(garrison)} garrison`] : []),
+    ...(attack > 0 ? [`fires in orbit: attack ${attack}, hull ${hp}`] : []),
   ].join(', ');
 }
 

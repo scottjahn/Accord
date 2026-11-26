@@ -129,6 +129,7 @@ export function BuildQueue({ state, colony, content, forecast, player, systemId,
                     {queued > 0 && ` +${queued}`} / {def.maxPerSystem}
                   </span>
                 </span>
+                {def.description && <span className="building-desc">{def.description}</span>}
                 <span className="muted">
                   {[effectsText(def), `cost ${def.cost}`, def.energyUpkeep > 0 && `${def.energyUpkeep} energy`]
                     .filter(Boolean)

@@ -4,6 +4,7 @@ import type { MapScene } from './scene';
 
 const GRID_COLOR = 0x8fa3c8;
 const RANGE_COLOR = 0x6cb6ff;
+const TARGET_COLOR = 0x7fe3ff;
 const LABEL_MIN_ZOOM = 0.5;
 // Sectors out of sight are darkened and sectors in sight are lifted a little, so the edge of
 // what the player can see reads at a glance.
@@ -96,6 +97,15 @@ export class MapRenderer {
         this.stars
           .poly([system.x, system.y - r, system.x + r, system.y, system.x, system.y + r, system.x - r, system.y])
           .stroke({ width: 1.5, color: 0xe8c15a, alpha: 0.95 });
+      }
+      if (system.target) {
+        // A bright ring with four ticks, big enough to spot with the whole galaxy in view.
+        const r = 13;
+        this.selection.circle(system.x, system.y, r).stroke({ width: 2, color: TARGET_COLOR, alpha: 0.95 });
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          this.selection.moveTo(system.x + dx * (r + 2), system.y + dy * (r + 2)).lineTo(system.x + dx * (r + 8), system.y + dy * (r + 8));
+        }
+        this.selection.stroke({ width: 2, color: TARGET_COLOR, alpha: 0.95 });
       }
       if (system.isHome) {
         this.stars.circle(system.x, system.y, system.radius + 8).stroke({ width: 1.5, color: system.color, alpha: 0.9 });

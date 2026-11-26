@@ -5,6 +5,7 @@ import {
   governorAllocation,
   idleReport,
   processTurn,
+  sectorDistance,
   sectorKey,
   submitCommand,
   suppliedSectors,
@@ -12,6 +13,7 @@ import {
   type BuildingId,
   type Command,
   type GameState,
+  type IdleItem,
   type Outputs,
 } from '../src/sim';
 import { ALPHA, BETA, addFleet, colonyOf, homeOf, newGame } from './fixture';
@@ -290,7 +292,12 @@ describe('what is idle', () => {
     const within = suppliedSectors(state, ALPHA, fleetRange(state, scout, content));
     const unseen = Object.values(state.systems).filter((s) => !(s.id in state.empires[ALPHA].knownSystems) && within.has(sectorKey(s.sector)));
     expect(unseen.length).toBeGreaterThan(0);
-    expect(urgent(state, content)).toEqual([{ kind: 'scout', blocking: true, fleet: scout.id, unexplored: unseen.length }]);
+    expect(urgent(state, content)).toEqual([{ kind: 'scout', blocking: true, fleet: scout.id, unexplored: expect.any(Array) }]);
+    // It names each unexplored system, nearest first.
+    const listed = (urgent(state, content)[0] as Extract<IdleItem, { kind: 'scout' }>).unexplored;
+    expect([...listed].sort()).toEqual(unseen.map((s) => s.id).sort());
+    const away = listed.map((id) => sectorDistance(scout.sector, state.systems[id].sector));
+    expect(away).toEqual([...away].sort((a, b) => a - b));
 
     // On its way somewhere, it is busy.
     const moving = structuredClone(state);

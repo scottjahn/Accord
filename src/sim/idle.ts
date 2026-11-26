@@ -2,7 +2,7 @@ import { validateCommand, type Command } from './commands';
 import type { Content } from './content';
 import { maxPopulationOf } from './economy/outputs';
 import { coloniesOf, empireRange, fleetRange, fleetsOf, suppliedSectors, systemAt } from './fleets';
-import { sectorKey } from './geometry';
+import { sectorDistance, sectorKey } from './geometry';
 import { sortedKeys, type EmpireId, type FleetId, type SystemId } from './ids';
 import { OUTPUT_KINDS, type GameState } from './types';
 
@@ -15,8 +15,8 @@ export type IdleItem =
   | { kind: 'emptyQueue'; blocking: true; system: SystemId }
   /** A colony ship with no orders. `canFound` is the free system it is sitting at, if any. */
   | { kind: 'colonyShip'; blocking: true; fleet: FleetId; canFound: SystemId | null }
-  /** A scout with no orders while `unexplored` systems it could reach have never been scanned. */
-  | { kind: 'scout'; blocking: true; fleet: FleetId; unexplored: number }
+  /** A scout with no orders while systems it could reach have never been scanned; `unexplored` lists them, nearest first. */
+  | { kind: 'scout'; blocking: true; fleet: FleetId; unexplored: SystemId[] }
   /** Free systems inside supply range that nobody is heading out to settle. */
   | { kind: 'unsettled'; blocking: false; count: number };
 
@@ -58,10 +58,11 @@ export function idleReport(state: GameState, empireId: EmpireId, content: Conten
     if (fleet.destination || fleet.order !== 'none') continue;
     if (!fleet.ships.some((s) => content.hulls[s.hull]?.role === 'scout')) continue;
     const within = suppliedSectors(state, empireId, fleetRange(state, fleet, content));
-    const unexplored = sortedKeys(state.systems).filter(
-      (id) => !(id in empire.knownSystems) && within.has(sectorKey(state.systems[id].sector)),
-    ).length;
-    if (unexplored > 0) items.push({ kind: 'scout', blocking: true, fleet: fleet.id, unexplored });
+    const away = (id: SystemId) => sectorDistance(fleet.sector, state.systems[id].sector);
+    const unexplored = sortedKeys(state.systems)
+      .filter((id) => !(id in empire.knownSystems) && within.has(sectorKey(state.systems[id].sector)))
+      .sort((a, b) => away(a) - away(b) || (a < b ? -1 : a > b ? 1 : 0));
+    if (unexplored.length > 0) items.push({ kind: 'scout', blocking: true, fleet: fleet.id, unexplored });
   }
 
   // Free systems the empire knows of and could reach, less the ones a colony ship is already bound for.
