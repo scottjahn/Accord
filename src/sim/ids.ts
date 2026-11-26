@@ -11,6 +11,7 @@ export type HullId = Brand<string, 'HullId'>;
 export type FleetId = Brand<string, 'FleetId'>;
 export type ShipId = Brand<string, 'ShipId'>;
 export type MinorId = Brand<string, 'MinorId'>;
+export type OutpostId = Brand<string, 'OutpostId'>;
 
 /**
  * Keys of a record in sorted order. The sim always iterates records through this

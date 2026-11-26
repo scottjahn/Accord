@@ -19,6 +19,8 @@ interface Props {
 const BAD: TurnEvent['type'][] = [
   'starvation',
   'coloniseFailed',
+  'outpostFailed',
+  'outpostLost',
   'fleetBlocked',
   'warDeclared',
   'empireEliminated',

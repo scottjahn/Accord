@@ -5,6 +5,7 @@ import { buyOutCost, membershipCost, mercenaryCost } from './credits';
 import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
 import { itemCost } from './economy/build';
 import { borderBlocker, coloniseBlocker, empireSupport, findPath, fittingStance, fleetOfShip, spawnShip, stancesFor } from './fleets';
+import { outpostBlocker } from './outposts';
 import { bordersOpen, crossesBorders, foreignClaimant } from './territory';
 import { inBounds, sameSector, sectorKey } from './geometry';
 import type { BuildingId, EmpireId, FleetId, HullId, ShipId, SystemId } from './ids';
@@ -60,6 +61,7 @@ export type Command =
   | { type: 'moveFleet'; empire: EmpireId; fleet: FleetId; to: Sector }
   | { type: 'stopFleet'; empire: EmpireId; fleet: FleetId }
   | { type: 'coloniseSystem'; empire: EmpireId; fleet: FleetId; system: SystemId }
+  | { type: 'buildOutpost'; empire: EmpireId; fleet: FleetId }
   | { type: 'invadeSystem'; empire: EmpireId; fleet: FleetId; system: SystemId }
   | { type: 'setStance'; empire: EmpireId; fleet: FleetId; stance: Stance }
   | { type: 'declareWar'; empire: EmpireId; on: EmpireId }
@@ -96,6 +98,7 @@ export type CommandErrorCode =
   | 'outOfRange'
   | 'closedBorder'
   | 'cannotColonise'
+  | 'cannotBuildOutpost'
   | 'notThere'
   | 'unarmed'
   | 'cannotInvade'
@@ -334,6 +337,12 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       // Founding is its own step for every empire: the fleet travels there first. This is checked
       // last, so 'notThere' also says the system is one this fleet could settle on arrival.
       return sameSector(fleet.sector, system.sector) ? null : fail('notThere', `Move the fleet to ${system.name} first`);
+    }
+    case 'buildOutpost': {
+      const fleet = ownFleet(state, cmd.empire, cmd.fleet);
+      if (isError(fleet)) return fleet;
+      const blocker = outpostBlocker(state, fleet, content);
+      return blocker ? fail('cannotBuildOutpost', blocker) : null;
     }
     case 'invadeSystem': {
       const fleet = ownFleet(state, cmd.empire, cmd.fleet);
@@ -585,6 +594,12 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       const fleet = next.fleets[cmd.fleet];
       fleet.destination = null;
       fleet.order = 'colonise';
+      break;
+    }
+    case 'buildOutpost': {
+      const fleet = next.fleets[cmd.fleet];
+      fleet.destination = null;
+      fleet.order = 'outpost';
       break;
     }
     case 'invadeSystem': {

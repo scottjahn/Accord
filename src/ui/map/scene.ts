@@ -63,6 +63,16 @@ export interface MapTerritory {
   edges: { top: boolean; right: boolean; bottom: boolean; left: boolean };
 }
 
+/** An outpost: drawn as a small square in its owner's colour. */
+export interface MapOutpost {
+  id: string;
+  sector: Sector;
+  /** World coordinates of the sector centre. */
+  x: number;
+  y: number;
+  color: number;
+}
+
 export interface MapScene {
   width: number;
   height: number;
@@ -70,6 +80,8 @@ export interface MapScene {
   fleets: MapFleet[];
   /** Keys of sectors the player can see right now; everything else is fogged. */
   visible: Set<string>;
+  /** Every outpost (where they stand is public). */
+  outposts: MapOutpost[];
   /** Every empire's territory as the player knows it. */
   territory: MapTerritory[];
   /** Sectors the selected fleet can reach, or null if the player has none selected. */
@@ -166,6 +178,10 @@ export function buildScene(
     systems,
     fleets: [...groups.values()],
     visible: view.visible,
+    outposts: sortedKeys(state.outposts).map((id) => {
+      const outpost = state.outposts[id];
+      return { id, sector: outpost.sector, ...sectorCenter(outpost.sector), color: factionColor(outpost.owner) };
+    }),
     territory,
     range,
     route,

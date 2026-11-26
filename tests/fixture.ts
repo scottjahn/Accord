@@ -166,6 +166,7 @@ export const rawFixture = {
         loadouts: { default: ['laser'], battery: ['battery'] },
       },
     },
+    outposts: { borderRange: 1, scanRange: 1, minSpacing: 3, coloniesPerOutpost: 2 },
     fleets: {
       baseRange: 2,
       propulsionLevelsPerRange: 2,

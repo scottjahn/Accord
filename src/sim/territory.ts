@@ -7,7 +7,7 @@ import type { Fleet, GameState, Sector } from './types';
 
 /**
  * Borders. Every colony claims the sectors within `rules.fleets.borderRange`
- * of it; a sector goes to the nearest colony, and one equally near colonies of
+ * of it, and every outpost those within `rules.outposts.borderRange`; a sector goes to the nearest colony, and one equally near colonies of
  * two empires belongs to neither. A range of 0 turns borders off.
  *
  * Territory is judged on what an empire knows: its own colonies as they are,
@@ -22,14 +22,22 @@ export function territoryAsKnown(state: GameState, viewer: EmpireId, content: Co
   const result: Record<string, EmpireId> = {};
   if (range <= 0) return result;
   const known = state.empires[viewer]?.knownSystems ?? {};
-  const best = new Map<string, { distance: number; owner: EmpireId | null }>();
+  const claims: { owner: EmpireId; sector: Sector; range: number }[] = [];
   for (const id of sortedKeys(state.systems)) {
     const system = state.systems[id];
     // Its own colonies an empire always knows; for the rest, the owner it last saw.
     const last = known[id] ?? null;
     const owner = system.colony?.owner === viewer ? viewer : last === viewer ? null : last;
-    if (owner === null) continue;
-    const { x: cx, y: cy } = system.sector;
+    if (owner !== null) claims.push({ owner, sector: system.sector, range });
+  }
+  // Where outposts stand is public.
+  for (const id of sortedKeys(state.outposts)) {
+    const outpost = state.outposts[id];
+    claims.push({ owner: outpost.owner, sector: outpost.sector, range: content.rules.outposts.borderRange });
+  }
+  const best = new Map<string, { distance: number; owner: EmpireId | null }>();
+  for (const { owner, sector, range } of claims) {
+    const { x: cx, y: cy } = sector;
     for (let y = Math.max(0, cy - range); y <= Math.min(state.galaxy.height - 1, cy + range); y++) {
       for (let x = Math.max(0, cx - range); x <= Math.min(state.galaxy.width - 1, cx + range); x++) {
         const key = `${x},${y}`;

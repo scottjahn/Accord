@@ -72,7 +72,7 @@ export function fleetRange(state: GameState, fleet: Fleet, content: Content): nu
   return empireRange(state, fleet.owner, content) + bonus;
 }
 
-/** Keys of every sector within `range` of one of the empire's colonies. */
+/** Keys of every sector within `range` of one of the empire's colonies or outposts, or a partner's it knows of. */
 export function suppliedSectors(state: GameState, empireId: EmpireId, range: number): Set<string> {
   const supplied = new Set<string>();
   for (const system of coloniesOf(state, empireId)) sectorsAround(state.galaxy, system.sector, range, supplied);
@@ -83,6 +83,11 @@ export function suppliedSectors(state: GameState, empireId: EmpireId, range: num
   for (const id of sortedKeys(known)) {
     const owner = known[id];
     if (owner !== null && partners.includes(owner)) sectorsAround(state.galaxy, state.systems[id].sector, range, supplied);
+  }
+  // Outposts supply like colonies; where they stand is public.
+  for (const id of sortedKeys(state.outposts)) {
+    const outpost = state.outposts[id];
+    if (outpost.owner === empireId || partners.includes(outpost.owner)) sectorsAround(state.galaxy, outpost.sector, range, supplied);
   }
   return supplied;
 }

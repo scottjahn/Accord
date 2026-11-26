@@ -173,6 +173,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
     systems,
     empires,
     fleets: {},
+    outposts: {},
     nextId: 1,
     difficulty: config.difficulty ?? 'normal',
     wars: {},

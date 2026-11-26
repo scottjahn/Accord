@@ -90,6 +90,28 @@ describe('FleetPanel', () => {
     expect(screen.queryByTestId('unarmed')).toBeNull();
   });
 
+  it('offers a transport in empty space an outpost, explaining when it cannot have one', () => {
+    setup((s, c) => addFleet(s, c, ALPHA, emptyNeighbour(s), ['transport']));
+    const build = button('Build outpost here');
+    // One colony and the fixture's one outpost per two colonies: none allowed yet.
+    expect(build.disabled).toBe(true);
+    expect(build.title).toBe('The empire can keep 0 outposts: one for every 2 colonies');
+  });
+
+  it('orders an outpost built, and offers none at a star', () => {
+    const { fleet, now } = setup((s, c) => {
+      c.rules.outposts.coloniesPerOutpost = 1;
+      return addFleet(s, c, ALPHA, emptyNeighbour(s), ['transport']);
+    });
+    fireEvent.click(button('Build outpost here'));
+    expect(now().fleets[fleet.id].order).toBe('outpost');
+    expect(status()).toBe('Building an outpost this turn');
+    expect(screen.queryByRole('button', { name: 'Build outpost here' })).toBeNull();
+    cleanup();
+    setup((s, c) => addFleet(s, c, ALPHA, homeOf(s, ALPHA).sector, ['transport']));
+    expect(screen.queryByRole('button', { name: 'Build outpost here' })).toBeNull();
+  });
+
   it('says when a fleet is unarmed and offers only hold or evade', () => {
     const { fleet, now } = setup((s, c) => addFleet(s, c, ALPHA, homeOf(s, ALPHA).sector, ['scout', 'colony_ship']));
     expect(screen.getByTestId('unarmed').textContent).toMatch(/^Unarmed: none of these ships can fire/);

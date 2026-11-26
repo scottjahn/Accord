@@ -1,8 +1,8 @@
-import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, ShipId, SystemId } from './ids';
+import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, OutpostId, ShipId, SystemId } from './ids';
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 export const TREATY_TYPES = ['peace', 'nonAggression', 'openBorders', 'researchPact', 'alliance'] as const;
 export type TreatyType = (typeof TREATY_TYPES)[number];
@@ -215,7 +215,7 @@ export interface Ship {
 }
 
 /** 'colonise' founds a colony where the fleet is, with one colony ship, when the turn resolves. */
-export type FleetOrder = 'none' | 'colonise' | 'invade';
+export type FleetOrder = 'none' | 'colonise' | 'invade' | 'outpost';
 
 export interface Fleet {
   id: FleetId;
@@ -257,6 +257,19 @@ export interface Empire {
   knownSystems: Record<SystemId, EmpireId | null>;
 }
 
+/**
+ * A starbase in empty space, built from a troop transport. It claims territory,
+ * extends supply and gives sight like a small colony, but has no people. Where
+ * outposts stand is public knowledge.
+ */
+export interface Outpost {
+  id: OutpostId;
+  owner: EmpireId;
+  sector: Sector;
+  /** The turn it was built. */
+  built: number;
+}
+
 export interface GameState {
   saveVersion: number;
   seed: number;
@@ -267,7 +280,8 @@ export interface GameState {
   systems: Record<SystemId, StarSystem>;
   empires: Record<EmpireId, Empire>;
   fleets: Record<FleetId, Fleet>;
-  /** Counter for fleet and ship ids. */
+  outposts: Record<OutpostId, Outpost>;
+  /** Counter for fleet, ship and outpost ids. */
   nextId: number;
   difficulty: Difficulty;
   /** Pairs of empires at war (see warKey), with the turn war was declared. Everyone else is at peace. */
@@ -417,6 +431,9 @@ export type TurnEvent =
   | { type: 'fleetBlocked'; empire: EmpireId; fleet: FleetId }
   | { type: 'colonyFounded'; empire: EmpireId; system: SystemId }
   | { type: 'coloniseFailed'; empire: EmpireId; system: SystemId | null }
+  | { type: 'outpostBuilt'; empire: EmpireId; outpost: OutpostId; sector: Sector }
+  | { type: 'outpostFailed'; empire: EmpireId; sector: Sector; reason: string }
+  | { type: 'outpostLost'; empire: EmpireId; by: EmpireId; sector: Sector }
   | { type: 'warDeclared'; by: EmpireId; on: EmpireId }
   | { type: 'battle'; empires: EmpireId[]; report: CombatReport }
   | { type: 'invasion'; empires: EmpireId[]; report: InvasionReport }

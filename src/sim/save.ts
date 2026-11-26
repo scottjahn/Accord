@@ -13,16 +13,22 @@ export function serialize(state: GameState): string {
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
- * Brings a save from the version before this one up to date, in place.
+ * Brings an older save up to date, in place, one version at a time.
  * Version 10 added worker limits to colonies; a version 9 colony has none.
+ * Version 11 added outposts; an older galaxy has none.
  */
 function upgrade(raw: Record<string, unknown>): void {
-  if (raw.saveVersion !== 9 || !isObj(raw.systems)) return;
-  for (const system of Object.values(raw.systems)) {
-    if (!isObj(system) || !isObj(system.colony)) continue;
-    system.colony.capped = { food: null, industry: null, energy: null, intel: null, research: null };
+  if (raw.saveVersion === 9 && isObj(raw.systems)) {
+    for (const system of Object.values(raw.systems)) {
+      if (!isObj(system) || !isObj(system.colony)) continue;
+      system.colony.capped = { food: null, industry: null, energy: null, intel: null, research: null };
+    }
+    raw.saveVersion = 10;
   }
-  raw.saveVersion = 10;
+  if (raw.saveVersion === 10) {
+    raw.outposts = {};
+    raw.saveVersion = 11;
+  }
 }
 
 export function deserialize(json: string): Result<GameState, SaveError> {
@@ -55,6 +61,7 @@ export function deserialize(json: string): Result<GameState, SaveError> {
   }
   if (!isObj(raw.systems) || !isObj(raw.empires)) return bad('Save has no systems or empires');
   if (!isObj(raw.fleets) || !Number.isInteger(raw.nextId)) return bad('Save has no fleets');
+  if (!isObj(raw.outposts)) return bad('Save has no outposts');
   if (!DIFFICULTIES.includes(raw.difficulty as Difficulty)) return bad('Save has no difficulty');
   if (!isObj(raw.agentMemory)) return bad('Save has no agent memory');
   if (!isObj(raw.wars) || !('winner' in raw)) return bad('Save has no war record');

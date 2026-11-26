@@ -100,6 +100,10 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
         )
       : null;
   const hasColonyShip = fleet.ships.some((s) => content.hulls[s.hull]?.role === 'colony');
+  const hasTransport = fleet.ships.some((s) => content.hulls[s.hull]?.role === 'transport');
+  // An outpost goes in empty space, so the button shows only away from a star.
+  const outpost: Command | null = mine && hasTransport && !here ? { type: 'buildOutpost', empire: player, fleet: fleet.id } : null;
+  const outpostError = outpost ? validateCommand(state, outpost, content) : null;
   const companions = mine ? view.fleets.filter((f) => f.owner === player && f.id !== fleet.id && sameSector(f.sector, fleet.sector)) : [];
 
   const status = fleetOrderText(state, fleet, plan ? plan.turns : null);
@@ -166,6 +170,11 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
               <button type="button" className="btn danger" disabled={invadeError !== null} title={invadeError?.message} onClick={() => dispatch(invade)}>
                 Invade {here!.name}
                 {odds && ` (${odds.chance}%)`}
+              </button>
+            )}
+            {outpost && fleet.order !== 'outpost' && (
+              <button type="button" className="btn" disabled={outpostError !== null} title={outpostError?.message} onClick={() => dispatch(outpost)}>
+                Build outpost here
               </button>
             )}
             {colonise && hasColonyShip && fleet.order !== 'colonise' && (
@@ -238,6 +247,7 @@ export function FleetPanel({ state, content, player, view, fleet, moveMode, onTo
             {invade === null &&
               fleet.ships.some((s) => (content.hulls[s.hull]?.troops ?? 0) > 0) &&
               ' Move transports to an enemy colony or a minor race, then choose Invade there.'}
+            {hasTransport && ' A transport can also build an outpost in empty space, which claims the sectors around it.'}
           </p>
         </section>
       )}

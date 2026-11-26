@@ -58,6 +58,15 @@ describe('save and load', () => {
     expect(!older.ok && older.error.code).toBe('wrongVersion');
   });
 
+  it('loads a version 10 save, which had no outposts', () => {
+    const { state } = newGame();
+    const old = JSON.parse(JSON.stringify(state)) as Record<string, unknown>;
+    old.saveVersion = 10;
+    delete old.outposts;
+    const r = deserialize(JSON.stringify(old));
+    expect(r.ok && r.value).toEqual(state);
+  });
+
   it('rejects saves with missing parts', () => {
     const { state } = newGame();
     for (const key of ['seed', 'turn', 'rng', 'galaxy', 'systems', 'empires'] as const) {

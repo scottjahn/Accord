@@ -103,7 +103,7 @@ export function checkInvariants(state: GameState, content: Content): string[] {
     if (fleet.ships.length === 0) problems.push(`${id}: has no ships`);
     if (!inBounds(state.galaxy, fleet.sector)) problems.push(`${id}: is off the map`);
     if (fleet.destination && !inBounds(state.galaxy, fleet.destination)) problems.push(`${id}: destination is off the map`);
-    if (!['none', 'colonise', 'invade'].includes(fleet.order)) problems.push(`${id}: unknown order ${String(fleet.order)}`);
+    if (!['none', 'colonise', 'invade', 'outpost'].includes(fleet.order)) problems.push(`${id}: unknown order ${String(fleet.order)}`);
     if (!STANCES.includes(fleet.stance)) problems.push(`${id}: unknown stance ${String(fleet.stance)}`);
     if (state.empires[fleet.owner]?.eliminated) problems.push(`${id}: belongs to an eliminated empire`);
     for (const ship of fleet.ships) {
@@ -118,6 +118,17 @@ export function checkInvariants(state: GameState, content: Content): string[] {
       // Being outside supply, or heading for a sector that has just fallen outside it, is allowed:
       // treaties lapse and colonies fall. Movement stops such a fleet; nothing here needs to hold.
       void supplied;
+    }
+  }
+
+  for (const id of sortedKeys(state.outposts)) {
+    const outpost = state.outposts[id];
+    if (outpost.id !== id) problems.push(`${id}: id mismatch`);
+    if (!state.empires[outpost.owner]) problems.push(`${id}: owner ${outpost.owner} does not exist`);
+    else if (state.empires[outpost.owner].eliminated) problems.push(`${id}: belongs to an eliminated empire`);
+    if (!inBounds(state.galaxy, outpost.sector)) problems.push(`${id}: is off the map`);
+    if (sortedKeys(state.systems).some((s) => state.systems[s].sector.x === outpost.sector.x && state.systems[s].sector.y === outpost.sector.y)) {
+      problems.push(`${id}: stands at a star system`);
     }
   }
 

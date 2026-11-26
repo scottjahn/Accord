@@ -429,6 +429,17 @@ export interface GalaxyPreset {
   minors: number;
 }
 
+export interface OutpostRules {
+  /** Sectors around an outpost that are its empire's territory (borders must be on: rules.fleets.borderRange > 0). */
+  borderRange: number;
+  /** Sectors around an outpost that it reveals. */
+  scanRange: number;
+  /** No outpost may stand within this many sectors of another (a distance of at least this). */
+  minSpacing: number;
+  /** An empire may keep one outpost for every this many colonies; 0 turns outposts off. */
+  coloniesPerOutpost: number;
+}
+
 export interface Rules {
   baseYieldPerWorker: Outputs;
   foodPerPop: number;
@@ -447,6 +458,7 @@ export interface Rules {
   homePlanets: { type: string; maxPopulation: number }[];
   governors: Record<AutoGovernor, GovernorWeights>;
   fleets: FleetRules;
+  outposts: OutpostRules;
   /** Percent added to every output of AI-controlled empires at each difficulty. */
   difficulty: Record<Difficulty, number>;
   combat: CombatRules;
@@ -751,6 +763,15 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     const starting = fleetRules.startingShips;
     if (!Array.isArray(starting) || !starting.every((h) => typeof h === 'string' && hulls[h])) {
       errors.push('rules.fleets.startingShips: must be a list of known hulls');
+    }
+  }
+
+  const outpostRules = isObj(rules) ? rules.outposts : undefined;
+  if (!isObj(outpostRules)) {
+    errors.push('rules.outposts: must be an object');
+  } else {
+    for (const key of ['borderRange', 'scanRange', 'minSpacing', 'coloniesPerOutpost'] as const) {
+      if (!isNat(outpostRules[key])) errors.push(`rules.outposts.${key}: must be an integer >= 0`);
     }
   }
 

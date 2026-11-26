@@ -23,6 +23,7 @@ import {
 } from "./strategic";
 import { manageColonies } from "./tactical/colonies";
 import { directFleets } from "./tactical/fleets";
+import { plantOutposts } from "./tactical/outposts";
 import {
   admiredFields,
   conquerMinors,
@@ -103,11 +104,12 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
   answerOffers(plan, empireId, content, next.posture, ambitious);
   if (review) proposeTreaties(plan, empireId, content, next.posture, ambitious);
 
+  const toConquer = conquestTargets(picture, empireId, content, personality).length;
   const targets = setTargets(
     next.posture,
     picture,
     personality,
-    conquestTargets(picture, empireId, content, personality).length,
+    toConquer,
     admiredFields(plan.state, picture, empireId, content, personality),
   );
   const current = known.empires[empireId].research.allocation;
@@ -144,7 +146,10 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
   directFleets(plan, empireId, content, next.posture, picture);
   if (next.posture === "war")
     wageWar(plan, empireId, content, targets.strikeSize);
-  else conquerMinors(plan, empireId, content, personality, picture);
+  else {
+    conquerMinors(plan, empireId, content, personality, picture);
+    if (toConquer === 0) plantOutposts(plan, empireId, content, picture);
+  }
   runEspionage(plan, empireId, content, personality);
   courtMinors(plan, empireId, content, personality, picture);
 

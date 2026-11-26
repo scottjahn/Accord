@@ -7,7 +7,7 @@ import { eraOf } from './research';
 import { sortedKeys, type EmpireId, type SystemId } from './ids';
 import type { Fleet, GameState } from './types';
 
-/** Keys of every sector the empire can see right now: around its colonies and its fleets. */
+/** Keys of every sector the empire can see right now: around its colonies, outposts and fleets. */
 export function visibleSectors(state: GameState, empireId: EmpireId, content: Content): Set<string> {
   const visible = new Set<string>();
   // Allies share what they see, from the turn after the alliance is signed: sight that
@@ -18,6 +18,10 @@ export function visibleSectors(state: GameState, empireId: EmpireId, content: Co
   for (const viewer of [empireId, ...sharing]) {
     for (const system of coloniesOf(state, viewer)) {
       sectorsAround(state.galaxy, system.sector, content.rules.fleets.colonyScanRange, visible);
+    }
+    for (const id of sortedKeys(state.outposts)) {
+      const outpost = state.outposts[id];
+      if (outpost.owner === viewer) sectorsAround(state.galaxy, outpost.sector, content.rules.outposts.scanRange, visible);
     }
     for (const fleet of fleetsOf(state, viewer)) {
       const scan = Math.max(0, ...fleet.ships.map((s) => content.hulls[s.hull]?.scan ?? 0));

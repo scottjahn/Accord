@@ -608,6 +608,7 @@ export function checkVictory(state: GameState, content: Content, events: TurnEve
     if (coloniesOf(state, id).length > 0 || settlers) continue;
     empire.eliminated = true;
     for (const fleet of fleetsOf(state, id)) delete state.fleets[fleet.id];
+    for (const outpost of sortedKeys(state.outposts)) if (state.outposts[outpost].owner === id) delete state.outposts[outpost];
     events.push({ type: 'empireEliminated', empire: id });
   }
   if (ids.length < 2 || state.winner !== null) return;

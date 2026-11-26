@@ -92,6 +92,10 @@ export class MapRenderer {
       if (top || right || bottom || left) this.territory.stroke({ width: 2, color: cell.color, alpha: 0.7 });
     }
     this.stars.clear();
+    // Outposts: a small square station in the owner's colour.
+    for (const outpost of scene.outposts) {
+      this.stars.rect(outpost.x - 5, outpost.y - 5, 10, 10).fill({ color: outpost.color, alpha: 0.9 }).stroke({ width: 1.5, color: 0xffffff, alpha: 0.8 });
+    }
     this.selection.clear();
     const seen = new Set<string>();
 

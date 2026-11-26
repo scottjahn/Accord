@@ -7,6 +7,7 @@ import { applyGovernor } from '../economy/governor';
 import { applyGrowth } from '../economy/growth';
 import { computeColonyEconomy } from '../economy/outputs';
 import { moveFleets, resolveColonisation } from '../fleets';
+import { resolveOutposts } from '../outposts';
 import { sortedKeys, type EmpireId } from '../ids';
 import { bankIntel, resolveOperations, stepUnrest } from '../intel';
 import { joinEmpire, stepMinors } from '../minors';
@@ -27,7 +28,8 @@ import { updateKnownSystems } from '../view';
  *    (split between counter-intel and the pool) and its credit income.
  * 4. Ships at a friendly shipyard repair, then fleets move.
  * 5. Battles are fought wherever empires at war share a sector.
- * 6. Invade orders, then colonise orders, resolve for fleets that have arrived.
+ * 6. Invade orders, then colonise orders, resolve for fleets that have arrived;
+ *    outposts held by an enemy fall, and ordered outposts are built.
  * 7. Covert operations ordered this turn resolve. Minor races update their
  *    attitudes and may join an empire.
  * 8. Treaties and offers that have run out lapse. Empires with nothing left are
@@ -123,6 +125,7 @@ function finishTurn(next: GameState, content: Content, events: TurnEvent[], empi
   const silenced = resolveBattles(next, content, events, options.commandedBattles);
   resolveInvasions(next, content, silenced, events);
   resolveColonisation(next, content, events);
+  resolveOutposts(next, content, events);
   resolveOperations(next, content, events);
   stepMinors(next, content, events);
   expireDiplomacy(next, content, events);

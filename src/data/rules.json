@@ -71,6 +71,12 @@
       "maxPopulation": 10
     }
   ],
+  "outposts": {
+    "borderRange": 1,
+    "scanRange": 1,
+    "minSpacing": 3,
+    "coloniesPerOutpost": 2
+  },
   "fleets": {
     "baseRange": 3,
     "propulsionLevelsPerRange": 2,

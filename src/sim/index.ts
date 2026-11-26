@@ -31,6 +31,7 @@ export { computeColonyEconomy, maxPopulationOf, systemSummary, totalOf, type Col
 export * from './idle';
 export * from './survey';
 export * from './territory';
+export * from './outposts';
 export { growthCost } from './economy/growth';
 export { effectivePins, governorAllocation } from './economy/governor';
 export { forecastColony, type ColonyForecast } from './economy/forecast';

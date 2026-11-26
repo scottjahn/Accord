@@ -56,7 +56,9 @@ export function setTargets(
   // At war the navy is at least a strike force, and troops come first: ships win battles, transports win colonies.
   const warships = posture === 'war' ? Math.max(6, garrison) : garrison;
   // In peace a power that conquers minor races keeps a small landing force for them.
-  const transports = posture === 'war' ? Math.min(10, 3 + Math.floor(colonies / 4)) : minorsToConquer > 0 ? 3 : 0;
+  // Otherwise one transport at a time goes out to build an outpost, while there is room for one.
+  const outposter = picture.outpostSlots > 0 && picture.outpostSites.length > 0 ? 1 : 0;
+  const transports = posture === 'war' ? Math.min(10, 3 + Math.floor(colonies / 4)) : minorsToConquer > 0 ? 3 : outposter;
   // Big enough to win a fight, small enough that losses do not stop it ever forming again.
   const strikeSize = Math.min(8, Math.max(3, Math.floor(warships / 2)));
 

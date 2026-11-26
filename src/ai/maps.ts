@@ -7,6 +7,8 @@ import {
   sectorKey,
   sortedKeys,
   suppliedSectors,
+  outpostAllowance,
+  outpostsOf,
   territoryAsKnown,
   type Content,
   type EmpireId,
@@ -34,6 +36,10 @@ export interface Picture {
   unexplored: StarSystem[];
   /** Sectors of known rival colonies and of rival fleets in sight. */
   rivals: Sector[];
+  /** Empty sectors in supply range worth an outpost, best first: those that would claim the most unclaimed space. */
+  outpostSites: Sector[];
+  /** How many more outposts the empire may build, less those already ordered. */
+  outpostSlots: number;
 }
 
 /** Distance from a sector to the nearest known rival presence; Infinity if none is known. */
@@ -67,6 +73,8 @@ export function survey(known: GameState, empireId: EmpireId, content: Content): 
       .filter((id) => !(id in me.knownSystems))
       .map((id) => known.systems[id]),
     rivals,
+    outpostSites: [],
+    outpostSlots: 0,
   };
 
   const territory = territoryAsKnown(known, empireId, content);
@@ -86,6 +94,35 @@ export function survey(known: GameState, empireId: EmpireId, content: Content): 
     picture.opportunities.push({ system, score: capacity + food / 2 + energy / 4 - 2 * distance - contested });
   }
   picture.opportunities.sort((a, b) => b.score - a.score || (a.system.id < b.system.id ? -1 : 1));
+
+  // Outposts: worth building where they would claim open space.
+  const pending = fleetsOf(known, empireId).filter((f) => f.order === 'outpost').length;
+  picture.outpostSlots = Math.max(0, outpostAllowance(known, empireId, content) - outpostsOf(known, empireId).length - pending);
+  if (picture.outpostSlots > 0 && content.rules.fleets.borderRange > 0) {
+    const stars = new Set(sortedKeys(known.systems).map((id) => sectorKey(known.systems[id].sector)));
+    const outposts = sortedKeys(known.outposts).map((id) => known.outposts[id].sector);
+    const claim = content.rules.outposts.borderRange;
+    const sites: { sector: Sector; score: number }[] = [];
+    for (const key of [...reach].sort()) {
+      if (stars.has(key) || territory[key] !== undefined) continue;
+      const [x, y] = key.split(',').map(Number);
+      const sector = { x, y };
+      if (outposts.some((o) => sectorDistance(o, sector) < content.rules.outposts.minSpacing)) continue;
+      let open = 0;
+      for (let dy = -claim; dy <= claim; dy++) {
+        for (let dx = -claim; dx <= claim; dx++) {
+          const k = `${x + dx},${y + dy}`;
+          if (x + dx >= 0 && y + dy >= 0 && x + dx < known.galaxy.width && y + dy < known.galaxy.height && territory[k] === undefined) open++;
+        }
+      }
+      // Sites that would mostly claim open space, nearest a colony first, so the border is pushed out rather than left behind.
+      if (open * 5 < (2 * claim + 1) ** 2 * 3) continue;
+      const distance = colonies.reduce((best, c) => Math.min(best, sectorDistance(c.sector, sector)), Infinity);
+      sites.push({ sector, score: open * 2 - distance });
+    }
+    sites.sort((a, b) => b.score - a.score || (sectorKey(a.sector) < sectorKey(b.sector) ? -1 : 1));
+    picture.outpostSites = sites.map((s) => s.sector);
+  }
   return picture;
 }
 

@@ -102,6 +102,7 @@ export function fleetOrderText(state: GameState, fleet: Fleet, turnsLeft: number
   }
   if (fleet.order === 'colonise') return 'Founding a colony this turn';
   if (fleet.order === 'invade') return 'Landing troops once the defenders are cleared';
+  if (fleet.order === 'outpost') return 'Building an outpost this turn';
   return 'Holding position';
 }
 
@@ -190,6 +191,12 @@ export function eventText(event: TurnEvent, state: GameState, content: Content):
       return `Colony founded at ${systemName(event.system)}`;
     case 'coloniseFailed':
       return `Could not colonise ${systemName(event.system)}`;
+    case 'outpostBuilt':
+      return `Outpost built at ${placeName(state, event.sector)}`;
+    case 'outpostFailed':
+      return `Could not build an outpost at ${placeName(state, event.sector)}: ${event.reason}`;
+    case 'outpostLost':
+      return `${factionName(event.by)} took the outpost at ${placeName(state, event.sector)}`;
     case 'warDeclared':
       return `${factionName(event.by)} declared war on ${factionName(event.on)}`;
     case 'battle': {
