@@ -68,7 +68,7 @@ describe('when skipping ahead stops', () => {
     expect(needs([], won)).toBe(true);
 
     const offered = structuredClone(state);
-    offered.offers.push({ id: 'o-1', from: BETA, to: ALPHA, type: 'peace', turn: 1 });
+    offered.offers.push({ id: 'o-1', from: BETA, to: ALPHA, type: 'peace', turn: 1, terms: null });
     expect(needs([], offered)).toBe(true);
   });
 });

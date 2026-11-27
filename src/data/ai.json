@@ -128,5 +128,14 @@
   "borders": {
     "resentAt": -20,
     "warScore": 10
+  },
+  "peace": {
+    "colonyValue": 300,
+    "takePercent": 25,
+    "perPopulation": 20,
+    "freeBelowEdgePercent": 100,
+    "nearVictoryPercent": 0,
+    "treasuryPercent": 60,
+    "maxColonies": 1
   }
 }

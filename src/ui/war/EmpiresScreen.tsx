@@ -14,9 +14,11 @@ import {
   type EmpireId,
   type EmpireView,
   type GameState,
+  type Offer,
+  type SystemId,
   type TreatyType,
 } from '../../sim';
-import { bonusText, lineValue, signed } from '../format';
+import { bonusText, lineValue, signed, termsText } from '../format';
 
 interface Props {
   state: GameState;
@@ -48,6 +50,8 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
   const needed = Math.ceil((state.minorsPlaced * rules.accordMemberPercent) / 100);
   const knownColonies = (id: EmpireId) => sortedKeys(view.systems).filter((s) => view.systems[s].owner === id).length;
   const label = (type: TreatyType) => rules.treaties[type].label;
+  const systemName = (id: string) => state.systems[id as SystemId]?.name ?? 'a system';
+  const paying = (offer: Offer) => (offer.terms ? `, paying ${termsText(offer.terms, systemName)}` : '');
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -167,7 +171,8 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
                     {incoming.map((offer) => (
                       <div key={offer.id} className="offer" role="group" aria-label={`Offer: ${label(offer.type)}`}>
                         <span>
-                          {faction.name} proposes a {label(offer.type).toLowerCase()}.
+                          {faction.name} proposes a {label(offer.type).toLowerCase()}
+                          {paying(offer)}.
                         </span>
                         <span className="fleet-actions">
                           <button type="button" className="btn small primary" onClick={() => dispatch({ type: 'answerOffer', empire: player, offer: offer.id, accept: true })}>
@@ -181,7 +186,8 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
                     ))}
                     {outgoing.map((offer) => (
                       <p key={offer.id} className="muted">
-                        You proposed a {label(offer.type).toLowerCase()}; they will answer on their turn.
+                        You proposed a {label(offer.type).toLowerCase()}
+                        {paying(offer)}; they will answer on their turn.
                       </p>
                     ))}
 
@@ -196,6 +202,10 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
                         );
                       })}
                     </div>
+
+                    {war && !outgoing.some((o) => o.type === 'peace') && (
+                      <PeaceTermsForm state={state} content={content} player={player} rival={id} dispatch={dispatch} />
+                    )}
 
                     <div className="fleet-actions">
                       {GIFTS.map((amount) => {
@@ -283,5 +293,56 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Buying peace: credits, which are held until they answer, and colonies to
+ * hand over. The offer button explains itself with the sim's own message.
+ */
+function PeaceTermsForm({ state, content, player, rival, dispatch }: { state: GameState; content: Content; player: EmpireId; rival: EmpireId; dispatch: (command: Command) => boolean }) {
+  const [credits, setCredits] = useState(0);
+  const [systems, setSystems] = useState<SystemId[]>([]);
+  const home = state.empires[player].homeSystem;
+  const spare = coloniesOf(state, player).filter((s) => s.id !== home);
+  const command: Command = { type: 'proposeTreaty', empire: player, to: rival, treaty: 'peace', terms: { credits, systems } };
+  const reason = validateCommand(state, command, content)?.message;
+  const toggle = (id: SystemId) => setSystems((list) => (list.includes(id) ? list.filter((s) => s !== id) : [...list, id]));
+  return (
+    <fieldset className="peace-terms">
+      <legend>Pay for peace</legend>
+      <label>
+        Credits{' '}
+        <input
+          type="number"
+          min={0}
+          step={50}
+          value={credits}
+          aria-label="Credits for peace"
+          onChange={(e) => setCredits(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+        />{' '}
+        <span className="muted">of {state.empires[player].credits}, held until they answer</span>
+      </label>
+      {spare.map((system) => (
+        <label key={system.id}>
+          <input type="checkbox" checked={systems.includes(system.id)} onChange={() => toggle(system.id)} /> Give {system.name}{' '}
+          <span className="muted">(population {system.colony!.population})</span>
+        </label>
+      ))}
+      <button
+        type="button"
+        className="btn small"
+        disabled={reason !== undefined}
+        title={reason}
+        onClick={() => {
+          if (dispatch(command)) {
+            setCredits(0);
+            setSystems([]);
+          }
+        }}
+      >
+        Offer peace on these terms
+      </button>
+    </fieldset>
   );
 }

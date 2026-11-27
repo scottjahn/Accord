@@ -101,7 +101,7 @@ describe('proposing and answering', () => {
   it('an offer waits for the other side, and is reported to both', () => {
     const { state, content, apply } = setup();
     const offered = apply(state, { type: 'proposeTreaty', empire: ALPHA, to: BETA, treaty: 'nonAggression' });
-    expect(offered.offers).toEqual([{ id: expect.stringMatching(/^off-/), from: ALPHA, to: BETA, type: 'nonAggression', turn: 1 }]);
+    expect(offered.offers).toEqual([{ id: expect.stringMatching(/^off-/), from: ALPHA, to: BETA, type: 'nonAggression', turn: 1, terms: null }]);
     expect(offered.treaties).toEqual([]);
     const { events } = processTurn(offered, content);
     expect(events).toContainEqual({ type: 'offerMade', empires: [ALPHA, BETA], offer: offered.offers[0] });

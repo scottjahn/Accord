@@ -2,7 +2,7 @@ import type { BuildingId, EmpireId, FactionId, FleetId, HullId, MinorId, Outpost
 import type { RngState } from './rng';
 
 /** Bump when GameState changes shape; deserialize rejects other versions. */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 export const TREATY_TYPES = ['peace', 'nonAggression', 'openBorders', 'researchPact', 'alliance'] as const;
 export type TreatyType = (typeof TREATY_TYPES)[number];
@@ -26,6 +26,14 @@ export interface Offer {
   to: EmpireId;
   type: TreatyType;
   turn: number;
+  /** What the proposer pays if a peace is accepted; null for a plain offer. Its credits are held until the answer. */
+  terms: PeaceTerms | null;
+}
+
+/** A price paid for peace: credits and colonies (never the home system) handed over when it is signed. */
+export interface PeaceTerms {
+  credits: number;
+  systems: SystemId[];
 }
 
 /** Things an empire remembers another doing. Values, labels and fading are in content rules. */
@@ -72,6 +80,7 @@ export const MORALE_EVENTS = [
   'minorConquered',
   'treatyBroken',
   'incited',
+  'peaceBought',
 ] as const;
 export type MoraleEventKind = (typeof MORALE_EVENTS)[number];
 
@@ -304,6 +313,8 @@ export interface GameState {
   pendingEvents: TurnEvent[];
   /** Minor races whose membership has been bought this turn; they join when the turn resolves. */
   pledges: { system: SystemId; empire: EmpireId }[];
+  /** Colonies given up for peace this turn; they change hands when the turn resolves. */
+  cessions: { system: SystemId; from: EmpireId; to: EmpireId }[];
   /** How many minor races the galaxy began with. */
   minorsPlaced: number;
   /**
@@ -447,6 +458,7 @@ export type TurnEvent =
   | { type: 'treatyExpired'; empires: EmpireId[]; treaty: Treaty }
   | { type: 'offerMade'; empires: EmpireId[]; offer: Offer }
   | { type: 'offerRefused'; empires: EmpireId[]; offer: Offer; note: string }
+  | { type: 'peaceBought'; empires: EmpireId[]; by: EmpireId; credits: number; systems: SystemId[] }
   | { type: 'operation'; empires: EmpireId[]; report: OperationReport }
   | { type: 'covertAction'; empire: EmpireId; kind: OperationKind; system: SystemId | null }
   | { type: 'spyCaught'; empire: EmpireId; by: EmpireId; kind: OperationKind }

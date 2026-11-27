@@ -1033,3 +1033,24 @@ kbd {
     border-top: 1px solid var(--border);
   }
 }
+
+/* Paying for peace: credits and colonies to hand over. */
+.peace-terms {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(143, 163, 200, 0.3);
+  border-radius: 6px;
+}
+.peace-terms legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+.peace-terms input[type='number'] {
+  width: 7em;
+}
+.peace-terms .btn {
+  align-self: flex-start;
+}

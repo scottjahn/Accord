@@ -53,7 +53,7 @@ exports[`golden replay > matches the recorded final state 1`] = `
       "ships": 4,
     },
   ],
-  "hash": "491913d4",
+  "hash": "edffb8a6",
   "turn": 147,
 }
 `;

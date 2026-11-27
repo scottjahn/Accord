@@ -5,6 +5,9 @@ Requests noted for later.
 ## Open
 
 - **Battles you can watch and command (parked until the minor-race tuning pass is done).** Show a battle playing out in real time instead of only the after-action report, with orders for each ship during the fight: attack, retreat, ram (sacrifice the ship for heavy damage) and similar. This must stay deterministic and seeded, and the AI needs the same orders. It will likely change combat from one resolution per turn into rounds the player can step through.
+- **Open space and contested sectors look different.** A sector beyond every border and a sector two powers claim equally both show as "unclaimed" today. The map and the sector details should tell them apart: open space, outside everyone's border, versus contested, inside the borders of two or more powers that tie for it (and which powers those are).
+- **Unclaimed is not the same as unsettled.** A sector with no colony can still lie plainly in one power's space. Where the sector details say "unclaimed" or "uncolonised", they should say whose territory it is when it has an owner, for example "Uncolonised, in Kessic space", and keep "unclaimed" for sectors in no one's territory.
+- **Each power's ships look like its own.** The five powers get distinct ship designs on the map and in battle, even where their stats stay the same. Each style is an original design that fits the power's character, so the art borrows no ship designs from the games that inspired it. More detail on each power's look to come.
 
 ## Done
 

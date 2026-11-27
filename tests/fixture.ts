@@ -138,6 +138,7 @@ export const rawFixture = {
         minorJoined: { value: 8, turns: 15, label: 'A people joined us' },
         minorConquered: { value: -10, turns: 15, label: 'We conquered a free people' },
         treatyBroken: { value: -12, turns: 15, label: 'We broke a treaty' },
+        peaceBought: { value: -6, turns: 10, label: 'We paid for peace' },
         incited: { value: -25, turns: 10, label: 'Agitators at work' },
       },
       revoltTurns: 3,

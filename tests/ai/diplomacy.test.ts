@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPlanner, runAgent } from '../../src/ai/agent';
-import { answerOffers, attackable, concedesTo, guardAccord, judgeOffer, proposeTreaties, wantsPeace } from '../../src/ai/diplomacy';
+import { answerOffers, attackable, concedesTo, guardAccord, judgeOffer, peacePrice, peaceTerms, proposeTreaties, termsValue, wantsPeace } from '../../src/ai/diplomacy';
 import { standardAgent } from '../../src/ai/standardAgent';
 import {
   addColonyMorale,
@@ -13,6 +13,8 @@ import {
   type FactionId,
   type GameState,
   type MinorId,
+  type PeaceTerms,
+  type SystemId,
 } from '../../src/sim';
 import { ALPHA, BETA, addFleet, colonyOf, homeOf, introduce, newGame } from '../fixture';
 
@@ -204,5 +206,75 @@ describe('after making peace', () => {
     // It reconsidered its posture there and then.
     expect(out.memory).toMatchObject({ postureTurn: offered.value.turn });
     expect((out.memory as { posture: string }).posture).not.toBe('war');
+  });
+});
+
+describe('paying for peace', () => {
+  /** Paying for peace switched on, Alpha and Beta at war, and Beta with a second colony away from home. */
+  function war() {
+    const ctx = setup();
+    const { state, content } = ctx;
+    content.ai.peace = { colonyValue: 300, takePercent: 100, perPopulation: 20, freeBelowEdgePercent: 100, nearVictoryPercent: 100, treasuryPercent: 50, maxColonies: 1 };
+    state.wars[warKey(ALPHA, BETA)] = 1;
+    const spare = (Object.keys(state.systems) as SystemId[]).sort().find((id) => !state.systems[id].colony)!;
+    state.systems[spare].minor = null;
+    state.systems[spare].colony = { ...structuredClone(homeOf(state, BETA).colony!), population: 5, minorRace: null };
+    state.empires[ALPHA].knownSystems[spare] = BETA;
+    return { ...ctx, spare };
+  }
+  const beta = (c: ReturnType<typeof war>['content']) => c.ai.personalities[Object.keys(c.ai.personalities).find((k) => k === 'beta') as FactionId];
+
+  it('prices peace by the colonies at stake, the edge in fleet power and the appetite for war', () => {
+    const { content } = war();
+    const p = beta(content);
+    expect(peacePrice(100, 4, p, content)).toBe(0);
+    expect(peacePrice(150, 4, p, content)).toBe((4 * 300 * 50 * p.posture.war) / 10000);
+    // Beyond double the enemy's power the price stops growing.
+    expect(peacePrice(500, 4, p, content)).toBe(peacePrice(200, 4, p, content));
+  });
+
+  it('a winner sells peace for its price and says what it wants when the offer falls short', () => {
+    const { state, content, spare } = war();
+    // Alpha, the winner here, has the fleet; Beta has none.
+    addFleet(state, content, ALPHA, homeOf(state, ALPHA).sector, ['destroyer', 'destroyer']);
+    const judge = (terms: PeaceTerms | null) =>
+      judgeOffer(redactFor(state, ALPHA, content), ALPHA, BETA, 'peace', content, 'war', false, terms);
+    // Two Beta colonies known, edge beyond double: 2 x 300 x 100% x war weight.
+    const price = peacePrice(1000, 2, content.ai.personalities[state.empires[ALPHA].faction], content);
+    expect(price).toBeGreaterThan(0);
+    expect(judge(null)).toEqual({ accept: false, note: `They want at least ${price} credits' worth for peace (offered 0).` });
+    expect(judge({ credits: price, systems: [] }).accept).toBe(true);
+    // A colony is worth its base value and its people, if they can be seen; out of sight, the base value alone.
+    expect(termsValue(state, { credits: 0, systems: [spare] }, content)).toBe(300 + 5 * 20);
+    expect(termsValue(redactFor(state, ALPHA, content), { credits: 0, systems: [spare] }, content)).toBe(300);
+  });
+
+  it('will not be bought off with victory in sight', () => {
+    const { state, content } = war();
+    addFleet(state, content, ALPHA, homeOf(state, ALPHA).sector, ['destroyer', 'destroyer']);
+    content.ai.peace.nearVictoryPercent = 1;
+    expect(judgeOffer(redactFor(state, ALPHA, content), ALPHA, BETA, 'peace', content, 'war', false, { credits: 99999, systems: [] })).toEqual({
+      accept: false,
+      note: 'Victory is in their sight; they will not stop now.',
+    });
+  });
+
+  it('a loser pays in credits first, and adds its most exposed colony when they fall short', () => {
+    const { state, content, spare, plan } = war();
+    addFleet(state, content, ALPHA, homeOf(state, BETA).sector, ['destroyer', 'destroyer']);
+    state.empires[BETA].knownSystems[homeOf(state, ALPHA).id] = ALPHA;
+    state.empires[BETA].credits = 10000;
+    const rich = peaceTerms(redactFor(state, BETA, content), BETA, ALPHA, content)!;
+    expect(rich.systems).toEqual([]);
+    expect(rich.credits).toBeGreaterThan(0);
+
+    state.empires[BETA].credits = 100;
+    const poor = peaceTerms(redactFor(state, BETA, content), BETA, ALPHA, content)!;
+    expect(poor).toEqual({ credits: 50, systems: [spare] });
+
+    // Suing for peace sends those terms.
+    const sued = plan();
+    proposeTreaties(sued, BETA, content, 'war');
+    expect(sued.issued).toEqual([{ type: 'proposeTreaty', empire: BETA, to: ALPHA, treaty: 'peace', terms: { credits: 50, systems: [spare] } }]);
   });
 });

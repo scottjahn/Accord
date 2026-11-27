@@ -2,7 +2,7 @@ import type { Content } from './content';
 import { applyGovernor, governorAllocation } from './economy/governor';
 import { atWar, invadeBlocker, warKey } from './combat';
 import { buyOutCost, membershipCost, mercenaryCost } from './credits';
-import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker, truceUntil } from './diplomacy';
+import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, payTerms, signTreaty, termsBlocker, treatyBlocker, truceUntil, withdrawOffers } from './diplomacy';
 import { itemCost } from './economy/build';
 import { borderBlocker, coloniseBlocker, empireSupport, findPath, fittingStance, fleetOfShip, spawnShip, stancesFor } from './fleets';
 import { outpostBlocker } from './outposts';
@@ -23,6 +23,7 @@ import {
   type FieldId,
   type Fleet,
   type GameState,
+  type PeaceTerms,
   type AutoGovernor,
   type Governor,
   type OutputKind,
@@ -65,7 +66,7 @@ export type Command =
   | { type: 'invadeSystem'; empire: EmpireId; fleet: FleetId; system: SystemId }
   | { type: 'setStance'; empire: EmpireId; fleet: FleetId; stance: Stance }
   | { type: 'declareWar'; empire: EmpireId; on: EmpireId }
-  | { type: 'proposeTreaty'; empire: EmpireId; to: EmpireId; treaty: TreatyType }
+  | { type: 'proposeTreaty'; empire: EmpireId; to: EmpireId; treaty: TreatyType; terms?: PeaceTerms }
   | { type: 'answerOffer'; empire: EmpireId; offer: string; accept: boolean; note?: string }
   | { type: 'breakTreaty'; empire: EmpireId; with: EmpireId; treaty: TreatyType }
   | { type: 'buyOut'; empire: EmpireId; system: SystemId }
@@ -381,13 +382,16 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       if (state.offers.some((o) => o.type === cmd.treaty && ((o.from === cmd.empire && o.to === cmd.to) || (o.from === cmd.to && o.to === cmd.empire)))) {
         return fail('badTreaty', 'That treaty has already been proposed');
       }
+      const terms = termsBlocker(state, cmd.empire, cmd.treaty, cmd.terms ?? null);
+      if (terms) return fail('badTreaty', terms);
+      if (cmd.terms && cmd.terms.credits > empire.credits) return fail('cannotAfford', `That costs ${cmd.terms.credits} credits; you have ${empire.credits}`);
       return null;
     }
     case 'answerOffer': {
       const offer = state.offers.find((o) => o.id === cmd.offer);
       if (!offer || offer.to !== cmd.empire) return fail('badOffer', 'There is no such offer to answer');
       if (cmd.accept) {
-        const blocker = treatyBlocker(state, offer.from, offer.to, offer.type, content);
+        const blocker = treatyBlocker(state, offer.from, offer.to, offer.type, content) ?? termsBlocker(state, offer.from, offer.type, offer.terms);
         if (blocker) return fail('badOffer', blocker);
       }
       return null;
@@ -619,16 +623,24 @@ export function applyValidated(next: GameState, cmd: Command, content: Content):
       next.pendingEvents.push({ type: 'warDeclared', by: cmd.empire, on: cmd.on });
       break;
     case 'proposeTreaty': {
-      const offer = { id: `off-${String(next.nextId++).padStart(5, '0')}`, from: cmd.empire, to: cmd.to, type: cmd.treaty, turn: next.turn };
+      const terms = cmd.terms ? { credits: cmd.terms.credits, systems: [...cmd.terms.systems] } : null;
+      const offer = { id: `off-${String(next.nextId++).padStart(5, '0')}`, from: cmd.empire, to: cmd.to, type: cmd.treaty, turn: next.turn, terms };
+      // Credits offered are held until the answer, so an accepted offer can always be paid.
+      if (terms) next.empires[cmd.empire].credits -= terms.credits;
       next.offers.push(offer);
       next.pendingEvents.push({ type: 'offerMade', empires: [cmd.empire, cmd.to], offer });
       break;
     }
     case 'answerOffer': {
       const offer = next.offers.find((o) => o.id === cmd.offer)!;
-      next.offers = next.offers.filter((o) => o.id !== cmd.offer);
-      if (cmd.accept) signTreaty(next, offer.from, offer.to, offer.type, content);
-      else next.pendingEvents.push({ type: 'offerRefused', empires: [offer.from, offer.to], offer, note: (cmd.note ?? '').slice(0, 200) });
+      if (cmd.accept) {
+        next.offers = next.offers.filter((o) => o.id !== cmd.offer);
+        signTreaty(next, offer.from, offer.to, offer.type, content);
+        payTerms(next, offer, content);
+      } else {
+        withdrawOffers(next, (o) => o.id === cmd.offer);
+      }
+      if (!cmd.accept) next.pendingEvents.push({ type: 'offerRefused', empires: [offer.from, offer.to], offer, note: (cmd.note ?? '').slice(0, 200) });
       break;
     }
     case 'breakTreaty':

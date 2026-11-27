@@ -186,6 +186,7 @@ export function createGame(config: GameConfig, content: Content): GameState {
     operations: [],
     pendingEvents: [],
     pledges: [],
+    cessions: [],
     minorsPlaced,
     agentMemory: {},
   };

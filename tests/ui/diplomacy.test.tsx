@@ -13,6 +13,7 @@ import {
   type EmpireId,
   type GameState,
   type Sector,
+  type SystemId,
 } from '../../src/sim';
 import { App } from '../../src/ui/App';
 import { useSession } from '../../src/ui/useSession';
@@ -105,7 +106,7 @@ describe('the diplomacy screen', () => {
   });
 
   it('accepts or declines an offer from a rival', () => {
-    const offerFrom = (s: GameState) => s.offers.push({ id: 'off-00099', from: BETA, to: ALPHA, type: 'researchPact', turn: 1 });
+    const offerFrom = (s: GameState) => s.offers.push({ id: 'off-00099', from: BETA, to: ALPHA, type: 'researchPact', turn: 1, terms: null });
     const accepting = setup('diplomacy', offerFrom);
     const offer = screen.getByRole('group', { name: 'Offer: Research pact' });
     expect(within(offer).getByText('Beta proposes a research pact.')).toBeTruthy();
@@ -151,6 +152,39 @@ describe('the diplomacy screen', () => {
     expect(button('Propose peace treaty').disabled).toBe(false);
     expect(button('Propose alliance').title).toBe('Make peace first');
     expect(screen.queryByRole('button', { name: 'Declare war' })).toBeNull();
+  });
+
+  it('pays for peace with credits, held until they answer, and a colony', () => {
+    let spare = '' as SystemId;
+    const { now } = setup('diplomacy', (s) => {
+      s.wars[`${ALPHA}|${BETA}`] = 1;
+      s.empires[ALPHA].credits = 500;
+      spare = (Object.keys(s.systems) as SystemId[]).sort().find((id) => !s.systems[id].colony)!;
+      s.systems[spare].name = 'Tarsis';
+      s.systems[spare].minor = null;
+      s.systems[spare].colony = { ...structuredClone(homeOf(s, ALPHA).colony!), population: 4, minorRace: null };
+    });
+    const offer = () => button('Offer peace on these terms');
+    expect(offer().title).toBe('Offer credits or a colony, or propose a plain peace');
+    fireEvent.change(screen.getByLabelText('Credits for peace'), { target: { value: '900' } });
+    expect(offer().title).toBe('That costs 900 credits; you have 500');
+    fireEvent.change(screen.getByLabelText('Credits for peace'), { target: { value: '300' } });
+    fireEvent.click(screen.getByLabelText(/Give Tarsis/));
+    expect(offer().disabled).toBe(false);
+    fireEvent.click(offer());
+
+    expect(now().offers[0]).toMatchObject({ type: 'peace', terms: { credits: 300, systems: [spare] } });
+    expect(now().empires[ALPHA].credits).toBe(200);
+    expect(screen.getByText(/You proposed a peace treaty\s*, paying 300 credits and Tarsis/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Offer peace on these terms' })).toBeNull();
+  });
+
+  it('shows what a rival offers for peace', () => {
+    setup('diplomacy', (s) => {
+      s.wars[`${ALPHA}|${BETA}`] = 1;
+      s.offers.push({ id: 'off-00098', from: BETA, to: ALPHA, type: 'peace', turn: s.turn, terms: { credits: 250, systems: [] } });
+    });
+    expect(screen.getByText(/proposes a peace treaty\s*, paying 250 credits/)).toBeTruthy();
   });
 
   it('shows progress toward the Accord', () => {

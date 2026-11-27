@@ -199,6 +199,11 @@
         "turns": 15,
         "label": "We broke a treaty"
       },
+      "peaceBought": {
+        "value": -6,
+        "turns": 10,
+        "label": "We paid for peace"
+      },
       "incited": {
         "value": -25,
         "turns": 10,

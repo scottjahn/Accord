@@ -16,6 +16,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
  * Brings an older save up to date, in place, one version at a time.
  * Version 10 added worker limits to colonies; a version 9 colony has none.
  * Version 11 added outposts; an older galaxy has none.
+ * Version 12 added terms to offers and colonies given up for peace; an older save has neither.
  */
 function upgrade(raw: Record<string, unknown>): void {
   if (raw.saveVersion === 9 && isObj(raw.systems)) {
@@ -28,6 +29,11 @@ function upgrade(raw: Record<string, unknown>): void {
   if (raw.saveVersion === 10) {
     raw.outposts = {};
     raw.saveVersion = 11;
+  }
+  if (raw.saveVersion === 11) {
+    if (Array.isArray(raw.offers)) for (const offer of raw.offers) if (isObj(offer)) offer.terms = null;
+    raw.cessions = [];
+    raw.saveVersion = 12;
   }
 }
 
@@ -66,6 +72,7 @@ export function deserialize(json: string): Result<GameState, SaveError> {
   if (!isObj(raw.agentMemory)) return bad('Save has no agent memory');
   if (!isObj(raw.wars) || !('winner' in raw)) return bad('Save has no war record');
   if (!Array.isArray(raw.treaties) || !Array.isArray(raw.offers) || !isObj(raw.opinions)) return bad('Save has no diplomatic record');
+  if (!Array.isArray(raw.cessions)) return bad('Save has no record of colonies given up for peace');
 
   return { ok: true, value: raw as unknown as GameState };
 }

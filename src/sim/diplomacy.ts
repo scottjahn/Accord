@@ -1,11 +1,14 @@
 import type { Content } from './content';
+import { applyGovernor } from './economy/governor';
 import { sortedKeys, type EmpireId } from './ids';
 import { addEmpireMorale } from './morale';
 import {
   TREATY_TYPES,
   type BreakdownLine,
   type GameState,
+  type Offer,
   type OpinionCause,
+  type PeaceTerms,
   type OutputBreakdown,
   type Treaty,
   type TreatyType,
@@ -141,6 +144,83 @@ export function truceUntil(state: GameState, a: EmpireId, b: EmpireId, type: Tre
   return state.turn < until ? until : null;
 }
 
+/**
+ * Removes the offers that match, handing back any credits held for their
+ * terms. Mutates the state.
+ */
+export function withdrawOffers(state: GameState, matches: (offer: Offer) => boolean): void {
+  for (const offer of state.offers.filter(matches)) {
+    if (offer.terms && !state.empires[offer.from].eliminated) state.empires[offer.from].credits += offer.terms.credits;
+  }
+  state.offers = state.offers.filter((o) => !matches(o));
+}
+
+/**
+ * Why `from` cannot offer these terms, or null if it can. Only a peace can be
+ * bought; its colonies must be the proposer's own and not its home. Whether
+ * the credits can be afforded is checked when the offer is made, since they
+ * are held from then on.
+ */
+export function termsBlocker(state: GameState, from: EmpireId, type: TreatyType, terms: PeaceTerms | null): string | null {
+  if (terms === null) return null;
+  if (type !== 'peace') return 'Only a peace can be paid for';
+  if (!Number.isInteger(terms.credits) || terms.credits < 0) return 'Credits must be a whole number';
+  if (!Array.isArray(terms.systems)) return 'Choose the colonies to offer';
+  if (terms.credits === 0 && terms.systems.length === 0) return 'Offer credits or a colony, or propose a plain peace';
+  if (new Set(terms.systems).size !== terms.systems.length) return 'A colony is offered twice';
+  for (const id of terms.systems) {
+    const system = state.systems[id];
+    if (!system || system.colony?.owner !== from) return `${system?.name ?? 'That system'} is not yours to give`;
+    if (state.empires[from].homeSystem === id) return `${system.name} is your home system and cannot be given away`;
+    if (state.cessions.some((c) => c.system === id)) return `${system.name} has already been given up`;
+  }
+  return null;
+}
+
+/**
+ * Pays what an accepted peace was bought with: the credits held for it now,
+ * and each colony when the turn resolves (`resolveCessions`), so neither side
+ * learns anything new mid-turn. The payer's people take it hard. Mutates the state.
+ */
+export function payTerms(state: GameState, offer: Offer, content: Content): void {
+  const terms = offer.terms;
+  if (!terms) return;
+  state.empires[offer.to].credits += terms.credits;
+  for (const id of terms.systems) state.cessions.push({ system: id, from: offer.from, to: offer.to });
+  addEmpireMorale(state, offer.from, 'peaceBought', content);
+  state.pendingEvents.push({ type: 'peaceBought', empires: [offer.from, offer.to], by: offer.from, credits: terms.credits, systems: [...terms.systems] });
+}
+
+/**
+ * Hands over the colonies given up for peace, each as it stands (people,
+ * buildings and any member race included), if the giver still holds it.
+ * Mutates the state.
+ */
+export function resolveCessions(state: GameState, content: Content): void {
+  for (const { system: id, from, to } of state.cessions) {
+    const system = state.systems[id];
+    const colony = system?.colony;
+    if (!colony || colony.owner !== from || state.empires[to].eliminated) continue;
+    colony.owner = to;
+    const race = colony.minorRace;
+    if (race) {
+      const giver = state.empires[from];
+      giver.members = giver.members.filter((m) => m !== race);
+      const taker = state.empires[to];
+      if (!taker.members.includes(race)) taker.members = [...taker.members, race].sort();
+    }
+    // Orders and limits were the old owner's; the new owner's governor takes over.
+    colony.pinned = { food: 0, industry: 0, energy: 0, intel: 0, research: 0 };
+    colony.capped = { food: null, industry: null, energy: null, intel: null, research: null };
+    colony.buildQueue = [];
+    colony.governor = 'balanced';
+    applyGovernor(state, system, content);
+    state.empires[to].knownSystems[id] = to;
+    state.empires[from].knownSystems[id] = to;
+  }
+  state.cessions = [];
+}
+
 /** Puts a treaty into force. A peace treaty ends the war. Mutates the state. */
 export function signTreaty(state: GameState, a: EmpireId, b: EmpireId, type: TreatyType, content: Content): Treaty {
   const duration = content.rules.diplomacy.treaties[type].duration;
@@ -157,7 +237,7 @@ export function signTreaty(state: GameState, a: EmpireId, b: EmpireId, type: Tre
     }
   }
   state.treaties.push(treaty);
-  state.offers = state.offers.filter((o) => !(o.type === type && parties.includes(o.from) && parties.includes(o.to)));
+  withdrawOffers(state, (o) => o.type === type && parties.includes(o.from) && parties.includes(o.to));
   state.pendingEvents.push({ type: 'treatySigned', empires: parties, treaty });
   return treaty;
 }
@@ -202,8 +282,9 @@ export function expireDiplomacy(state: GameState, content: Content, events: Turn
     }
   }
   state.treaties = kept;
-  state.offers = state.offers.filter(
-    (o) => now - o.turn < content.rules.diplomacy.offerTurns && !state.empires[o.from].eliminated && !state.empires[o.to].eliminated,
+  withdrawOffers(
+    state,
+    (o) => now - o.turn >= content.rules.diplomacy.offerTurns || state.empires[o.from].eliminated || state.empires[o.to].eliminated,
   );
 }
 

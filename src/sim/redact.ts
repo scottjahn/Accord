@@ -97,6 +97,7 @@ export function redactFor(state: GameState, empireId: EmpireId, content: Content
   known.operations = known.operations.filter((o) => o.by === empireId);
   known.pendingEvents = [];
   known.pledges = known.pledges.filter((p) => p.empire === empireId || p.system in mine);
+  known.cessions = known.cessions.filter((c) => c.from === empireId || c.to === empireId);
   const opinions = {} as GameState['opinions'];
   for (const of of sortedKeys(known.opinions)) {
     for (const about of sortedKeys(known.opinions[of])) {

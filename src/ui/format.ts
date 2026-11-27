@@ -7,6 +7,7 @@ import {
   type Content,
   type EmpireId,
   type GameState,
+  type PeaceTerms,
   type Governor,
   type HullRole,
   type IdleItem,
@@ -166,6 +167,13 @@ export function victoryText(victory: GameState['victory'], winnerName: string, m
 /** Whether an event belongs in this player's turn report. */
 export { eventIsMine } from '../game/skip';
 
+/** "300 credits and Tarsis": what a peace is bought with. */
+export function termsText(terms: PeaceTerms, systemName: (id: string) => string): string {
+  const parts = [...(terms.credits > 0 ? [`${terms.credits} credits`] : []), ...terms.systems.map(systemName)];
+  if (parts.length <= 1) return parts[0] ?? 'nothing';
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
 export function eventText(event: TurnEvent, state: GameState, content: Content): string {
   const treatyLabel = (type: keyof typeof content.rules.diplomacy.treaties) => content.rules.diplomacy.treaties[type].label;
   const factionName = (id: EmpireId) => content.factions[state.empires[id]?.faction]?.name ?? id;
@@ -227,8 +235,12 @@ export function eventText(event: TurnEvent, state: GameState, content: Content):
     }
     case 'treatyExpired':
       return `The ${treatyLabel(event.treaty.type).toLowerCase()} between ${factionName(event.treaty.parties[0])} and ${factionName(event.treaty.parties[1])} has lapsed`;
+    case 'peaceBought': {
+      const other = event.empires[0] === event.by ? event.empires[1] : event.empires[0];
+      return `${factionName(event.by)} bought peace with ${factionName(other)} for ${termsText({ credits: event.credits, systems: event.systems }, systemName)}`;
+    }
     case 'offerMade':
-      return `${factionName(event.offer.from)} proposes a ${treatyLabel(event.offer.type).toLowerCase()} to ${factionName(event.offer.to)}`;
+      return `${factionName(event.offer.from)} proposes a ${treatyLabel(event.offer.type).toLowerCase()} to ${factionName(event.offer.to)}${event.offer.terms ? `, paying ${termsText(event.offer.terms, systemName)}` : ''}`;
     case 'offerRefused':
       return `${factionName(event.offer.to)} refused the ${treatyLabel(event.offer.type).toLowerCase()}${event.note ? `: ${event.note}` : ''}`;
     case 'operation': {

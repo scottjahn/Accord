@@ -116,6 +116,25 @@ export interface AiContent {
     resentAt: number;
     warScore: number;
   };
+  /**
+   * Buying and selling peace. A winner's price is `colonyValue` for the
+   * `takePercent` of the enemy colonies it knows of that it expects to win, times how far its fleet outweighs the enemy's beyond
+   * `freeBelowEdgePercent` (up to double), times its personality's war weight.
+   * A colony offered is worth `colonyValue` plus `perPopulation` for each person.
+   * It will not sell peace once it holds `nearVictoryPercent` of the colony share
+   * that domination needs (0 for never). A loser offers up to `treasuryPercent` of its treasury
+   * and, if that falls short, up to `maxColonies` of its most exposed colonies.
+   * A colonyValue of 0 turns all of this off.
+   */
+  peace: {
+    colonyValue: number;
+    takePercent: number;
+    perPopulation: number;
+    freeBelowEdgePercent: number;
+    nearVictoryPercent: number;
+    treasuryPercent: number;
+    maxColonies: number;
+  };
 }
 
 export interface ResearchRules {
@@ -982,6 +1001,11 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
     if (ai.defence === undefined) ai.defence = { alarmRange: 0, responseRange: 0 };
     if (!isObj(ai.defence) || !isNat(ai.defence.alarmRange) || !isNat(ai.defence.responseRange)) errors.push('ai.defence: needs alarmRange and responseRange');
     if (ai.borders === undefined) ai.borders = { resentAt: -100, warScore: 0 };
+    if (ai.peace === undefined) ai.peace = { colonyValue: 0, takePercent: 0, perPopulation: 0, freeBelowEdgePercent: 100, nearVictoryPercent: 100, treasuryPercent: 0, maxColonies: 0 };
+    const peace = ai.peace;
+    if (!isObj(peace) || !(['colonyValue', 'takePercent', 'perPopulation', 'freeBelowEdgePercent', 'nearVictoryPercent', 'treasuryPercent', 'maxColonies'] as const).every((k) => isNat(peace[k]))) {
+      errors.push('ai.peace: needs colonyValue, takePercent, perPopulation, freeBelowEdgePercent, nearVictoryPercent, treasuryPercent and maxColonies, each an integer >= 0');
+    }
     if (!isObj(ai.borders) || !isInt(ai.borders.resentAt) || !isNat(ai.borders.warScore)) errors.push('ai.borders: needs an integer resentAt and warScore >= 0');
   }
   const personalities = isObj(ai) ? ai.personalities : undefined;

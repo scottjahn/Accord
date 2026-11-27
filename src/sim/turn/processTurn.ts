@@ -1,7 +1,7 @@
 import { atWar, battleSetups, checkVictory, repairShips, resolveBattles, resolveInvasions } from '../combat';
 import type { Content } from '../content';
 import { creditIncome } from '../credits';
-import { expireDiplomacy, pruneOpinions } from '../diplomacy';
+import { expireDiplomacy, pruneOpinions, resolveCessions } from '../diplomacy';
 import { applyBuild } from '../economy/build';
 import { applyGovernor } from '../economy/governor';
 import { applyGrowth } from '../economy/growth';
@@ -21,7 +21,8 @@ import { pressBorders, snapshotBorders } from '../territory';
  * Resolves one turn for every empire at once and returns the next state.
  * The input state is not modified. Once the game has a winner, nothing happens.
  *
- * 1. What commands did this turn is announced, and morale is brought up to date.
+ * 1. What commands did this turn is announced; bought memberships join and
+ *    colonies given up for peace change hands; morale is brought up to date.
  * 2. Colonies, in system-id order, each from its outputs at the start of the turn:
  *    food (stockpile, growth or starvation; no growth in unrest), industry (build
  *    queue, which may launch ships), then the governor reassigns workers.
@@ -85,6 +86,8 @@ function beginTurn(next: GameState, content: Content, events: TurnEvent[]): Empi
     if (system?.minor) joinEmpire(next, system, pledge.empire, content, events);
   }
   next.pledges = [];
+  // Colonies given up for peace change hands now.
+  resolveCessions(next, content);
   const empireIds = sortedKeys(next.empires);
   for (const id of empireIds) {
     if (empireIds.some((other) => atWar(next, id, other) && !next.empires[other].eliminated)) next.empires[id].lastWarTurn = next.turn;

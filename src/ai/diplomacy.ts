@@ -1,6 +1,8 @@
 import {
   boundToPeace,
   coloniesOf,
+  dominationShareOf,
+  sectorDistance,
   fleetsOf,
   hasTreaty,
   opinionBreakdown,
@@ -10,12 +12,13 @@ import {
   type Content,
   type EmpireId,
   type GameState,
+  type PeaceTerms,
   type Personality,
   type Posture,
   type TreatyType,
 } from '../sim';
 import type { Planner } from './agent';
-import { enemiesOf, fleetPower } from './tactical/war';
+import { enemiesOf, fleetPower, knownColoniesOf } from './tactical/war';
 
 /** Opinion a proposer needs for each treaty to be accepted in ordinary times. */
 const NEEDED: Record<Exclude<TreatyType, 'peace'>, number> = {
@@ -66,6 +69,49 @@ export function wantsPeace(known: GameState, empireId: EmpireId, enemy: EmpireId
   return outgunned || weary;
 }
 
+const peaceRules = (content: Content) => content.ai.peace;
+
+/** Fleet power of `a` as a percent of `b`'s, as far as `known` shows them; 1000 if `b` has none. */
+function edgePercent(known: GameState, a: EmpireId, b: EmpireId, content: Content): number {
+  const mine = fleetPower(fleetsOf(known, a), content);
+  const theirs = fleetPower(fleetsOf(known, b), content);
+  return theirs === 0 ? 1000 : Math.floor((mine * 100) / theirs);
+}
+
+/**
+ * What `winner` would want, in credits, to stop a war with `loser`: the value
+ * of the share of the loser's colonies it expects to take (`takePercent`),
+ * growing with its edge in fleet power and weighted by its appetite for war.
+ * 0 when the fight is even or worse.
+ * `colonies` is how many of the loser's colonies the winner knows of.
+ */
+export function peacePrice(edge: number, colonies: number, personality: Personality, content: Content): number {
+  const rules = peaceRules(content);
+  const factor = Math.max(0, Math.min(100, edge - rules.freeBelowEdgePercent));
+  return Math.floor((colonies * rules.colonyValue * rules.takePercent * factor * personality.posture.war) / 1000000);
+}
+
+/** What terms are worth to the empire receiving them, in credits. */
+export function termsValue(known: GameState, terms: PeaceTerms | null, content: Content): number {
+  if (!terms) return 0;
+  const rules = peaceRules(content);
+  return terms.credits + terms.systems.reduce((sum, id) => sum + rules.colonyValue + (known.systems[id]?.colony?.population ?? 0) * rules.perPopulation, 0);
+}
+
+/**
+ * True if this empire holds so much of the colony share that domination needs
+ * that it will not be bought off; never with `nearVictoryPercent` at 0. It
+ * counts only the rival colonies it knows of, so with much unexplored it
+ * overrates its share.
+ */
+function nearDomination(known: GameState, empireId: EmpireId, content: Content): boolean {
+  const mine = coloniesOf(known, empireId).length;
+  const theirs = Object.values(known.empires[empireId].knownSystems).filter((owner) => owner !== null && owner !== empireId).length;
+  const share = dominationShareOf(Object.keys(known.empires).length, content);
+  const near = peaceRules(content).nearVictoryPercent;
+  return near > 0 && share > 0 && mine * 10000 >= (mine + theirs) * share * peaceRules(content).nearVictoryPercent;
+}
+
 /**
  * Whether this empire accepts a treaty proposed by another, and why not if it
  * does not. Opinion decides most of it; an alliance is refused if it would
@@ -80,12 +126,20 @@ export function judgeOffer(
   posture: Posture,
   /** True if war looks at least as good to this empire as peace does: it will not tie its hands. */
   ambitious = false,
+  /** What the proposer pays, for a peace. */
+  terms: PeaceTerms | null = null,
 ): { accept: boolean; note: string } {
   const label = content.rules.diplomacy.treaties[type].label.toLowerCase();
   if (type === 'peace') {
-    return wantsPeace(known, empireId, from, content)
+    if (wantsPeace(known, empireId, from, content)) return { accept: true, note: '' };
+    if (peaceRules(content).colonyValue === 0) return { accept: false, note: 'They believe they are winning the war.' };
+    if (nearDomination(known, empireId, content)) return { accept: false, note: 'Victory is in their sight; they will not stop now.' };
+    const personality = content.ai.personalities[known.empires[empireId].faction];
+    const price = peacePrice(edgePercent(known, empireId, from, content), coloniesKnown(known, empireId, from), personality, content);
+    const offered = termsValue(known, terms, content);
+    return offered >= price
       ? { accept: true, note: '' }
-      : { accept: false, note: 'They believe they are winning the war.' };
+      : { accept: false, note: `They want at least ${price} credits' worth for peace (offered ${offered}).` };
   }
   if (posture === 'war' && type !== 'researchPact') return { accept: false, note: 'They are preparing for war.' };
   if (ambitious && (type === 'nonAggression' || type === 'alliance')) return { accept: false, note: 'They see no reason to tie their hands.' };
@@ -110,7 +164,7 @@ export function judgeOffer(
 /** Answers every offer waiting for this empire. */
 export function answerOffers(plan: Planner, empireId: EmpireId, content: Content, posture: Posture, ambitious = false): void {
   for (const offer of plan.state.offers.filter((o) => o.to === empireId)) {
-    const verdict = judgeOffer(plan.state, empireId, offer.from, offer.type, content, posture, ambitious);
+    const verdict = judgeOffer(plan.state, empireId, offer.from, offer.type, content, posture, ambitious, offer.terms);
     if (!plan.attempt({ type: 'answerOffer', empire: empireId, offer: offer.id, accept: verdict.accept, note: verdict.note })) {
       plan.attempt({ type: 'answerOffer', empire: empireId, offer: offer.id, accept: false, note: 'It is no longer possible.' });
     }
@@ -126,7 +180,10 @@ export function proposeTreaties(plan: Planner, empireId: EmpireId, content: Cont
   const propose = (to: EmpireId, treaty: TreatyType) => plan.attempt({ type: 'proposeTreaty', empire: empireId, to, treaty });
 
   for (const enemy of enemiesOf(known, empireId)) {
-    if (wantsPeace(known, empireId, enemy, content) && propose(enemy, 'peace')) return;
+    if (!wantsPeace(known, empireId, enemy, content)) continue;
+    const terms = peaceTerms(known, empireId, enemy, content);
+    if (terms && plan.attempt({ type: 'proposeTreaty', empire: empireId, to: enemy, treaty: 'peace', terms })) return;
+    if (propose(enemy, 'peace')) return;
   }
   if (posture === 'war') return;
 
@@ -143,6 +200,35 @@ export function proposeTreaties(plan: Planner, empireId: EmpireId, content: Cont
       if (propose(rival.id, type)) return;
     }
   }
+}
+
+/**
+ * What a losing empire offers for peace: its guess at the enemy's price, from
+ * the enemy's edge as it sees it and the enemy's appetite for war (powers'
+ * temperaments are no secret), paid first in credits up to `treasuryPercent`
+ * of the treasury, then with its colonies nearest the enemy, never its home.
+ * Null if it guesses the enemy wants nothing, or if it has nothing to give.
+ */
+export function peaceTerms(known: GameState, empireId: EmpireId, enemy: EmpireId, content: Content): PeaceTerms | null {
+  const rules = peaceRules(content);
+  if (rules.colonyValue === 0) return null;
+  const theirs = content.ai.personalities[known.empires[enemy].faction];
+  const mine = coloniesOf(known, empireId);
+  const price = peacePrice(edgePercent(known, enemy, empireId, content), mine.length, theirs, content);
+  if (price === 0) return null;
+  const credits = Math.min(price, Math.floor((known.empires[empireId].credits * rules.treasuryPercent) / 100));
+  const terms: PeaceTerms = { credits, systems: [] };
+  const enemyColonies = knownColoniesOf(known, empireId, [enemy]);
+  const exposure = (sector: GameState['systems'][keyof GameState['systems']]['sector']) =>
+    enemyColonies.reduce((best, s) => Math.min(best, sectorDistance(s.sector, sector)), Infinity);
+  const spare = mine
+    .filter((s) => s.id !== known.empires[empireId].homeSystem)
+    .sort((a, b) => exposure(a.sector) - exposure(b.sector) || (a.id < b.id ? -1 : 1));
+  for (const system of spare) {
+    if (termsValue(known, terms, content) >= price || terms.systems.length >= rules.maxColonies) break;
+    terms.systems.push(system.id);
+  }
+  return terms.credits === 0 && terms.systems.length === 0 ? null : terms;
 }
 
 /**
