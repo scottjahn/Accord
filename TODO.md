@@ -4,7 +4,6 @@ Requests noted for later.
 
 ## Open
 
-- **A ram order in battle.** A ship can be ordered to ram an enemy, giving itself up for heavy damage. It must stay seeded like every other order, and the computer side should use it too.
 - **Open space and contested sectors look different.** A sector beyond every border and a sector two powers claim equally both show as "unclaimed" today. The map and the sector details should tell them apart: open space, outside everyone's border, versus contested, inside the borders of two or more powers that tie for it (and which powers those are).
 - **Unclaimed is not the same as unsettled.** A sector with no colony can still lie plainly in one power's space. Where the sector details say "unclaimed" or "uncolonised", they should say whose territory it is when it has an owner, for example "Uncolonised, in Kessic space", and keep "unclaimed" for sectors in no one's territory.
 - **Each power's ships look like its own.** The five powers get distinct ship designs on the map and in battle, even where their stats stay the same. Each style is an original design that fits the power's character, so the art borrows no ship designs from the games that inspired it. More detail on each power's look to come.
