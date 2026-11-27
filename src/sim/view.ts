@@ -1,5 +1,5 @@
 import type { Content } from './content';
-import { territoryAsKnown } from './territory';
+import { bordersAsKnown } from './territory';
 import { allies, treatiesBetween } from './diplomacy';
 import { coloniesOf, fleetsOf } from './fleets';
 import { sameSector, sectorDistance, sectorKey, sectorsAround } from './geometry';
@@ -89,6 +89,8 @@ export interface EmpireView {
   fleets: Fleet[];
   /** Sector key to the empire whose territory it is, as this empire knows it (see territory.ts). */
   territory: Record<string, EmpireId>;
+  /** Sector key to the empires that tie for it, so it is no one's territory (see territory.ts). */
+  contested: Record<string, EmpireId[]>;
 }
 
 export function getEmpireView(state: GameState, empireId: EmpireId, content: Content): EmpireView {
@@ -108,5 +110,6 @@ export function getEmpireView(state: GameState, empireId: EmpireId, content: Con
   const fleets = sortedKeys(state.fleets)
     .map((id) => state.fleets[id])
     .filter((f) => f.owner === empireId || (visible.has(sectorKey(f.sector)) && !cloakedFrom(state, f, empireId, content)));
-  return { empire: empireId, visible, systems, fleets, territory: territoryAsKnown(state, empireId, content) };
+  const { territory, contested } = bordersAsKnown(state, empireId, content);
+  return { empire: empireId, visible, systems, fleets, territory, contested };
 }

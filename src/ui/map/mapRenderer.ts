@@ -91,6 +91,21 @@ export class MapRenderer {
       const { top, right, bottom, left } = cell.edges;
       if (top || right || bottom || left) this.territory.stroke({ width: 2, color: cell.color, alpha: 0.7 });
     }
+    // Contested sectors: diagonal hatching in the colours of the empires that tie for them.
+    for (const cell of scene.contested) {
+      const x0 = cell.sector.x * S;
+      const y0 = cell.sector.y * S;
+      const lines = 6;
+      for (let i = 1; i < lines * 2; i++) {
+        const t = (i * S) / lines;
+        // Each stripe runs from the left or top edge to the bottom or right edge.
+        const ax = x0 + Math.max(0, t - S);
+        const ay = y0 + Math.min(t, S);
+        const bx = x0 + Math.min(t, S);
+        const by = y0 + Math.max(0, t - S);
+        this.territory.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 1.5, color: cell.colors[i % cell.colors.length], alpha: 0.35 });
+      }
+    }
     this.stars.clear();
     // Outposts: a small square station in the owner's colour.
     for (const outpost of scene.outposts) {

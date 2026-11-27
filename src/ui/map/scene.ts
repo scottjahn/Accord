@@ -63,6 +63,12 @@ export interface MapTerritory {
   edges: { top: boolean; right: boolean; bottom: boolean; left: boolean };
 }
 
+/** A sector two or more empires tie for, so it is no one's: drawn hatched in their colours. */
+export interface MapContested {
+  sector: Sector;
+  colors: number[];
+}
+
 /** An outpost: drawn as a small square in its owner's colour. */
 export interface MapOutpost {
   id: string;
@@ -84,6 +90,8 @@ export interface MapScene {
   outposts: MapOutpost[];
   /** Every empire's territory as the player knows it. */
   territory: MapTerritory[];
+  /** Sectors that empires tie for, as the player knows them. */
+  contested: MapContested[];
   /** Sectors the selected fleet can reach, or null if the player has none selected. */
   range: Set<string> | null;
   /** World points of the selected fleet's route, starting where it is now. */
@@ -183,6 +191,12 @@ export function buildScene(
       return { id, sector: outpost.sector, ...sectorCenter(outpost.sector), color: factionColor(outpost.owner) };
     }),
     territory,
+    contested: Object.keys(view.contested)
+      .sort()
+      .map((key): MapContested => {
+        const [x, y] = key.split(',').map(Number);
+        return { sector: { x, y }, colors: view.contested[key].map(factionColor) };
+      }),
     range,
     route,
   };

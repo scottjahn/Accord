@@ -4,12 +4,12 @@ Requests noted for later.
 
 ## Open
 
-- **Open space and contested sectors look different.** A sector beyond every border and a sector two powers claim equally both show as "unclaimed" today. The map and the sector details should tell them apart: open space, outside everyone's border, versus contested, inside the borders of two or more powers that tie for it (and which powers those are).
-- **Unclaimed is not the same as unsettled.** A sector with no colony can still lie plainly in one power's space. Where the sector details say "unclaimed" or "uncolonised", they should say whose territory it is when it has an owner, for example "Uncolonised, in Kessic space", and keep "unclaimed" for sectors in no one's territory.
 - **Each power's ships look like its own.** The five powers get distinct ship designs on the map and in battle, even where their stats stay the same. Each style is an original design that fits the power's character, so the art borrows no ship designs from the games that inspired it. More detail on each power's look to come.
 
 ## Done
 
+- **Open space and contested sectors look different.** A sector two or more powers tie for is hatched on the map in their colours, and its system says "Uncolonised, contested by you and Vashran Dominate". A system outside every border says "Unclaimed open space".
+- **Unclaimed is not the same as unsettled.** An empty system inside a power's border says whose it is: "Uncolonised, Kessic Union territory" or "Uncolonised, your territory".
 - **Battles you can watch and command.** When your ships are in a battle, End Turn waits and each battle can be fought or auto-resolved. A fought battle plays in real time with speed controls: select ships with a box, then order them to engage, move, attack, hold or withdraw. Ships circle and jink, carry lasers, pulse bolts or missiles, and leave wreckage. Rolls are seeded and hits match auto-resolved damage. Practice battle on the main menu fights one outside any game.
 - **Invading is its own order, with the odds shown.** Transports sent to an enemy colony or a minor race only travel there. Once there, the fleet panel offers "Invade ... (n%)", with the chance worked out over the landing's own roll and the troops and garrison broken down. It also says when warships or batteries must be cleared first. The AI moves its transports in first, then lands.
 - **Unarmed fleets.** Each ship shows its attack or "unarmed"; a fleet with no guns can only Hold or Evade.

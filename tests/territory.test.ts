@@ -7,6 +7,8 @@ import {
   sectorKey,
   submitCommand,
   suppliedSectors,
+  bordersAsKnown,
+  sectorStanding,
   territoryAsKnown,
   validateCommand,
   warKey,
@@ -17,6 +19,7 @@ import {
   type SystemId,
 } from '../src/sim';
 import { buildScene } from '../src/ui/map/scene';
+import { andList, standingText } from '../src/ui/format';
 import { ALPHA, BETA, addFleet, homeOf, introduce, newGame } from './fixture';
 
 /**
@@ -200,5 +203,42 @@ describe('borders', () => {
     const withFleet = buildScene(state, content, getEmpireView(state, ALPHA, content), fleet);
     expect(withFleet.range?.has(at({ x: 4, y: 2 }))).toBe(false);
     expect(withFleet.range?.has(at({ x: 3, y: 2 }))).toBe(true);
+  });
+
+  it('tells open space from contested sectors, and says who ties for them', () => {
+    const { state, content } = setup();
+    const borders = bordersAsKnown(state, ALPHA, content);
+    // Column 3 is equally near both homes.
+    expect(borders.contested[at({ x: 3, y: 2 })]).toEqual([ALPHA, BETA]);
+    expect(borders.contested[at({ x: 2, y: 2 })]).toBeUndefined();
+    expect(sectorStanding(borders, { x: 3, y: 2 })).toEqual({ kind: 'contested', claimants: [ALPHA, BETA] });
+    expect(sectorStanding(borders, { x: 4, y: 4 })).toEqual({ kind: 'territory', owner: BETA });
+    // Row 5 lies outside both borders.
+    expect(sectorStanding(borders, { x: 1, y: 5 })).toEqual({ kind: 'open' });
+    expect(getEmpireView(state, ALPHA, content).contested).toEqual(borders.contested);
+    // An empire Alpha has not found contests nothing Alpha can see.
+    delete state.empires[ALPHA].knownSystems[homeOf(state, BETA).id];
+    expect(bordersAsKnown(state, ALPHA, content).contested).toEqual({});
+    content.rules.fleets.borderRange = 0;
+    expect(bordersAsKnown(state, BETA, content).contested).toEqual({});
+  });
+
+  it('the map hatches contested sectors in the colours of those who tie for them', () => {
+    const { state, content } = setup();
+    const scene = buildScene(state, content, getEmpireView(state, ALPHA, content));
+    const cell = scene.contested.find((c) => c.sector.x === 3 && c.sector.y === 2);
+    const colour = (id: typeof ALPHA) => parseInt(content.factions[state.empires[id].faction].color.slice(1), 16);
+    expect(cell?.colors).toEqual([colour(ALPHA), colour(BETA)]);
+    expect(scene.contested.every((c) => c.sector.x === 3)).toBe(true);
+  });
+
+  it('says whose space an empty sector is in', () => {
+    const name = (id: string) => (id === BETA ? 'Kessic Union' : 'The Concord');
+    expect(standingText({ kind: 'open' }, ALPHA, name, true)).toBe('Unclaimed open space');
+    expect(standingText({ kind: 'territory', owner: BETA }, ALPHA, name, true)).toBe('Uncolonised, Kessic Union territory');
+    expect(standingText({ kind: 'territory', owner: ALPHA }, ALPHA, name, true)).toBe('Uncolonised, your territory');
+    expect(standingText({ kind: 'contested', claimants: [ALPHA, BETA] }, ALPHA, name, true)).toBe('Uncolonised, contested by you and Kessic Union');
+    expect(standingText({ kind: 'open' }, ALPHA, name, false)).toBe('Unclaimed');
+    expect(andList(['A', 'B', 'C'])).toBe('A, B and C');
   });
 });

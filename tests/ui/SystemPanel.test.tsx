@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSession, startNewGame, type GameSession } from '../../src/game/session';
-import { getEmpireView, type BuildingId, type FleetId, type GameState, type SystemId } from '../../src/sim';
+import { bordersAsKnown, getEmpireView, sectorStanding, type BuildingId, type FleetId, type GameState, type SystemId } from '../../src/sim';
 import { SystemPanel } from '../../src/ui/system/SystemPanel';
 import { useSession } from '../../src/ui/useSession';
 import { ALPHA, BETA, addFleet, colonyOf, fixtureContent } from '../fixture';
@@ -337,5 +337,38 @@ describe('SystemPanel: fog of war', () => {
     expect(screen.getByText(/Unclaimed/)).toBeTruthy();
     expect(screen.getByText('Planets')).toBeTruthy();
     expect(screen.queryByText('Workers')).toBeNull();
+  });
+});
+
+describe('SystemPanel: an empty system', () => {
+  /**
+   * With borders on at range 2, a free system moved to the first empty sector
+   * whose standing is `kind`, known to Alpha. Returns what the header says.
+   */
+  function emptyIn(kind: 'territory' | 'open') {
+    const content = fixtureContent();
+    content.rules.fleets.borderRange = 2;
+    const state = startNewGame(content, { seed: 3, preset: 'tiny', faction: 'alpha' });
+    const free = (Object.keys(state.systems) as SystemId[]).sort().find((id) => !state.systems[id].colony && !state.systems[id].minor)!;
+    const taken = new Set(Object.values(state.systems).map((s) => `${s.sector.x},${s.sector.y}`));
+    const borders = bordersAsKnown(state, ALPHA, content);
+    const sectors = Array.from({ length: state.galaxy.width * state.galaxy.height }, (_, i) => ({ x: i % state.galaxy.width, y: Math.floor(i / state.galaxy.width) }));
+    const target = sectors.find((s) => {
+      if (taken.has(`${s.x},${s.y}`)) return false;
+      const standing = sectorStanding(borders, s);
+      return kind === 'open' ? standing.kind === 'open' : standing.kind === 'territory' && standing.owner === ALPHA;
+    })!;
+    state.systems[free].sector = target;
+    state.empires[ALPHA].knownSystems[free] = null;
+    render(<Harness session={createSession(content, state)} systemId={free} />);
+    return text('sector-standing');
+  }
+
+  it('says when it lies in the player’s own territory', () => {
+    expect(emptyIn('territory')).toBe('Uncolonised, your territory');
+  });
+
+  it('says when it lies in open space, outside every border', () => {
+    expect(emptyIn('open')).toBe('Unclaimed open space');
   });
 });

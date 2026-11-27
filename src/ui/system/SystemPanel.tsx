@@ -6,6 +6,7 @@ import {
   forecastColony,
   getColonyEconomy,
   sameSector,
+  sectorStanding,
   type Command,
   type CommandError,
   type Content,
@@ -15,7 +16,7 @@ import {
   type GameState,
   type StarSystem,
 } from '../../sim';
-import { bonusText, lineValue, sectorLabel, ships, signed, turns } from '../format';
+import { bonusText, lineValue, sectorLabel, ships, signed, standingText, turns } from '../format';
 import { MinorPanel } from './MinorPanel';
 import { AllocationSliders } from './AllocationSliders';
 import { BuildQueue } from './BuildQueue';
@@ -84,6 +85,12 @@ export function SystemPanel(props: Props) {
   const owner = sight.owner ? state.empires[sight.owner] : null;
   const ownerFaction = owner ? content.factions[owner.faction] : null;
   const mine = colony?.owner === player;
+  const standing = standingText(
+    sectorStanding(view, system.sector),
+    player,
+    (id) => content.factions[state.empires[id].faction]?.name ?? id,
+    content.rules.fleets.borderRange > 0,
+  );
 
   return (
     <div className="system-panel">
@@ -100,7 +107,7 @@ export function SystemPanel(props: Props) {
           ) : system.minor ? (
             `Home of the ${content.minors[system.minor.race]?.name ?? 'an independent people'}`
           ) : (
-            'Unclaimed'
+            <span data-testid="sector-standing">{standing}</span>
           )}
           {!sight.visible && ' (last seen)'}
         </p>

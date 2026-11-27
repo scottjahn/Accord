@@ -18,9 +18,22 @@ import type { Fleet, GameState, Sector, TurnEvent } from './types';
 
 /** Sector key to the empire whose territory it is, as `viewer` knows it. Unclaimed and contested sectors are absent. */
 export function territoryAsKnown(state: GameState, viewer: EmpireId, content: Content): Record<string, EmpireId> {
+  return bordersAsKnown(state, viewer, content).territory;
+}
+
+/** Every claimed sector as `viewer` knows it: whose territory it is, or which empires tie for it. */
+export interface BordersKnown {
+  /** Sector key to the one empire whose territory it is. */
+  territory: Record<string, EmpireId>;
+  /** Sector key to the empires equally near it (two or more, sorted), so it is no one's. */
+  contested: Record<string, EmpireId[]>;
+}
+
+export function bordersAsKnown(state: GameState, viewer: EmpireId, content: Content): BordersKnown {
   const range = content.rules.fleets.borderRange;
   const result: Record<string, EmpireId> = {};
-  if (range <= 0) return result;
+  const contested: Record<string, EmpireId[]> = {};
+  if (range <= 0) return { territory: result, contested };
   const known = state.empires[viewer]?.knownSystems ?? {};
   const claims: { owner: EmpireId; sector: Sector; range: number }[] = [];
   for (const id of sortedKeys(state.systems)) {
@@ -35,7 +48,7 @@ export function territoryAsKnown(state: GameState, viewer: EmpireId, content: Co
     const outpost = state.outposts[id];
     claims.push({ owner: outpost.owner, sector: outpost.sector, range: content.rules.outposts.borderRange });
   }
-  const best = new Map<string, { distance: number; owner: EmpireId | null }>();
+  const best = new Map<string, { distance: number; owners: EmpireId[] }>();
   for (const { owner, sector, range } of claims) {
     const { x: cx, y: cy } = sector;
     for (let y = Math.max(0, cy - range); y <= Math.min(state.galaxy.height - 1, cy + range); y++) {
@@ -43,13 +56,27 @@ export function territoryAsKnown(state: GameState, viewer: EmpireId, content: Co
         const key = `${x},${y}`;
         const distance = Math.max(Math.abs(x - cx), Math.abs(y - cy));
         const current = best.get(key);
-        if (!current || distance < current.distance) best.set(key, { distance, owner });
-        else if (distance === current.distance && current.owner !== owner) current.owner = null;
+        if (!current || distance < current.distance) best.set(key, { distance, owners: [owner] });
+        else if (distance === current.distance && !current.owners.includes(owner)) current.owners.push(owner);
       }
     }
   }
-  for (const [key, claim] of best) if (claim.owner !== null) result[key] = claim.owner;
-  return result;
+  for (const [key, claim] of best) {
+    if (claim.owners.length === 1) result[key] = claim.owners[0];
+    else contested[key] = [...claim.owners].sort();
+  }
+  return { territory: result, contested };
+}
+
+/** Where a sector stands, as one empire knows it: open space, one empire's territory, or contested by several. */
+export type SectorStanding = { kind: 'open' } | { kind: 'territory'; owner: EmpireId } | { kind: 'contested'; claimants: EmpireId[] };
+
+export function sectorStanding(borders: BordersKnown, sector: Sector): SectorStanding {
+  const key = sectorKey(sector);
+  const owner = borders.territory[key];
+  if (owner !== undefined) return { kind: 'territory', owner };
+  const claimants = borders.contested[key];
+  return claimants ? { kind: 'contested', claimants } : { kind: 'open' };
 }
 
 /** The other empire whose territory this sector is, as `viewer` knows it, or null. */

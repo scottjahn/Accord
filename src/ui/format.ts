@@ -14,6 +14,7 @@ import {
   type MinorDef,
   type OutputKind,
   type Sector,
+  type SectorStanding,
   type TurnEvent,
 } from '../sim';
 
@@ -259,5 +260,28 @@ export function eventText(event: TurnEvent, state: GameState, content: Content):
       return `The ${content.minors[event.race]?.name ?? event.race} of ${systemName(event.system)} have joined ${factionName(event.empire)}`;
     case 'minorConquered':
       return `${factionName(event.empire)} conquered the ${content.minors[event.race]?.name ?? event.race} of ${systemName(event.system)}`;
+  }
+}
+
+/** A list of names joined for reading: "A", "A and B", "A, B and C". */
+export function andList(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * Whose space an empty sector is in, as the player knows it: "Uncolonised,
+ * Kessic Union territory", "Uncolonised, contested by A and B", or
+ * "Unclaimed open space" when it lies outside every border. With borders off
+ * there is no territory, so it is simply "Unclaimed".
+ */
+export function standingText(standing: SectorStanding, player: EmpireId, empireName: (id: EmpireId) => string, bordersOn: boolean): string {
+  if (!bordersOn) return 'Unclaimed';
+  switch (standing.kind) {
+    case 'open':
+      return 'Unclaimed open space';
+    case 'territory':
+      return `Uncolonised, ${standing.owner === player ? 'your' : empireName(standing.owner)} territory`;
+    case 'contested':
+      return `Uncolonised, contested by ${andList(standing.claimants.map((id) => (id === player ? 'you' : empireName(id))))}`;
   }
 }
