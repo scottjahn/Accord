@@ -256,6 +256,16 @@
         "value": 10,
         "fadePerTenTurns": 3,
         "label": "They sent us a gift"
+      },
+      "bordersPress": {
+        "value": -5,
+        "fadePerTenTurns": 5,
+        "label": "Our borders press against theirs"
+      },
+      "borderEncroached": {
+        "value": -10,
+        "fadePerTenTurns": 3,
+        "label": "Their border took space we claimed"
       }
     },
     "treaties": {
@@ -291,7 +301,12 @@
     "breakMinorPenalty": 10,
     "offerTurns": 3,
     "researchPactPercent": 5,
-    "accordMemberPercent": 50
+    "accordMemberPercent": 50,
+    "borderPressure": {
+      "everyTurns": 10,
+      "sectorsPerGrievance": 4,
+      "maxGrievances": 3
+    }
   },
   "intel": {
     "decayPercent": 5,

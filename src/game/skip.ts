@@ -14,8 +14,9 @@ export function eventIsMine(event: TurnEvent, state: GameState, player: EmpireId
 /**
  * Events that happen all the time and need no decision. A finished building
  * only matters if it leaves the queue empty, which the idle report covers.
+ * A border pushing into the player's is news for the report, not a decision.
  */
-const ROUTINE: TurnEvent['type'][] = ['populationGrew', 'buildCompleted', 'refitCompleted', 'treatyExpired'];
+const ROUTINE: TurnEvent['type'][] = ['populationGrew', 'buildCompleted', 'refitCompleted', 'treatyExpired', 'borderEncroached'];
 
 const idleKey = (item: IdleItem): string => `${item.kind}:${'fleet' in item ? item.fleet : 'system' in item ? item.system : ''}`;
 

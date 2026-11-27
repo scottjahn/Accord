@@ -45,6 +45,8 @@ export function HelpScreen({ state, content, player, onClose }: Props) {
                 <strong>Borders.</strong> The sectors near your colonies are your territory, outlined on the map. No one may settle inside another
                 empire&apos;s border, and only scouts may cross it unless you are at war or have open borders or an alliance. A troop transport
                 can build an outpost in empty space to push your border out; enemies at war take it if nothing armed of yours guards it.
+                Borders breed tension: neighbours whose territory touches yours think a little less of you every ten turns unless you
+                share open borders or an alliance, and pushing your border into space they claimed angers them more. Resentful rivals go to war sooner.
               </li>
               <li>
                 <strong>Minor races.</strong> Independent peoples can be courted until they join you, bought if your power can, or conquered.

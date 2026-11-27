@@ -29,7 +29,7 @@ export interface Offer {
 }
 
 /** Things an empire remembers another doing. Values, labels and fading are in content rules. */
-export const OPINION_CAUSES = ['warDeclared', 'colonyCaptured', 'treatyBroken', 'treatyBrokenWitness', 'minorConquered', 'spyCaught', 'gift'] as const;
+export const OPINION_CAUSES = ['warDeclared', 'colonyCaptured', 'treatyBroken', 'treatyBrokenWitness', 'minorConquered', 'spyCaught', 'gift', 'bordersPress', 'borderEncroached'] as const;
 export type OpinionCause = (typeof OPINION_CAUSES)[number];
 
 export interface OpinionEntry {
@@ -434,6 +434,7 @@ export type TurnEvent =
   | { type: 'outpostBuilt'; empire: EmpireId; outpost: OutpostId; sector: Sector }
   | { type: 'outpostFailed'; empire: EmpireId; sector: Sector; reason: string }
   | { type: 'outpostLost'; empire: EmpireId; by: EmpireId; sector: Sector }
+  | { type: 'borderEncroached'; empire: EmpireId; by: EmpireId; sectors: number }
   | { type: 'warDeclared'; by: EmpireId; on: EmpireId }
   | { type: 'battle'; empires: EmpireId[]; report: CombatReport }
   | { type: 'invasion'; empires: EmpireId[]; report: InvasionReport }

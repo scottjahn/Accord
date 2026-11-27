@@ -111,6 +111,11 @@ export interface AiContent {
     /** How far a warship will travel to answer; 0 means colonies are left to their guards. */
     responseRange: number;
   };
+  /** Rivals thought of at `resentAt` or worse (border pressure, mostly) add `warScore` to the case for war and are attacked first. */
+  borders: {
+    resentAt: number;
+    warScore: number;
+  };
 }
 
 export interface ResearchRules {
@@ -174,6 +179,19 @@ export interface DiplomacyRules {
   researchPactPercent: number;
   /** Share of the galaxy's minor races an empire must hold as members for the Accord victory; 0 turns it off. */
   accordMemberPercent: number;
+  borderPressure: BorderPressureRules;
+}
+
+/**
+ * Friction between neighbours. Every `everyTurns` turns an empire adds one
+ * `bordersPress` grievance against each neighbour at peace (without open borders
+ * or an alliance) for every `sectorsPerGrievance` sectors of its territory that
+ * touch theirs, up to `maxGrievances`. 0 in everyTurns turns it off.
+ */
+export interface BorderPressureRules {
+  everyTurns: number;
+  sectorsPerGrievance: number;
+  maxGrievances: number;
 }
 
 export interface VictoryRules {
@@ -854,6 +872,10 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
       if (!isNat(diplomacy[key])) errors.push(`rules.diplomacy.${key}: must be an integer >= 0`);
     }
     if (!isPos(diplomacy.offerTurns)) errors.push('rules.diplomacy.offerTurns: must be a positive integer');
+    const pressure = diplomacy.borderPressure;
+    if (!isObj(pressure) || !isNat(pressure.everyTurns) || !isPos(pressure.sectorsPerGrievance) || !isNat(pressure.maxGrievances)) {
+      errors.push('rules.diplomacy.borderPressure: needs everyTurns >= 0, sectorsPerGrievance > 0 and maxGrievances >= 0');
+    }
   }
 
   const intel = isObj(rules) ? rules.intel : undefined;
@@ -957,6 +979,8 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
   if (isObj(ai)) {
     if (ai.defence === undefined) ai.defence = { alarmRange: 0, responseRange: 0 };
     if (!isObj(ai.defence) || !isNat(ai.defence.alarmRange) || !isNat(ai.defence.responseRange)) errors.push('ai.defence: needs alarmRange and responseRange');
+    if (ai.borders === undefined) ai.borders = { resentAt: -100, warScore: 0 };
+    if (!isObj(ai.borders) || !isInt(ai.borders.resentAt) || !isNat(ai.borders.warScore)) errors.push('ai.borders: needs an integer resentAt and warScore >= 0');
   }
   const personalities = isObj(ai) ? ai.personalities : undefined;
   if (!isObj(personalities)) {

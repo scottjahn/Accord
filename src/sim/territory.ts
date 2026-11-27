@@ -1,9 +1,9 @@
 import type { Content } from './content';
 import { atWar } from './combat';
-import { borderPartners } from './diplomacy';
+import { addOpinion, borderPartners, hasMet } from './diplomacy';
 import { sectorKey } from './geometry';
 import { sortedKeys, type EmpireId } from './ids';
-import type { Fleet, GameState, Sector } from './types';
+import type { Fleet, GameState, Sector, TurnEvent } from './types';
 
 /**
  * Borders. Every colony claims the sectors within `rules.fleets.borderRange`
@@ -79,4 +79,92 @@ export function closedSectors(state: GameState, empire: EmpireId, content: Conte
     if (!open.get(owner)) closed.add(key);
   }
   return closed;
+}
+
+/**
+ * For each other empire, how many sectors of `of`'s territory touch its
+ * territory (side by side, not corner to corner), in the territory given.
+ */
+export function borderContact(territory: Record<string, EmpireId>, of: EmpireId): Partial<Record<EmpireId, number>> {
+  const contact: Partial<Record<EmpireId, number>> = {};
+  for (const key of Object.keys(territory).sort()) {
+    if (territory[key] !== of) continue;
+    const [x, y] = key.split(',').map(Number);
+    const neighbours = new Set<EmpireId>();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const owner = territory[`${x + dx},${y + dy}`];
+      if (owner !== undefined && owner !== of) neighbours.add(owner);
+    }
+    for (const owner of neighbours) contact[owner] = (contact[owner] ?? 0) + 1;
+  }
+  return contact;
+}
+
+/** What each empire knew of the borders before the turn's settling, to tell what changed. */
+export interface BorderSnapshot {
+  territory: Record<string, EmpireId>;
+  colonies: number;
+  met: EmpireId[];
+}
+
+export function snapshotBorders(state: GameState, content: Content): Partial<Record<EmpireId, BorderSnapshot>> {
+  const snapshot: Partial<Record<EmpireId, BorderSnapshot>> = {};
+  if (content.rules.fleets.borderRange <= 0) return snapshot;
+  const ids = sortedKeys(state.empires);
+  for (const id of ids) {
+    if (state.empires[id].eliminated) continue;
+    snapshot[id] = {
+      territory: territoryAsKnown(state, id, content),
+      colonies: Object.values(state.systems).filter((s) => s.colony?.owner === id).length,
+      met: ids.filter((other) => other !== id && hasMet(state, id, other)),
+    };
+  }
+  return snapshot;
+}
+
+/**
+ * Border pressure, judged on what each empire knows once the turn has settled.
+ *
+ * - An empire resents a rival it had already met, and is at peace with, whose
+ *   territory now covers sectors that were its own: a new colony or outpost
+ *   pushed in, or it has found one that does. Not if it lost a colony this turn.
+ * - Every `borderPressure.everyTurns` turns, an empire adds grievances against
+ *   each neighbour at peace whose borders are closed to it, one for every
+ *   `sectorsPerGrievance` sectors of its territory that touch theirs.
+ *
+ * Mutates the state.
+ */
+export function pressBorders(
+  state: GameState,
+  content: Content,
+  before: Partial<Record<EmpireId, BorderSnapshot>>,
+  events: TurnEvent[],
+): void {
+  const rules = content.rules.diplomacy.borderPressure;
+  const pressing = rules.everyTurns > 0 && state.turn % rules.everyTurns === 0;
+  for (const of of sortedKeys(state.empires)) {
+    const was = before[of];
+    if (!was || state.empires[of].eliminated) continue;
+    const now = territoryAsKnown(state, of, content);
+    const colonies = Object.values(state.systems).filter((s) => s.colony?.owner === of).length;
+    const lost: Partial<Record<EmpireId, number>> = {};
+    if (colonies >= was.colonies) {
+      for (const key of Object.keys(was.territory).sort()) {
+        const owner = now[key];
+        if (was.territory[key] === of && owner !== undefined && owner !== of) lost[owner] = (lost[owner] ?? 0) + 1;
+      }
+    }
+    const contact = pressing ? borderContact(now, of) : {};
+    for (const about of was.met) {
+      if (state.empires[about].eliminated || atWar(state, of, about)) continue;
+      const sectors = lost[about] ?? 0;
+      if (sectors > 0) {
+        addOpinion(state, of, about, 'borderEncroached');
+        events.push({ type: 'borderEncroached', empire: of, by: about, sectors });
+      }
+      if (borderPartners(state, of).includes(about)) continue;
+      const grievances = Math.min(rules.maxGrievances, Math.floor((contact[about] ?? 0) / rules.sectorsPerGrievance));
+      for (let i = 0; i < grievances; i++) addOpinion(state, of, about, 'bordersPress');
+    }
+  }
 }

@@ -15,6 +15,7 @@ import { addColonyMorale, decayMorale, inUnrest, refreshMorale } from '../morale
 import { applyResearch } from '../research';
 import type { BattleOutcome, BattleSetup, GameState, TurnEvent } from '../types';
 import { updateKnownSystems } from '../view';
+import { pressBorders, snapshotBorders } from '../territory';
 
 /**
  * Resolves one turn for every empire at once and returns the next state.
@@ -36,6 +37,8 @@ import { updateKnownSystems } from '../view';
  *    eliminated; a last, dominant or Accord-leading empire wins.
  * 9. Timed morale effects age; a colony too long in unrest declares
  *    independence; and each empire records what it can now see.
+ * 10. Border pressure: empires resent neighbours whose borders took space they
+ *    claimed, and every few turns those whose closed borders press on theirs.
  */
 export function processTurn(
   state: GameState,
@@ -122,6 +125,7 @@ function beginTurn(next: GameState, content: Content, events: TurnEvent[]): Empi
 
 /** Steps 5 to 9. Mutates the state. */
 function finishTurn(next: GameState, content: Content, events: TurnEvent[], empireIds: EmpireId[], options: TurnOptions): void {
+  const borders = snapshotBorders(next, content);
   const silenced = resolveBattles(next, content, events, options.commandedBattles);
   resolveInvasions(next, content, silenced, events);
   resolveColonisation(next, content, events);
@@ -136,4 +140,5 @@ function finishTurn(next: GameState, content: Content, events: TurnEvent[], empi
   refreshMorale(next, content);
   stepUnrest(next, content, events);
   for (const id of empireIds) updateKnownSystems(next, id, content);
+  pressBorders(next, content, borders, events);
 }

@@ -19,6 +19,7 @@ import { setTargets } from "./operational";
 import {
   POSTURE_REVIEW_TURNS,
   choosePosture,
+  resentedRivals,
   scorePostures,
 } from "./strategic";
 import { manageColonies } from "./tactical/colonies";
@@ -121,9 +122,11 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
     });
   }
 
-  // Going to war means declaring it on whoever owns the nearest rival colony.
+  // Going to war means declaring it on whoever owns the nearest rival colony,
+  // or the nearest colony of the rival it resents most, if it resents any.
   if (next.posture === "war" && enemiesOf(plan.state, empireId).length === 0) {
-    const nearest = knownColoniesOf(plan.state, empireId, foes)[0];
+    const resented = resentedRivals(plan.state, empireId, content, foes);
+    const nearest = knownColoniesOf(plan.state, empireId, resented.length > 0 ? [resented[0]] : foes)[0];
     const owner = nearest
       ? plan.state.empires[empireId].knownSystems[nearest.id]
       : null;

@@ -197,6 +197,8 @@ export function eventText(event: TurnEvent, state: GameState, content: Content):
       return `Could not build an outpost at ${placeName(state, event.sector)}: ${event.reason}`;
     case 'outpostLost':
       return `${factionName(event.by)} took the outpost at ${placeName(state, event.sector)}`;
+    case 'borderEncroached':
+      return `${factionName(event.by)}'s border now takes ${event.sectors === 1 ? 'a sector' : `${event.sectors} sectors`} we claimed`;
     case 'warDeclared':
       return `${factionName(event.by)} declared war on ${factionName(event.on)}`;
     case 'battle': {

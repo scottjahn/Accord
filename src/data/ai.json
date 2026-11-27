@@ -124,5 +124,9 @@
   "defence": {
     "alarmRange": 2,
     "responseRange": 5
+  },
+  "borders": {
+    "resentAt": -20,
+    "warScore": 10
   }
 }

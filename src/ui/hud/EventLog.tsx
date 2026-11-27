@@ -21,6 +21,7 @@ const BAD: TurnEvent['type'][] = [
   'coloniseFailed',
   'outpostFailed',
   'outpostLost',
+  'borderEncroached',
   'fleetBlocked',
   'warDeclared',
   'empireEliminated',
