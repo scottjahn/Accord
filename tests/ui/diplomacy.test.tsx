@@ -136,6 +136,15 @@ describe('the diplomacy screen', () => {
     expect(button('Declare war').disabled).toBe(false);
   });
 
+  it('a new peace cannot be broken during the truce, and the button says why', () => {
+    setup('diplomacy', (s, c) => {
+      c.rules.diplomacy.truceTurns = 10;
+      signTreaty(s, ALPHA, BETA, 'peace', c);
+    });
+    expect(button('Break Peace treaty').disabled).toBe(true);
+    expect(button('Break Peace treaty').title).toMatch(/^The truce holds until turn \d+: a new peace cannot be broken before then$/);
+  });
+
   it('at war, offers peace and nothing else', () => {
     setup('diplomacy', (s) => (s.wars[`${ALPHA}|${BETA}`] = 1));
     expect(text(`relation-${BETA}`)).toBe('At war');

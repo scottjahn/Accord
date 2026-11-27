@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Accord of Stars</title>
+  <circle cx="32" cy="32" r="31" fill="#0b1020"/>
+  <circle cx="32" cy="32" r="20" fill="none" stroke="#8fa3c8" stroke-opacity="0.35" stroke-width="1.5"/>
+  <circle cx="32.0" cy="12.0" r="6" fill="#4da3ff"/>
+  <circle cx="51.0" cy="25.8" r="6" fill="#e5533d"/>
+  <circle cx="43.8" cy="48.2" r="6" fill="#3fc7a8"/>
+  <circle cx="20.2" cy="48.2" r="6" fill="#9b6cff"/>
+  <circle cx="13.0" cy="25.8" r="6" fill="#d9a441"/>
+  <path d="M32 19 L35 29 L45 32 L35 35 L32 45 L29 35 L19 32 L29 29 Z" fill="#ffffff"/>
+</svg>

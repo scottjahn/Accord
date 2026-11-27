@@ -52,7 +52,7 @@ export function HelpScreen({ state, content, player, onClose }: Props) {
                 <strong>Minor races.</strong> Independent peoples can be courted until they join you, bought if your power can, or conquered.
               </li>
               <li>
-                <strong>Other empires.</strong> The Diplomacy page holds treaties, offers, gifts and war. The Intel page runs covert operations.
+                <strong>Other empires.</strong> The Diplomacy page holds treaties, offers, gifts and war. A new peace cannot be broken for the first 10 turns. The Intel page runs covert operations.
               </li>
               <li>
                 <strong>War.</strong> Warships fight when hostile fleets share a sector. Send troop transports to a colony to invade it.

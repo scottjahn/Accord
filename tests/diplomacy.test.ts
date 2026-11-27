@@ -441,3 +441,28 @@ describe('what an empire is allowed to know', () => {
     expect(known.pendingEvents).toEqual([]);
   });
 });
+
+describe('the truce after a peace', () => {
+  it('a new peace cannot be broken for truceTurns, and then it can', () => {
+    const { state, content } = newGame(1);
+    introduce(state, ALPHA, BETA);
+    content.rules.diplomacy.truceTurns = 10;
+    state.wars[warKey(ALPHA, BETA)] = 1;
+    const offered = submitCommand(state, { type: 'proposeTreaty', empire: ALPHA, to: BETA, treaty: 'peace' }, content);
+    if (!offered.ok) throw new Error(offered.error.message);
+    const offer = offered.value.offers[0];
+    const signed = submitCommand(offered.value, { type: 'answerOffer', empire: BETA, offer: offer.id, accept: true }, content);
+    if (!signed.ok) throw new Error(signed.error.message);
+    const peace = signed.value;
+    const brk: Command = { type: 'breakTreaty', empire: BETA, with: ALPHA, treaty: 'peace' };
+    const until = peace.turn + 10;
+    expect(submitCommand(peace, brk, content)).toMatchObject({ ok: false, error: { message: `The truce holds until turn ${until}: a new peace cannot be broken before then` } });
+    expect(submitCommand(peace, { ...brk, empire: ALPHA, with: BETA }, content).ok).toBe(false);
+    // Other treaties are not covered.
+    const pact = structuredClone(peace);
+    pact.treaties.push({ type: 'nonAggression', parties: [ALPHA, BETA], startTurn: pact.turn, since: pact.turn, endTurn: null });
+    expect(submitCommand(pact, { ...brk, treaty: 'nonAggression' }, content).ok).toBe(true);
+    peace.turn = until;
+    expect(submitCommand(peace, brk, content).ok).toBe(true);
+  });
+});

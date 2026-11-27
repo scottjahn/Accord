@@ -69,40 +69,27 @@ export const standardAgent: Agent = (known, empireId, content, memory) => {
   const review =
     !previous || known.turn - previous.postureTurn >= POSTURE_REVIEW_TURNS;
   // First see how tempting war is against everyone; treaty partners then count only if honour gives way.
-  const open = scorePostures(
-    plan.state,
-    empireId,
-    content,
-    picture,
-    personality,
-  );
-  const foes = attackable(
-    plan.state,
-    empireId,
-    personality,
-    open.war - Math.max(open.develop, open.expand),
-  );
-  const next: StandardMemory = review
-    ? {
-        posture: choosePosture(
-          scorePostures(
-            plan.state,
-            empireId,
-            content,
-            picture,
-            personality,
-            foes,
-          ),
-        ),
-        postureTurn: known.turn,
-      }
-    : previous;
+  const weigh = () => {
+    const open = scorePostures(plan.state, empireId, content, picture, personality);
+    const foes = attackable(plan.state, empireId, personality, open.war - Math.max(open.develop, open.expand));
+    const posture = choosePosture(scorePostures(plan.state, empireId, content, picture, personality, foes));
+    return { open, foes, posture };
+  };
+  let { open, foes, posture } = weigh();
+  let next: StandardMemory = review ? { posture, postureTurn: known.turn } : previous;
 
   // An empire for which war looks at least as good as peace keeps its hands free.
   const ambitious =
     open.war > 0 && open.war >= Math.max(open.develop, open.expand);
   guardAccord(plan, empireId, content);
+  const enemiesBefore = enemiesOf(plan.state, empireId);
   answerOffers(plan, empireId, content, next.posture, ambitious);
+  // Having just made peace, it weighs war afresh: the empire it signed with is
+  // now a treaty partner, open to attack only if honour gives way.
+  if (enemiesBefore.some((id) => !enemiesOf(plan.state, empireId).includes(id))) {
+    ({ open, foes, posture } = weigh());
+    next = { posture, postureTurn: known.turn };
+  }
   if (review) proposeTreaties(plan, empireId, content, next.posture, ambitious);
 
   const toConquer = conquestTargets(picture, empireId, content, personality).length;

@@ -180,6 +180,8 @@ export interface DiplomacyRules {
   /** Share of the galaxy's minor races an empire must hold as members for the Accord victory; 0 turns it off. */
   accordMemberPercent: number;
   borderPressure: BorderPressureRules;
+  /** Turns after a peace is signed during which it cannot be broken. */
+  truceTurns: number;
 }
 
 /**
@@ -868,7 +870,7 @@ export function validateContent(raw: unknown): Result<Content, string[]> {
       }
     }
     if (!isInt(diplomacy.warOpinion)) errors.push('rules.diplomacy.warOpinion: must be an integer');
-    for (const key of ['friendshipPerTenTurns', 'maxFriendship', 'breakMinorPenalty', 'researchPactPercent', 'accordMemberPercent'] as const) {
+    for (const key of ['friendshipPerTenTurns', 'maxFriendship', 'breakMinorPenalty', 'researchPactPercent', 'accordMemberPercent', 'truceTurns'] as const) {
       if (!isNat(diplomacy[key])) errors.push(`rules.diplomacy.${key}: must be an integer >= 0`);
     }
     if (!isPos(diplomacy.offerTurns)) errors.push('rules.diplomacy.offerTurns: must be a positive integer');

@@ -188,3 +188,21 @@ describe('treaties and war', () => {
     expect(q.issued).toEqual([]);
   });
 });
+
+describe('after making peace', () => {
+  it('does not break the treaty it has just signed to go back to war', () => {
+    const { state, content } = setup();
+    state.wars[warKey(ALPHA, BETA)] = 1;
+    // Alpha's fleet over Beta's home: Beta is outgunned and wants peace.
+    addFleet(state, content, ALPHA, homeOf(state, BETA).sector, ['destroyer', 'destroyer', 'destroyer', 'destroyer']);
+    const offered = submitCommand(state, { type: 'proposeTreaty', empire: ALPHA, to: BETA, treaty: 'peace' }, content);
+    if (!offered.ok) throw new Error(offered.error.message);
+    // Its posture is still war from its last review.
+    const out = standardAgent(redactFor(offered.value, BETA, content), BETA, content, { posture: 'war', postureTurn: offered.value.turn });
+    const diplomacy = out.commands.filter((c) => ['answerOffer', 'breakTreaty', 'declareWar'].includes(c.type));
+    expect(diplomacy).toEqual([{ type: 'answerOffer', empire: BETA, offer: offered.value.offers[0].id, accept: true, note: '' }]);
+    // It reconsidered its posture there and then.
+    expect(out.memory).toMatchObject({ postureTurn: offered.value.turn });
+    expect((out.memory as { posture: string }).posture).not.toBe('war');
+  });
+});

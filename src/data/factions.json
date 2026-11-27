@@ -44,7 +44,7 @@
   {
     "id": "veiled",
     "name": "The Veiled Throne",
-    "color": "#9b6cff",
+    "color": "#3fc7a8",
     "outputModifiers": {
       "intel": 100,
       "research": 10
@@ -62,7 +62,7 @@
   {
     "id": "kessic",
     "name": "Kessic Union",
-    "color": "#d9a441",
+    "color": "#9b6cff",
     "outputModifiers": {
       "industry": 14,
       "research": -3
@@ -85,7 +85,7 @@
   {
     "id": "orrin",
     "name": "Orrin Exchange",
-    "color": "#3fc7a8",
+    "color": "#d9a441",
     "outputModifiers": {
       "research": -20
     },

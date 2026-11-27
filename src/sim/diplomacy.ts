@@ -127,6 +127,20 @@ export function treatyBlocker(state: GameState, a: EmpireId, b: EmpireId, type: 
   return null;
 }
 
+/**
+ * The first turn on which a peace treaty may be broken, if that is still to
+ * come; null if it may be broken now or the treaty is not a peace. A truce of
+ * `rules.diplomacy.truceTurns` follows every peace, so a war cannot restart
+ * the moment it ends.
+ */
+export function truceUntil(state: GameState, a: EmpireId, b: EmpireId, type: TreatyType, content: Content): number | null {
+  if (type !== 'peace') return null;
+  const treaty = treatiesBetween(state, a, b).find((t) => t.type === 'peace');
+  if (!treaty) return null;
+  const until = treaty.startTurn + content.rules.diplomacy.truceTurns;
+  return state.turn < until ? until : null;
+}
+
 /** Puts a treaty into force. A peace treaty ends the war. Mutates the state. */
 export function signTreaty(state: GameState, a: EmpireId, b: EmpireId, type: TreatyType, content: Content): Treaty {
   const duration = content.rules.diplomacy.treaties[type].duration;

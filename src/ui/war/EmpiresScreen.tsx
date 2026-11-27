@@ -118,6 +118,7 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
                       <ul className="planet-list" aria-label={`Treaties with ${faction.name}`}>
                         {treaties.map((treaty) => {
                           const key = `break:${id}:${treaty.type}`;
+                          const breakBlocked = validateCommand(state, { type: 'breakTreaty', empire: player, with: id, treaty: treaty.type }, content)?.message;
                           return (
                             <li key={treaty.type}>
                               <span>
@@ -143,7 +144,14 @@ export function EmpiresScreen({ state, content, player, view, dispatch, onClose 
                                   </button>
                                 </span>
                               ) : (
-                                <button type="button" className="btn small" aria-label={`Break ${label(treaty.type)}`} onClick={() => setConfirming(key)}>
+                                <button
+                                  type="button"
+                                  className="btn small"
+                                  aria-label={`Break ${label(treaty.type)}`}
+                                  disabled={breakBlocked !== undefined}
+                                  title={breakBlocked}
+                                  onClick={() => setConfirming(key)}
+                                >
                                   Break
                                 </button>
                               )}

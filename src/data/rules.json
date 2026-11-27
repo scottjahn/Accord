@@ -306,7 +306,8 @@
       "everyTurns": 10,
       "sectorsPerGrievance": 4,
       "maxGrievances": 3
-    }
+    },
+    "truceTurns": 10
   },
   "intel": {
     "decayPercent": 5,

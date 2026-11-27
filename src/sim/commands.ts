@@ -2,7 +2,7 @@ import type { Content } from './content';
 import { applyGovernor, governorAllocation } from './economy/governor';
 import { atWar, invadeBlocker, warKey } from './combat';
 import { buyOutCost, membershipCost, mercenaryCost } from './credits';
-import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker } from './diplomacy';
+import { addOpinion, boundToPeace, breakTreaty, hasMet, hasTreaty, signTreaty, treatyBlocker, truceUntil } from './diplomacy';
 import { itemCost } from './economy/build';
 import { borderBlocker, coloniseBlocker, empireSupport, findPath, fittingStance, fleetOfShip, spawnShip, stancesFor } from './fleets';
 import { outpostBlocker } from './outposts';
@@ -441,10 +441,11 @@ export function validateCommand(state: GameState, cmd: Command, content: Content
       const blocker = operationBlocker(state, { by: cmd.empire, target: cmd.target, kind: cmd.kind, system: cmd.system }, content);
       return blocker ? fail('cannotOperate', blocker) : null;
     }
-    case 'breakTreaty':
-      return state.empires[cmd.with] && hasTreaty(state, cmd.empire, cmd.with, cmd.treaty)
-        ? null
-        : fail('badTreaty', 'There is no such treaty to break');
+    case 'breakTreaty': {
+      if (!state.empires[cmd.with] || !hasTreaty(state, cmd.empire, cmd.with, cmd.treaty)) return fail('badTreaty', 'There is no such treaty to break');
+      const held = truceUntil(state, cmd.empire, cmd.with, cmd.treaty, content);
+      return held === null ? null : fail('badTreaty', `The truce holds until turn ${held}: a new peace cannot be broken before then`);
+    }
     case 'courtMinor': {
       const system = state.systems[cmd.system];
       if (!system || !(cmd.system in empire.knownSystems)) return fail('unknownSystem', `No known system ${cmd.system}`);
